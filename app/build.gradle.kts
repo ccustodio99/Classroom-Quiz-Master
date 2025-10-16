@@ -6,11 +6,11 @@ plugins {
 }
 
 android {
-    namespace = "com.classroom.quizmaster"
+    namespace = "com.acme.quizmaster"
     compileSdk = 34
 
     defaultConfig {
-        applicationId = "com.classroom.quizmaster"
+        applicationId = "com.acme.quizmaster"
         minSdk = 24
         targetSdk = 34
         versionCode = 1

@@ -1,4 +1,4 @@
-package com.acme.quizmaster
+package com.classroom.quizmaster
 
 import com.acme.quizmaster.agents.AssessmentAgentImpl
 import com.acme.quizmaster.agents.AssignmentAgentImpl
