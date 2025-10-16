@@ -83,6 +83,7 @@ class AssessmentAgentImpl(
             assessmentId = assessment.id,
             moduleId = module.id,
             studentId = student.id,
+            studentNickname = student.nickname,
             maxScore = assessment.items.size.toDouble()
         )
         attemptRepository.save(attempt)
@@ -106,6 +107,7 @@ class AssessmentAgentImpl(
         return Scorecard(
             attemptId = submitted.id,
             studentId = submitted.studentId,
+            studentNickname = submitted.studentNickname,
             moduleId = submitted.moduleId,
             assessmentId = submitted.assessmentId,
             score = submitted.score,
@@ -158,6 +160,7 @@ class LiveSessionAgentImpl(
                 assessmentId = assessment.id,
                 moduleId = module.id,
                 studentId = studentId,
+                studentNickname = participant.nickname,
                 maxScore = assessment.items.size.toDouble()
             )
         val existingResponses = attempt.responses.toMutableList().apply { add(answer) }
@@ -267,10 +270,11 @@ class ScoringAnalyticsAgentImpl(
         val scorecards = attempts.map { it.toScorecard(module) }
         val pre = scorecards.find { it.assessmentId == module.preTest.id }
         val post = scorecards.find { it.assessmentId == module.postTest.id }
+        val nickname = scorecards.firstOrNull()?.studentNickname ?: studentId
         return StudentReport(
             moduleId = module.id,
             studentId = studentId,
-            nickname = studentId,
+            nickname = nickname,
             preScore = pre?.score ?: 0.0,
             postScore = post?.score ?: 0.0,
             objectiveGains = module.objectives.map { objective ->
@@ -290,6 +294,7 @@ class ScoringAnalyticsAgentImpl(
         return Scorecard(
             attemptId = id,
             studentId = studentId,
+            studentNickname = studentNickname,
             moduleId = module.id,
             assessmentId = assessmentId,
             score = score,
@@ -328,7 +333,9 @@ class ReportExportAgentImpl : ReportExportAgent {
             }
             appendLine("Attempts:")
             report.attempts.forEach { attempt ->
-                appendLine(" • ${attempt.studentId} (${attempt.assessmentId}) ${attempt.score}/${attempt.maxScore} on ${formatter.format(attempt.submittedAt)}")
+                appendLine(
+                    " • ${attempt.studentNickname} (${attempt.studentId}) ${attempt.score}/${attempt.maxScore} on ${formatter.format(attempt.submittedAt)}"
+                )
             }
         }
         file.writeText(content)
@@ -370,13 +377,17 @@ class GamificationAgentImpl(
             val pre = attempts.find { it.assessmentId == report.preAssessmentId }
             val post = attempts.find { it.assessmentId == report.postAssessmentId }
             if (pre != null && post != null) {
-                (post.score / post.maxScore) - (pre.score / pre.maxScore) to studentId
+                Triple(
+                    (post.score / post.maxScore) - (pre.score / pre.maxScore),
+                    studentId,
+                    post.studentNickname.ifBlank { pre.studentNickname }
+                )
             } else null
         }.sortedByDescending { it.first }
-        return gains.take(3).map { (gain, studentId) ->
+        return gains.take(3).map { (gain, studentId, nickname) ->
             GamificationBadge(
                 studentId = studentId,
-                nickname = studentId,
+                nickname = nickname,
                 badge = "Top Improver",
                 description = "Improved ${(gain * 100).formatPercent()}%"
             )
@@ -391,7 +402,7 @@ class GamificationAgentImpl(
             ?: return null
         return GamificationBadge(
             studentId = topScore.studentId,
-            nickname = topScore.studentId,
+            nickname = topScore.studentNickname,
             badge = "Star of the Day",
             description = "Top post-test score ${(topScore.score / topScore.maxScore * 100).formatPercent()}%"
         )
