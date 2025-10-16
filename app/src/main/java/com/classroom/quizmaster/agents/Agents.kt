@@ -1,20 +1,13 @@
 package com.classroom.quizmaster.agents
 
 import com.classroom.quizmaster.domain.model.Assignment
-import com.classroom.quizmaster.domain.model.Attempt
 import com.classroom.quizmaster.domain.model.Badge
 import com.classroom.quizmaster.domain.model.ClassReport
+import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.Scorecard
 import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.StudentReport
-import com.classroom.quizmaster.domain.model.Item
-import com.classroom.quizmaster.domain.model.AttemptSummary
-import com.classroom.quizmaster.domain.model.ObjectiveMastery
-import com.classroom.quizmaster.domain.model.Assessment
-import com.classroom.quizmaster.domain.model.AttemptItemResult
-import com.classroom.quizmaster.domain.model.ObjectiveScore
-import com.classroom.quizmaster.domain.model.AssignmentSubmission
 import kotlinx.coroutines.flow.Flow
 
 interface ModuleBuilderAgent {
