@@ -1,4 +1,4 @@
-package com.acme.quizmaster
+package com.classroom.quizmaster
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
