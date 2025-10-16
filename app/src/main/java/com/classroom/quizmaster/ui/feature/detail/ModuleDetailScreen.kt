@@ -1,13 +1,10 @@
 package com.classroom.quizmaster.ui.feature.detail
 
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CloudSync
 import androidx.compose.material.icons.rounded.Group
@@ -26,17 +23,17 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.domain.model.Module
+import com.classroom.quizmaster.ui.components.AdaptiveWrapRow
 import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.TopBarAction
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModuleDetailScreen(
     viewModel: ModuleDetailViewModel,
@@ -97,9 +94,9 @@ private fun ModuleSnapshot(module: Module) {
         }
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            AdaptiveWrapRow(
+                horizontalSpacing = 8.dp,
+                verticalSpacing = 8.dp
             ) {
                 InfoPill(text = "$preCount pre-test")
                 InfoPill(text = "$postCount post-test", backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.secondary)
@@ -108,9 +105,9 @@ private fun ModuleSnapshot(module: Module) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Learning objectives", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                AdaptiveWrapRow(
+                    horizontalSpacing = 8.dp,
+                    verticalSpacing = 8.dp
                 ) {
                     module.objectives.forEach { objective ->
                         InfoPill(text = objective)
