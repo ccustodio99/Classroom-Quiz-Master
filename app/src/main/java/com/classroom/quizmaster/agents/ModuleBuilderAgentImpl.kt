@@ -11,7 +11,12 @@ class ModuleBuilderAgentImpl(
         return if (violations.isNotEmpty()) {
             Result.failure(IllegalArgumentException(violations.joinToString { it.message }))
         } else {
-            runCatching { repository.upsert(module) }
+            try {
+                repository.upsert(module)
+                Result.success(Unit)
+            } catch (error: Exception) {
+                Result.failure(error)
+            }
         }
     }
 
