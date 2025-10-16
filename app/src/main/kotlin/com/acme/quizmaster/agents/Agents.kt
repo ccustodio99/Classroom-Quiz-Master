@@ -42,6 +42,8 @@ interface ScoringAnalyticsAgent {
 interface ReportExportAgent {
     fun exportClassReport(report: ClassReport, path: String): String
     fun exportStudentReport(report: StudentReport, path: String): String
+    fun exportClassCsv(report: ClassReport, path: String): String
+    fun exportStudentCsv(report: StudentReport, path: String): String
 }
 
 interface ItemBankAgent {

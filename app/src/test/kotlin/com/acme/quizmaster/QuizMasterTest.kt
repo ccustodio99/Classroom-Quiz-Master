@@ -51,6 +51,21 @@ class QuizMasterTest {
     }
 
     @Test
+    fun `module validation requires lesson coverage for each objective`() {
+        val missingSlideModule = module.copy(
+            lesson = module.lesson.copy(slides = module.lesson.slides.filterNot { it.objective == "LO2" })
+        )
+        val violations = moduleBuilder.validate(missingSlideModule)
+        assertTrue(violations.any { it.field == "lesson" && it.message.contains("LO2") })
+
+        val mismatchedSlideModule = module.copy(
+            lesson = module.lesson.copy(slides = module.lesson.slides + module.lesson.slides.first().copy(objective = "LO99"))
+        )
+        val mismatchedViolations = moduleBuilder.validate(mismatchedSlideModule)
+        assertTrue(mismatchedViolations.any { it.field == "lesson" && it.message.contains("unknown objective") })
+    }
+
+    @Test
     fun `assessment agent scores answers correctly`() {
         val student = Student(nickname = "Casey")
         val attempt = assessmentAgent.start(module.preTest.id, student, module.id)
@@ -75,6 +90,7 @@ class QuizMasterTest {
         assertTrue(report.preAverage >= report.postAverage)
         assertEquals(module.preTest.id, report.preAssessmentId)
         assertEquals(module.postTest.id, report.postAssessmentId)
+        assertTrue(report.learningGain <= 0.0)
     }
 
     @Test
@@ -134,9 +150,14 @@ class QuizMasterTest {
         val studentReport = analyticsAgent.studentReport(module.id, student.id)!!
         val classPath = reportExporter.exportClassReport(classReport, "build/test/class.txt")
         val studentPath = reportExporter.exportStudentReport(studentReport, "build/test/student.txt")
+        val classCsvPath = reportExporter.exportClassCsv(classReport, "build/test/class.csv")
+        val studentCsvPath = reportExporter.exportStudentCsv(studentReport, "build/test/student.csv")
         assertTrue(java.io.File(classPath).exists())
         assertTrue(java.io.File(studentPath).exists())
+        assertTrue(java.io.File(classCsvPath).exists())
+        assertTrue(java.io.File(studentCsvPath).exists())
         assertEquals(student.nickname, studentReport.nickname)
+        assertTrue(studentReport.learningGain >= 0)
     }
 
     @Test
@@ -148,8 +169,11 @@ class QuizMasterTest {
         assessmentAgent.submit(postAttempt.id, module.postTest.items.map { AnswerPayload(it.id, it.answer) })
 
         val report = analyticsAgent.buildReports(module.id)
+        assertTrue(report.attempts.any { it.studentId == student.id })
         val studentReport = analyticsAgent.studentReport(module.id, student.id)
         assertEquals(student.nickname, studentReport?.nickname)
+        assertNotNull(studentReport)
+        assertTrue(studentReport.learningGain > 0)
 
         val badges = gamificationAgent.topImprovers(module.id)
         val badge = badges.firstOrNull { it.studentId == student.id }

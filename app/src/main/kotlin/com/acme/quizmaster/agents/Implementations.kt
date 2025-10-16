@@ -35,6 +35,7 @@ class ModuleBuilderAgentImpl(
         val violations = validate(module)
         return if (violations.isEmpty()) {
             moduleRepository.upsert(module)
+            itemBankAgent.addItems((module.preTest.items + module.postTest.items).distinctBy { it.id })
             Result.success(Unit)
         } else {
             val message = violations.joinToString(", ") { "${it.field}: ${it.message}" }
@@ -53,16 +54,37 @@ class ModuleBuilderAgentImpl(
         if (preObjectives != postObjectives) {
             violations += Violation("assessments", "Pre/Post test objectives must match")
         }
+        val preCounts = module.preTest.items.groupingBy { it.objective }.eachCount()
+        val postCounts = module.postTest.items.groupingBy { it.objective }.eachCount()
         module.objectives.forEach { objective ->
             if (!preObjectives.contains(objective)) {
                 violations += Violation("objectives", "Objective $objective missing from assessments")
             }
-            if (itemBankAgent.itemsByObjective(objective).isEmpty()) {
+            if ((preCounts[objective] ?: 0) != (postCounts[objective] ?: 0)) {
+                violations += Violation(
+                    "assessments",
+                    "Parallel forms must align for $objective"
+                )
+            }
+            if (itemBankAgent.itemsByObjective(objective).isEmpty() &&
+                module.preTest.items.none { it.objective == objective }
+            ) {
                 violations += Violation("itemBank", "Item bank missing items for objective $objective")
             }
         }
         if (module.lesson.slides.isEmpty()) {
             violations += Violation("lesson", "Lesson requires at least one slide")
+        }
+        val slideObjectives = module.lesson.slides.map { it.objective }.toSet()
+        module.objectives.forEach { objective ->
+            if (!slideObjectives.contains(objective)) {
+                violations += Violation("lesson", "Slides missing coverage for $objective")
+            }
+        }
+        module.lesson.slides.forEachIndexed { index, slide ->
+            if (slide.objective !in module.objectives) {
+                violations += Violation("lesson", "Slide ${index + 1} targets unknown objective ${slide.objective}")
+            }
         }
         return violations
     }
@@ -262,6 +284,7 @@ class ScoringAnalyticsAgentImpl(
             postAssessmentId = module.postTest.id,
             preAverage = preAverage,
             postAverage = postAverage,
+            learningGain = postAverage - preAverage,
             objectives = objectives,
             attempts = scorecards
         )
@@ -282,6 +305,7 @@ class ScoringAnalyticsAgentImpl(
             nickname = nickname,
             preScore = pre?.score ?: 0.0,
             postScore = post?.score ?: 0.0,
+            learningGain = (post?.score ?: 0.0) - (pre?.score ?: 0.0),
             objectiveGains = module.objectives.map { objective ->
                 ObjectiveGain(
                     objective = objective,
@@ -332,9 +356,12 @@ class ReportExportAgentImpl : ReportExportAgent {
             appendLine("Module ID: ${report.moduleId}")
             appendLine("Pre-Test Average: ${(report.preAverage * 100).formatPercent()}%")
             appendLine("Post-Test Average: ${(report.postAverage * 100).formatPercent()}%")
+            appendLine("Learning Gain (Pag-angat ng Marka): ${(report.learningGain * 100).formatPercent()}%")
             appendLine("Objective Gains:")
             report.objectives.forEach { gain ->
-                appendLine(" - ${gain.objective}: ${(gain.pre * 100).formatPercent()}% → ${(gain.post * 100).formatPercent()}%")
+                appendLine(
+                    " - ${gain.objective}: ${(gain.pre * 100).formatPercent()}% → ${(gain.post * 100).formatPercent()}%"
+                )
             }
             appendLine("Attempts:")
             report.attempts.forEach { attempt ->
@@ -354,9 +381,52 @@ class ReportExportAgentImpl : ReportExportAgent {
             appendLine("Module: ${report.moduleId}")
             appendLine("Pre-Test: ${report.preScore}")
             appendLine("Post-Test: ${report.postScore}")
+            appendLine(
+                "Learning Gain (Pag-angat ng Marka): ${String.format(Locale.US, "%.1f", report.learningGain)}"
+            )
             appendLine("Objective Gains:")
             report.objectiveGains.forEach { gain ->
                 appendLine(" - ${gain.objective}: ${(gain.pre * 100).formatPercent()}% → ${(gain.post * 100).formatPercent()}%")
+            }
+        }
+        file.writeText(content)
+        return file.absolutePath
+    }
+
+    override fun exportClassCsv(report: ClassReport, path: String): String {
+        val file = prepareFile(path)
+        val content = buildString {
+            appendLine("metric,value")
+            appendLine("pre_average,${(report.preAverage * 100).formatPercent()}")
+            appendLine("post_average,${(report.postAverage * 100).formatPercent()}")
+            appendLine("learning_gain,${(report.learningGain * 100).formatPercent()}")
+            appendLine()
+            appendLine("objective,pre_percent,post_percent,gain_percent")
+            report.objectives.forEach { gain ->
+                val gainPercent = ((gain.post - gain.pre) * 100).formatPercent()
+                appendLine(
+                    "${gain.objective},${(gain.pre * 100).formatPercent()},${(gain.post * 100).formatPercent()},$gainPercent"
+                )
+            }
+        }
+        file.writeText(content)
+        return file.absolutePath
+    }
+
+    override fun exportStudentCsv(report: StudentReport, path: String): String {
+        val file = prepareFile(path)
+        val content = buildString {
+            appendLine("metric,value")
+            appendLine("pre_score,${report.preScore}")
+            appendLine("post_score,${report.postScore}")
+            appendLine("learning_gain,${report.learningGain}")
+            appendLine()
+            appendLine("objective,pre_percent,post_percent,gain_percent")
+            report.objectiveGains.forEach { gain ->
+                val gainPercent = ((gain.post - gain.pre) * 100).formatPercent()
+                appendLine(
+                    "${gain.objective},${(gain.pre * 100).formatPercent()},${(gain.post * 100).formatPercent()},$gainPercent"
+                )
             }
         }
         file.writeText(content)
