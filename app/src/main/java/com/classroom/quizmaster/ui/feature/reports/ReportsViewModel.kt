@@ -26,22 +26,27 @@ class ReportsViewModel(
     fun refresh() {
         viewModelScope.launch {
             _uiState.value = ReportsUiState(isLoading = true)
-            runCatching { container.scoringAnalyticsAgent.buildClassReport(moduleId) }
-                .onSuccess { report ->
-                    _uiState.value = ReportsUiState(isLoading = false, report = report)
-                }
-                .onFailure { error ->
-                    _uiState.value = ReportsUiState(isLoading = false, errorMessage = error.message)
-                }
+            try {
+                val report = container.scoringAnalyticsAgent.buildClassReport(moduleId)
+                _uiState.value = ReportsUiState(isLoading = false, report = report)
+            } catch (error: Exception) {
+                val message = error.message?.takeIf { it.isNotBlank() }
+                    ?: "Failed to load reports"
+                _uiState.value = ReportsUiState(isLoading = false, errorMessage = message)
+            }
         }
     }
 
     fun exportClassPdf() {
         val report = _uiState.value.report ?: return
         viewModelScope.launch {
-            runCatching { container.reportExportAgent.exportClassPdf(report) }
-                .onSuccess { file -> snackbarHostState.showSnackbar("PDF saved: ${file.path}") }
-                .onFailure { snackbarHostState.showSnackbar("Export failed: ${it.message}") }
+            try {
+                val file = container.reportExportAgent.exportClassPdf(report)
+                snackbarHostState.showSnackbar("PDF saved: ${file.path}")
+            } catch (error: Exception) {
+                val message = error.message?.takeIf { it.isNotBlank() } ?: "Export failed"
+                snackbarHostState.showSnackbar(message)
+            }
         }
     }
 
@@ -49,9 +54,13 @@ class ReportsViewModel(
         val report = _uiState.value.report ?: return
         viewModelScope.launch {
             val rows = buildCsv(report)
-            runCatching { container.reportExportAgent.exportCsv(rows) }
-                .onSuccess { file -> snackbarHostState.showSnackbar("CSV saved: ${file.path}") }
-                .onFailure { snackbarHostState.showSnackbar("Export failed: ${it.message}") }
+            try {
+                val file = container.reportExportAgent.exportCsv(rows)
+                snackbarHostState.showSnackbar("CSV saved: ${file.path}")
+            } catch (error: Exception) {
+                val message = error.message?.takeIf { it.isNotBlank() } ?: "Export failed"
+                snackbarHostState.showSnackbar(message)
+            }
         }
     }
 

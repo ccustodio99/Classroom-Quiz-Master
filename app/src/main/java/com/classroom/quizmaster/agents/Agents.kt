@@ -64,7 +64,7 @@ data class LiveSnapshot(
 )
 
 interface AssignmentAgent {
-    fun assign(moduleId: String, dueEpochMs: Long): Assignment
+    suspend fun assign(moduleId: String, dueEpochMs: Long): Assignment
     fun status(assignmentId: String): Flow<Assignment>
 }
 

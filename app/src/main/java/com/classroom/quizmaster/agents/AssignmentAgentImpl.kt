@@ -9,13 +9,13 @@ import kotlinx.coroutines.flow.filterNotNull
 class AssignmentAgentImpl(
     private val repository: AssignmentRepository
 ) : AssignmentAgent {
-    override fun assign(moduleId: String, dueEpochMs: Long): Assignment {
+    override suspend fun assign(moduleId: String, dueEpochMs: Long): Assignment {
         val assignment = Assignment(
             id = UUID.randomUUID().toString(),
             moduleId = moduleId,
             dueEpochMs = dueEpochMs
         )
-        runCatching { repository.upsert(assignment) }
+        repository.upsert(assignment)
         return assignment
     }
 
