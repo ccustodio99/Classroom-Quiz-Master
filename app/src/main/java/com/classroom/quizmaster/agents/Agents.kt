@@ -1,0 +1,99 @@
+package com.classroom.quizmaster.agents
+
+import com.classroom.quizmaster.domain.model.Assignment
+import com.classroom.quizmaster.domain.model.Attempt
+import com.classroom.quizmaster.domain.model.Badge
+import com.classroom.quizmaster.domain.model.ClassReport
+import com.classroom.quizmaster.domain.model.Module
+import com.classroom.quizmaster.domain.model.Scorecard
+import com.classroom.quizmaster.domain.model.Student
+import com.classroom.quizmaster.domain.model.StudentReport
+import com.classroom.quizmaster.domain.model.Item
+import com.classroom.quizmaster.domain.model.AttemptSummary
+import com.classroom.quizmaster.domain.model.ObjectiveMastery
+import com.classroom.quizmaster.domain.model.Assessment
+import com.classroom.quizmaster.domain.model.AttemptItemResult
+import com.classroom.quizmaster.domain.model.ObjectiveScore
+import com.classroom.quizmaster.domain.model.AssignmentSubmission
+import kotlinx.coroutines.flow.Flow
+
+interface ModuleBuilderAgent {
+    suspend fun createOrUpdate(module: Module): Result<Unit>
+    fun validate(module: Module): List<Violation>
+}
+
+data class Violation(val field: String, val message: String)
+
+interface AssessmentAgent {
+    suspend fun start(assessmentId: String, student: Student): String
+    suspend fun submit(attemptId: String, answers: List<AnswerPayload>): Scorecard
+}
+
+data class AnswerPayload(
+    val itemId: String,
+    val answer: String
+)
+
+interface LessonAgent {
+    fun start(lessonId: String): String
+    fun next(sessionId: String): LessonStep
+    fun recordCheck(sessionId: String, answer: String): Boolean
+}
+
+data class LessonStep(
+    val slideTitle: String,
+    val slideContent: String,
+    val miniCheckPrompt: String?,
+    val finished: Boolean
+)
+
+interface LiveSessionAgent {
+    fun createSession(moduleId: String): String
+    fun join(sessionId: String, nickname: String): JoinResult
+    fun submit(sessionId: String, answer: AnswerPayload): Ack
+    fun snapshot(sessionId: String): LiveSnapshot
+}
+
+data class JoinResult(val student: Student, val sessionId: String)
+data class Ack(val accepted: Boolean)
+
+data class LiveSnapshot(
+    val moduleId: String,
+    val participants: List<Student>,
+    val answers: Map<String, List<AnswerPayload>>
+)
+
+interface AssignmentAgent {
+    fun assign(moduleId: String, dueEpochMs: Long): Assignment
+    fun status(assignmentId: String): Flow<Assignment>
+}
+
+interface ScoringAnalyticsAgent {
+    suspend fun buildClassReport(moduleId: String): ClassReport
+    suspend fun buildStudentReport(moduleId: String, studentId: String): StudentReport
+}
+
+interface ReportExportAgent {
+    suspend fun exportClassPdf(report: ClassReport): FileRef
+    suspend fun exportStudentPdf(report: StudentReport): FileRef
+    suspend fun exportCsv(rows: List<CsvRow>): FileRef
+}
+
+data class FileRef(val path: String)
+
+data class CsvRow(val cells: List<String>)
+
+interface ItemBankAgent {
+    fun query(objectives: List<String>, limit: Int = 20): List<Item>
+    fun upsert(items: List<Item>): Result<Unit>
+}
+
+interface GamificationAgent {
+    fun onReportsAvailable(report: ClassReport)
+    fun unlocksFor(studentId: String): List<Badge>
+}
+
+interface SyncAgent {
+    suspend fun pushModule(moduleId: String): Result<Unit>
+    suspend fun pullUpdates(): Result<Int>
+}
