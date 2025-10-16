@@ -35,7 +35,9 @@ app/
 ```bash
 ./gradlew run
 ```
-The CLI script builds a sample Linear Functions module, walks through a pre/post test session for two students, schedules an assignment, and exports reports under `app/build/reports/`.
+> **Note:** `./gradlew` is a thin shim around the locally installed `gradle` command. Install Gradle 8.5+ (or use any compatible version already on your machine) before invoking the script.
+
+The CLI script builds a sample Linear Functions module, walks through a pre/post test session for two students, schedules an assignment, and exports TXT/CSV reports under `app/build/reports/`.
 
 ---
 
@@ -43,7 +45,7 @@ The CLI script builds a sample Linear Functions module, walks through a pre/post
 ```bash
 ./gradlew test
 ```
-Unit tests validate module validation, scoring, analytics, reporting, and gamification behaviour using the in-memory repositories.
+Unit tests validate module validation, live session tracking, scoring, analytics, reporting, and gamification behaviour using the in-memory repositories. Because the wrapper delegates to your local Gradle installation, ensure Gradle is on your `PATH` when running the checks.
 
 ---
 
@@ -65,7 +67,7 @@ See [`domain/Models.kt`](app/src/main/kotlin/com/acme/quizmaster/domain/Models.k
 ## 🤝 Contributing
 1. Fork & create a feature branch.
 2. Update or add tests for new behaviour.
-3. Run `./gradlew test` before submitting a PR.
+3. Run `./gradlew test` before submitting a PR (with Gradle 8.5+ installed locally).
 4. Describe the agent responsibilities touched by the change in the PR summary.
 
 ---

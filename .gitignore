@@ -3,3 +3,4 @@ build/
 *.log
 android-commandlinetools.zip
 gradle-8.5/
+gradle/wrapper/
