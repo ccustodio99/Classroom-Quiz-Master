@@ -169,16 +169,7 @@ class LiveSessionAgentImpl(
         val participant = session.participants[studentId] ?: return false
         val module = moduleRepository.find(session.moduleId) ?: return false
         val assessment = module.preTest
-        val correct = if (assessment.items.any { it.id == answer.itemId }) {
-            scoreResponses(assessment, listOf(answer)).first > 0
-        } else {
-            false
-        }
-        val updated = participant.copy(
-            answered = participant.answered + 1,
-            score = if (correct) participant.score + 1 else participant.score
-        )
-        session.participants[studentId] = updated
+        if (assessment.items.none { it.id == answer.itemId }) return false
         val attempt = attemptRepository.attemptsForStudent(module.id, studentId)
             .firstOrNull { it.assessmentId == assessment.id }
             ?: Attempt(
@@ -188,15 +179,27 @@ class LiveSessionAgentImpl(
                 studentNickname = participant.nickname,
                 maxScore = assessment.items.size.toDouble()
             )
-        val existingResponses = attempt.responses.toMutableList().apply { add(answer) }
-        val (score, _) = scoreResponses(assessment, existingResponses)
+        val existingResponses = attempt.responses.filterNot { it.itemId == answer.itemId } + answer
+        val distinctResponses = existingResponses.distinctBy { it.itemId }
+        val (score, _) = scoreResponses(assessment, distinctResponses)
+        val answeredCount = distinctResponses.size
+        val status = if (answeredCount >= assessment.items.size) AttemptStatus.SUBMITTED else AttemptStatus.IN_PROGRESS
+        val submittedAt = if (status == AttemptStatus.SUBMITTED) Instant.now() else attempt.submittedAt
         attemptRepository.save(
             attempt.copy(
-                responses = existingResponses,
+                responses = distinctResponses,
                 score = score,
-                maxScore = assessment.items.size.toDouble()
+                maxScore = assessment.items.size.toDouble(),
+                status = status,
+                submittedAt = submittedAt
             )
         )
+        val updated = participant.copy(
+            answered = answeredCount,
+            total = assessment.items.size,
+            score = score
+        )
+        session.participants[studentId] = updated
         return true
     }
 
