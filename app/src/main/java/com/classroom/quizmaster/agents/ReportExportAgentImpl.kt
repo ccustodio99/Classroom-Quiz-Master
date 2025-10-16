@@ -13,7 +13,8 @@ import java.util.Locale
 class ReportExportAgentImpl(private val context: Context) : ReportExportAgent {
     override suspend fun exportClassPdf(report: ClassReport): FileRef {
         val file = File(context.filesDir, "class-report-${report.moduleId}.pdf")
-        PdfDocument().use { document ->
+        val document = PdfDocument()
+        try {
             val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
             val page = document.startPage(pageInfo)
             val canvas = page.canvas
@@ -32,7 +33,7 @@ class ReportExportAgentImpl(private val context: Context) : ReportExportAgent {
                 canvas.drawText(
                     String.format(
                         Locale.US,
-                        "%s → Pre %.1f%% Post %.1f%%",
+                        "%s -> Pre %.1f%% Post %.1f%%",
                         mastery.objective,
                         mastery.pre,
                         mastery.post
@@ -47,13 +48,16 @@ class ReportExportAgentImpl(private val context: Context) : ReportExportAgent {
             FileOutputStream(file).use { output ->
                 document.writeTo(output)
             }
+        } finally {
+            document.close()
         }
         return FileRef(file.absolutePath)
     }
 
     override suspend fun exportStudentPdf(report: StudentReport): FileRef {
         val file = File(context.filesDir, "student-report-${report.student.id}.pdf")
-        PdfDocument().use { document ->
+        val document = PdfDocument()
+        try {
             val pageInfo = PdfDocument.PageInfo.Builder(595, 842, 1).create()
             val page = document.startPage(pageInfo)
             val canvas = page.canvas
@@ -62,7 +66,7 @@ class ReportExportAgentImpl(private val context: Context) : ReportExportAgent {
             canvas.drawText("Student: ${report.student.displayName}", 20f, y, paint)
             y += 24f
             canvas.drawText(
-                String.format(Locale.US, "Pre %.1f%% → Post %.1f%%", report.preScore, report.postScore),
+                String.format(Locale.US, "Pre %.1f%% -> Post %.1f%%", report.preScore, report.postScore),
                 20f,
                 y,
                 paint
@@ -85,6 +89,8 @@ class ReportExportAgentImpl(private val context: Context) : ReportExportAgent {
             }
             document.finishPage(page)
             FileOutputStream(file).use { output -> document.writeTo(output) }
+        } finally {
+            document.close()
         }
         return FileRef(file.absolutePath)
     }

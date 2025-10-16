@@ -19,6 +19,7 @@ import androidx.compose.material.icons.filled.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -40,6 +41,7 @@ import com.classroom.quizmaster.domain.model.MultipleChoiceItem
 import com.classroom.quizmaster.domain.model.NumericItem
 import com.classroom.quizmaster.domain.model.TrueFalseItem
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeliveryScreen(
     viewModel: DeliveryViewModel,
@@ -236,13 +238,13 @@ private fun SummaryStage(stage: Stage.Summary, onDone: () -> Unit) {
         Text(String.format("Pre: %.1f%%  Post: %.1f%%", stage.pre, stage.post))
         stage.report?.let { report ->
             report.mastery.values.forEach { mastery ->
-                Text("${mastery.objective}: Pre ${"%.1f".format(mastery.pre)}% → Post ${"%.1f".format(mastery.post)}%")
+                Text("${mastery.objective}: Pre ${"%.1f".format(mastery.pre)}% -> Post ${"%.1f".format(mastery.post)}%")
             }
         }
         if (stage.badges.isNotEmpty()) {
             Text("Badges")
             stage.badges.forEach { badge ->
-                Text("• ${badge.title} – ${badge.description}")
+                Text("* ${badge.title} - ${badge.description}")
             }
         }
         Button(onClick = onDone, modifier = Modifier.fillMaxWidth()) {

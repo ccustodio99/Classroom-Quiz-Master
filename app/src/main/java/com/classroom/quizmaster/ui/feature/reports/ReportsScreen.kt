@@ -4,15 +4,16 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.heightIn
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.layout.weight
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowBack
 import androidx.compose.material.icons.filled.PictureAsPdf
 import androidx.compose.material.icons.filled.TableChart
 import androidx.compose.material3.Button
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -25,6 +26,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ReportsScreen(
     viewModel: ReportsViewModel,
@@ -61,10 +63,12 @@ fun ReportsScreen(
                     Text(String.format("Pre Avg: %.1f%%  Post Avg: %.1f%%", report.preAverage, report.postAverage))
                     Text("Objective Mastery")
                     report.objectiveMastery.values.forEach { mastery ->
-                        Text("${mastery.objective}: Pre ${"%.1f".format(mastery.pre)}% → Post ${"%.1f".format(mastery.post)}%")
+                        Text("${mastery.objective}: Pre ${"%.1f".format(mastery.pre)}% -> Post ${"%.1f".format(mastery.post)}%")
                     }
                     LazyColumn(
-                        modifier = Modifier.weight(1f, fill = true),
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .heightIn(min = 0.dp, max = 320.dp),
                         verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
                         items(report.attempts) { summary ->
