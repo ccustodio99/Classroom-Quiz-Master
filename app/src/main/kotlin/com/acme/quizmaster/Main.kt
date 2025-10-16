@@ -28,10 +28,14 @@ fun main() {
     val gamificationAgent = GamificationAgentImpl(analyticsAgent)
 
     val module = buildSampleModule(itemBankAgent)
-    moduleBuilder.createOrUpdate(module)
+    moduleBuilder.createOrUpdate(module).getOrThrow()
 
+    val validation = moduleBuilder.validate(module)
     println("Created module: ${module.topic} with objectives ${module.objectives}")
-    println("Validation passed: ${moduleBuilder.validate(module).isEmpty()}")
+    println("Validation passed: ${validation.isEmpty()}")
+    if (validation.isNotEmpty()) {
+        validation.forEach { println(" - ${it.field}: ${it.message}") }
+    }
 
     val students = listOf(Student(nickname = "Ava"), Student(nickname = "Ben"))
 

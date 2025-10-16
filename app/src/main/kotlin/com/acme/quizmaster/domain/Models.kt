@@ -16,6 +16,11 @@ data class Option(
     val text: String
 )
 
+data class Violation(
+    val field: String,
+    val message: String
+)
+
 data class MatchingPair(
     val prompt: String,
     val answer: String

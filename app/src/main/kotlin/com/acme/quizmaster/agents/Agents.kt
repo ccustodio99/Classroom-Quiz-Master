@@ -5,7 +5,7 @@ import java.time.Instant
 
 interface ModuleBuilderAgent {
     fun createOrUpdate(module: Module): Result<Unit>
-    fun validate(module: Module): List<String>
+    fun validate(module: Module): List<Violation>
     fun listModules(): List<Module>
     fun findModule(id: String): Module?
 }
