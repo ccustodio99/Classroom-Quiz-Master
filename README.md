@@ -35,6 +35,16 @@ app/
 ---
 
 ## ▶️ Building & Running the App
+Before opening the project, make sure the Android SDK location is configured. Either export the `ANDROID_HOME` environment
+variable or create a `local.properties` file at the project root that points to your SDK installation:
+
+```
+sdk.dir=C:\\Users\\you\\AppData\\Local\\Android\\Sdk
+```
+
+The repository's `.gitignore` excludes `local.properties`, so each developer can reference their own SDK path without breaking
+the build for others.
+
 1. Open the project in **Android Studio Flamingo or newer** (or import via the included Gradle wrapper).
 2. Allow Gradle sync to complete so dependencies and Room schemas are generated.
 3. Connect an Android device or start an API 34 emulator.

@@ -4,3 +4,4 @@ build/
 android-commandlinetools.zip
 gradle-8.5/
 gradle/wrapper/
+local.properties
