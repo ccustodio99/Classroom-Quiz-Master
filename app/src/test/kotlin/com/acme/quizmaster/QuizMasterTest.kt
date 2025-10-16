@@ -11,8 +11,10 @@ import com.acme.quizmaster.domain.AssignmentSettings
 import com.acme.quizmaster.domain.SessionPace
 import com.acme.quizmaster.domain.SessionSettings
 import com.acme.quizmaster.domain.Student
+import java.time.Instant
 import kotlin.test.Test
 import kotlin.test.assertEquals
+import kotlin.test.assertFailsWith
 import kotlin.test.assertNotNull
 import kotlin.test.assertTrue
 
@@ -39,6 +41,13 @@ class QuizMasterTest {
     fun `module validation ensures objectives and slides`() {
         val violations = moduleBuilder.validate(module)
         assertTrue(violations.isEmpty(), "Expected no validation issues: $violations")
+    }
+
+    @Test
+    fun `module validation highlights missing objectives`() {
+        val invalidModule = module.copy(objectives = module.objectives + "LO99")
+        val violations = moduleBuilder.validate(invalidModule)
+        assertTrue(violations.any { it.field == "objectives" && it.message.contains("LO99") })
     }
 
     @Test
@@ -86,8 +95,8 @@ class QuizMasterTest {
         val student = Student(nickname = "Fern")
         val assignment = assignmentAgent.schedule(
             module.id,
-            java.time.Instant.now(),
-            java.time.Instant.now().plusSeconds(60),
+            Instant.now(),
+            Instant.now().plusSeconds(60),
             AssignmentSettings(allowLateSubmissions = false, maxAttempts = 1)
         )
         val attempt = assessmentAgent.start(module.preTest.id, student, module.id)
@@ -95,6 +104,22 @@ class QuizMasterTest {
         val scorecard = assessmentAgent.submit(attempt.id, answers)
         val storedAttempt = assessmentAgent.findAttempt(scorecard.attemptId)!!
         assertTrue(assignmentAgent.submit(assignment.id, storedAttempt))
+        val mismatchedAttempt = storedAttempt.copy(moduleId = "other")
+        assertTrue(!assignmentAgent.submit(assignment.id, mismatchedAttempt))
+    }
+
+    @Test
+    fun `assignment scheduling validates dates`() {
+        val start = Instant.now()
+        val due = start.minusSeconds(60)
+        assertFailsWith<IllegalArgumentException> {
+            assignmentAgent.schedule(
+                module.id,
+                start,
+                due,
+                AssignmentSettings(allowLateSubmissions = false, maxAttempts = 1)
+            )
+        }
     }
 
     @Test

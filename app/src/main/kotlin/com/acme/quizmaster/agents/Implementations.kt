@@ -37,29 +37,32 @@ class ModuleBuilderAgentImpl(
             moduleRepository.upsert(module)
             Result.success(Unit)
         } else {
-            Result.failure(IllegalArgumentException("Module validation failed: ${violations.joinToString()}"))
+            val message = violations.joinToString(", ") { "${it.field}: ${it.message}" }
+            Result.failure(IllegalArgumentException("Module validation failed: $message"))
         }
     }
 
-    override fun validate(module: Module): List<String> {
-        val violations = mutableListOf<String>()
-        if (module.topic.isBlank()) violations.add("Topic is required")
-        if (module.objectives.isEmpty()) violations.add("At least one objective required")
+    override fun validate(module: Module): List<Violation> {
+        val violations = mutableListOf<Violation>()
+        if (module.topic.isBlank()) violations += Violation("topic", "Topic is required")
+        if (module.objectives.isEmpty()) violations += Violation("objectives", "At least one objective required")
+        if (module.preTest.items.isEmpty()) violations += Violation("preTest", "Pre-Test requires at least one item")
+        if (module.postTest.items.isEmpty()) violations += Violation("postTest", "Post-Test requires at least one item")
         val preObjectives = module.preTest.items.map { it.objective }.toSet()
         val postObjectives = module.postTest.items.map { it.objective }.toSet()
         if (preObjectives != postObjectives) {
-            violations.add("Pre/Post test objectives must match")
+            violations += Violation("assessments", "Pre/Post test objectives must match")
         }
         module.objectives.forEach { objective ->
             if (!preObjectives.contains(objective)) {
-                violations.add("Objective $objective missing from assessments")
+                violations += Violation("objectives", "Objective $objective missing from assessments")
             }
             if (itemBankAgent.itemsByObjective(objective).isEmpty()) {
-                violations.add("Item bank missing items for objective $objective")
+                violations += Violation("itemBank", "Item bank missing items for objective $objective")
             }
         }
         if (module.lesson.slides.isEmpty()) {
-            violations.add("Lesson requires at least one slide")
+            violations += Violation("lesson", "Lesson requires at least one slide")
         }
         return violations
     }
@@ -209,6 +212,7 @@ class AssignmentAgentImpl(
         settings: AssignmentSettings
     ): Assignment {
         moduleRepository.find(moduleId) ?: error("Module $moduleId not found")
+        require(dueDate.isAfter(startDate)) { "Assignment due date must be after the start date" }
         val assignment = Assignment(
             moduleId = moduleId,
             startDate = startDate,
@@ -221,6 +225,7 @@ class AssignmentAgentImpl(
 
     override fun submit(assignmentId: String, attempt: Attempt): Boolean {
         val assignment = assignmentRepository.find(assignmentId) ?: return false
+        if (attempt.moduleId != assignment.moduleId) return false
         val accepted = assignment.acceptSubmission(attempt)
         if (accepted) assignmentRepository.save(assignment)
         return accepted
