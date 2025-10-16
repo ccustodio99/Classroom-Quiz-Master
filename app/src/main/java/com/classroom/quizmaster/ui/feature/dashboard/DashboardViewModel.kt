@@ -4,13 +4,7 @@ import androidx.compose.material3.SnackbarHostState
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.AppContainer
-import com.classroom.quizmaster.domain.model.Assessment
-import com.classroom.quizmaster.domain.model.Lesson
-import com.classroom.quizmaster.domain.model.LessonSlide
-import com.classroom.quizmaster.domain.model.MiniCheck
-import com.classroom.quizmaster.domain.model.Module
-import com.classroom.quizmaster.domain.model.ModuleSettings
-import java.util.UUID
+import com.classroom.quizmaster.domain.sample.GeneralMathSampleCatalog
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -50,46 +44,36 @@ class DashboardViewModel(
     }
 
     fun createQuickModule() {
-        viewModelScope.launch { buildSampleModule(showMessage = true) }
+        viewModelScope.launch { buildSampleModules(showMessage = true) }
     }
 
     private suspend fun seedSampleModule() {
-        buildSampleModule(showMessage = false)
+        buildSampleModules(showMessage = false)
     }
 
-    private suspend fun buildSampleModule(showMessage: Boolean) {
-        val items = container.itemBankAgent.query(listOf("LO1", "LO2", "LO3"), limit = 4)
-        val module = Module(
-            id = UUID.randomUUID().toString(),
-            topic = "Simple & Compound Interest",
-            objectives = listOf("LO1", "LO2", "LO3"),
-            preTest = Assessment(id = UUID.randomUUID().toString(), items = items),
-            lesson = Lesson(
-                id = UUID.randomUUID().toString(),
-                slides = listOf(
-                    LessonSlide(
-                        id = "slide-1",
-                        title = "Pagsusulit Bago ang Aralin",
-                        content = "Balikan ang konsepto ng interest.",
-                        miniCheck = MiniCheck("Ano ang formula ng simple interest?", "I=Prt")
-                    ),
-                    LessonSlide(
-                        id = "slide-2",
-                        title = "Talakayan",
-                        content = "Ipakita ang pagkakaiba ng simple at compound interest.",
-                        miniCheck = MiniCheck("Compound interest formula?", "A=P(1+r/m)^{mt}")
-                    )
+    private suspend fun buildSampleModules(showMessage: Boolean) {
+        val modules = GeneralMathSampleCatalog.modules()
+        var savedCount = 0
+        val failedTopics = mutableListOf<String>()
+
+        modules.forEach { module ->
+            container.moduleBuilderAgent.createOrUpdate(module)
+                .onSuccess { savedCount += 1 }
+                .onFailure { failedTopics += module.topic }
+        }
+
+        if (showMessage) {
+            if (savedCount > 0) {
+                snackbarHostState.showSnackbar(
+                    message = "Sample packs dropped! ✨",
+                    withDismissAction = false
                 )
-            ),
-            postTest = Assessment(id = UUID.randomUUID().toString(), items = items.shuffled()),
-            settings = ModuleSettings(allowLeaderboard = true)
-        )
-        container.moduleBuilderAgent.createOrUpdate(module).onSuccess {
-            if (showMessage) {
-                snackbarHostState.showSnackbar("Handa na ang module!", withDismissAction = false)
             }
-        }.onFailure {
-            snackbarHostState.showSnackbar("Hindi naisave ang module: ${it.message}")
+            if (failedTopics.isNotEmpty()) {
+                snackbarHostState.showSnackbar(
+                    message = "Hindi naisave ang: ${failedTopics.joinToString()}"
+                )
+            }
         }
     }
 }
