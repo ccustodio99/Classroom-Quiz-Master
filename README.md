@@ -1,16 +1,16 @@
-# Classroom Quiz Master (Kotlin CLI)
+# Classroom Quiz Master (Kotlin Android)
 
-Classroom Quiz Master simulates a Grade 11 mathematics classroom workflow end-to-end: build a module, run a live pre-test, walk through the lesson, deliver a post-test, and export analytics-driven reports. The project follows the agent contracts in [`AGENTS.md`](AGENTS.md) and runs entirely on the JVM so it can be exercised from the command line or in automated tests.
+Classroom Quiz Master is a Kotlin-based **Android mobile application** that simulates a Grade 11 mathematics classroom workflow end-to-end: build a module, run a live pre-test, walk through the lesson, deliver a post-test, and export analytics-driven reports. The app follows the agent contracts in [`AGENTS.md`](AGENTS.md) and is designed to run on phones or tablets—no command-line interface is required.
 
 ---
 
 ## ✨ Core Capabilities
-- **Module Builder Agent** – Validates objectives, lesson coverage, and parallel pre/post assessments before persisting.
-- **Live Session Agent** – Creates teacher-led sessions, lets students join via nickname, and tracks real-time scoring.
-- **Assessment Agent** – Starts and submits attempts, automatically scores responses (MCQ, True/False, Numeric, Matching).
-- **Lesson Agent** – Exposes the lesson slide deck aligned to objectives for the module.
-- **Assignment Agent** – Schedules homework windows with retry policies and enforces submission rules.
-- **Analytics & Reports** – Aggregates pre/post performance, computes objective gains, and exports class/student TXT + CSV reports.
+- **Module Builder Agent** – Validates objectives, lesson coverage, and parallel pre/post assessments before publishing a module to Room.
+- **Live Session Agent** – Hosts teacher-led sessions, lets students join via nickname/QR, and tracks real-time scoring and pacing controls.
+- **Assessment Agent** – Starts and submits attempts, automatically scores responses (MCQ, True/False, Numeric, Matching), and synchronizes timing with the session.
+- **Lesson Agent** – Presents the lesson slide deck and revealable solution steps aligned to objectives for the module.
+- **Assignment Agent** – Schedules homework availability windows with retry policies and enforces submission rules.
+- **Analytics & Reports** – Aggregates pre/post performance, computes objective gains, and exports class/student PDF + CSV reports from the device.
 - **Gamification** – Surfaces “Top Improver” and “Star of the Day” badges based on post-test growth.
 
 ---
@@ -19,33 +19,37 @@ Classroom Quiz Master simulates a Grade 11 mathematics classroom workflow end-to
 ```
 app/
   src/
-    main/kotlin/com/acme/quizmaster/
-      agents/        # Agent interfaces + implementations
-      data/          # In-memory repositories
-      domain/        # Core models (Module, Assessment, Attempt, Reports...)
-      util/          # Scoring helpers
-      Main.kt        # Demonstration entry point
-      SampleData.kt  # Helper to seed a sample module
-    test/kotlin/...  # Behavioural tests covering the full agent flow
+    main/
+      AndroidManifest.xml
+      java|kotlin/com/acme/quizmaster/
+        agents/        # Agent interfaces + implementations
+        data/          # Local Room database + repositories
+        domain/        # Core models (Module, Assessment, Attempt, Reports...)
+        ui/            # Android Activities/Fragments/Compose screens for teacher + student flows
+        util/          # Scoring helpers
+      res/             # Layouts, drawables, strings, themes
+    androidTest/       # Instrumented tests covering end-to-end agent flows on device
+    test/              # JVM unit tests
 ```
 
 ---
 
-## ▶️ Running the Demo
-```bash
-./gradlew run
-```
-> **Note:** `./gradlew` is a thin shim around the locally installed `gradle` command. Install Gradle 8.5+ (or use any compatible version already on your machine) before invoking the script.
+## ▶️ Building & Running the App
+1. Open the project in **Android Studio Flamingo or newer** (or import via the included Gradle wrapper).
+2. Allow Gradle sync to complete so dependencies and Room schemas are generated.
+3. Connect an Android device or start an API 34 emulator.
+4. Click **Run ▶** on the `app` configuration.
 
-The CLI script builds a sample Linear Functions module, walks through a pre/post test session for two students, schedules an assignment, and exports TXT/CSV reports under `app/build/reports/`.
+When the app launches, teachers can assemble a module, guide students through pre-test → lesson → post-test flows, and share reports from app-private storage using Android share intents.
 
 ---
 
 ## 🧪 Testing
 ```bash
 ./gradlew test
+./gradlew connectedAndroidTest
 ```
-Unit tests validate module validation, live session tracking, scoring, analytics, reporting, and gamification behaviour using the in-memory repositories. Because the wrapper delegates to your local Gradle installation, ensure Gradle is on your `PATH` when running the checks.
+Unit tests validate module validation, live session tracking, scoring, analytics, reporting, and gamification behaviour using the in-memory repositories. Instrumented tests execute the same flows on an emulator/device to confirm UI and database integration. Ensure `adb` is available and an emulator is running before invoking `connectedAndroidTest`.
 
 ---
 
@@ -66,9 +70,9 @@ See [`domain/Models.kt`](app/src/main/kotlin/com/acme/quizmaster/domain/Models.k
 
 ## 🤝 Contributing
 1. Fork & create a feature branch.
-2. Update or add tests for new behaviour.
-3. Run `./gradlew test` before submitting a PR (with Gradle 8.5+ installed locally).
-4. Describe the agent responsibilities touched by the change in the PR summary.
+2. Update or add unit *and* instrumented tests for new behaviour.
+3. Run `./gradlew test` and `./gradlew connectedAndroidTest` before submitting a PR (Android Studio bundles a compatible Gradle wrapper).
+4. Describe the agent responsibilities and UI flows touched by the change in the PR summary.
 
 ---
 

@@ -1,6 +1,6 @@
 # Functional Agents & Contracts
 
-This document describes the **functional agents** (modular services) that orchestrate the module lifecycle: **Pre‑Test → Lesson → Post‑Test → Reports**. Agents run on‑device by default, with optional adapters for cloud.
+This document describes the **functional agents** (modular services) that orchestrate the module lifecycle: **Pre‑Test → Lesson → Post‑Test → Reports** inside the Kotlin **Android mobile application**. Agents run on‑device by default, with optional adapters for cloud.
 
 > Each agent lists: **Responsibility • Triggers • Inputs • Outputs • Failures/Notes**
 
