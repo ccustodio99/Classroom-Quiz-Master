@@ -1,79 +1,11 @@
 package com.acme.quizmaster.domain
 
-import java.time.Duration
-import java.time.Instant
-import java.util.UUID
+// From README.md and AGENTS.md
 
-enum class ItemType {
-    MULTIPLE_CHOICE,
-    TRUE_FALSE,
-    NUMERIC,
-    MATCHING
-}
-
-data class Option(
-    val id: String,
-    val text: String
-)
-
-data class Violation(
-    val field: String,
-    val message: String
-)
-
-data class MatchingPair(
-    val prompt: String,
-    val answer: String
-)
-
-data class Item(
-    val id: String = UUID.randomUUID().toString(),
-    val type: ItemType,
-    val stem: String,
-    val objective: String,
-    val options: List<Option> = emptyList(),
-    val answer: String,
-    val explanation: String,
-    val matchingPairs: List<MatchingPair> = emptyList(),
-    val tolerance: Double = 0.0,
-    val media: List<String> = emptyList()
-)
-
-data class Assessment(
-    val id: String = UUID.randomUUID().toString(),
-    val name: String,
-    val items: List<Item>,
-    val timeLimit: Duration = Duration.ofMinutes(10)
-)
-
-data class LessonSlide(
-    val title: String,
-    val body: String,
-    val objective: String,
-    val media: List<String> = emptyList()
-)
-
-data class Lesson(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String,
-    val slides: List<LessonSlide>
-)
-
-data class ModuleSettings(
-    val leaderboardEnabled: Boolean,
-    val allowRetakes: Boolean,
-    val locale: String,
-    val feedbackMode: FeedbackMode
-)
-
-enum class FeedbackMode {
-    AFTER_SECTION,
-    END_OF_MODULE
-}
+// --- Core Domain Models ---
 
 data class Module(
-    val id: String = UUID.randomUUID().toString(),
-    val subject: String = "G11 General Mathematics",
+    val id: String, // Added id for database
     val topic: String,
     val objectives: List<String>,
     val preTest: Assessment,
@@ -82,122 +14,109 @@ data class Module(
     val settings: ModuleSettings
 )
 
+data class Assessment(
+    val id: String,
+    val questions: List<Question>
+)
+
+data class Question(
+    val id: String,
+    val type: QuestionType,
+    val objective: String,
+    val stem: String, // The question text
+    val options: List<String>? = null, // For MCQ
+    val answer: String,
+    val explanation: String? = null
+)
+
+enum class QuestionType {
+    MCQ,
+    TRUE_FALSE,
+    NUMERIC,
+    MATCHING
+}
+
+data class Lesson(
+    val title: String,
+    val slides: List<Slide>
+)
+
+data class Slide(
+    val content: String,
+    val mediaUri: String? = null
+)
+
+data class ModuleSettings(
+    val retries: Int,
+    val timeLimitMinutes: Int
+)
+
+// --- Agent-related Models ---
+
+data class Violation(val field: String, val description: String)
+
+data class SessionId(val id: String)
+
+enum class JoinResult {
+    SUCCESS,
+    SESSION_FULL,
+    NICKNAME_TAKEN,
+    INVALID_SESSION
+}
+
+data class AnswerPayload(
+    val questionId: String,
+    val answer: String
+)
+
+enum class Ack {
+    SUCCESS,
+    FAILURE
+}
+
+data class LiveSnapshot(
+    val sessionId: SessionId,
+    val participants: List<Student>,
+    val progress: Map<String, Float>, // studentId -> percentage complete
+    val scores: Map<String, Int> // studentId -> score
+)
+
 data class Student(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String,
     val nickname: String
 )
 
-data class AnswerPayload(
-    val itemId: String,
-    val response: String
-)
-
 data class Attempt(
-    val id: String = UUID.randomUUID().toString(),
+    val id: String,
     val assessmentId: String,
-    val moduleId: String,
     val studentId: String,
-    val studentNickname: String,
-    val startedAt: Instant = Instant.now(),
-    val submittedAt: Instant? = null,
-    val responses: List<AnswerPayload> = emptyList(),
-    val score: Double = 0.0,
-    val maxScore: Double = 0.0,
-    val status: AttemptStatus = AttemptStatus.IN_PROGRESS
+    val answers: List<AnswerPayload>,
+    val score: Scorecard? = null,
+    val submittedAt: Long? = null
 )
 
-enum class AttemptStatus {
-    IN_PROGRESS,
-    SUBMITTED
-}
+typealias AttemptId = String
+typealias AssessmentId = String
 
 data class Scorecard(
-    val attemptId: String,
-    val studentId: String,
-    val studentNickname: String,
-    val moduleId: String,
-    val assessmentId: String,
-    val score: Double,
-    val maxScore: Double,
-    val objectiveBreakdown: Map<String, ObjectiveScore>,
-    val submittedAt: Instant
-)
-
-data class ObjectiveScore(
-    val objective: String,
-    val correct: Int,
-    val total: Int
-)
-
-data class SessionSettings(
-    val leaderboardEnabled: Boolean,
-    val pace: SessionPace
-)
-
-enum class SessionPace {
-    TEACHER_LED,
-    STUDENT_PACED
-}
-
-data class ParticipantProgress(
-    val studentId: String,
-    val nickname: String,
-    val answered: Int,
+    val score: Int,
     val total: Int,
-    val score: Double
-)
-
-data class LiveSnapshot(
-    val sessionId: String,
-    val moduleId: String,
-    val participants: List<ParticipantProgress>
-)
-
-data class Assignment(
-    val id: String = UUID.randomUUID().toString(),
-    val moduleId: String,
-    val startDate: Instant,
-    val dueDate: Instant,
-    val settings: AssignmentSettings,
-    val submissions: MutableList<Attempt> = mutableListOf()
-)
-
-data class AssignmentSettings(
-    val allowLateSubmissions: Boolean,
-    val maxAttempts: Int
+    val itemScores: Map<String, Boolean> // questionId -> correct/incorrect
 )
 
 data class ClassReport(
     val moduleId: String,
-    val topic: String,
-    val preAssessmentId: String,
-    val postAssessmentId: String,
-    val preAverage: Double,
-    val postAverage: Double,
-    val learningGain: Double,
-    val objectives: List<ObjectiveGain>,
-    val attempts: List<Scorecard>
+    val averagePreTest: Float,
+    val averagePostTest: Float,
+    val averageGain: Float,
+    val objectiveMastery: Map<String, Float> // objective -> percentage mastery
 )
 
 data class StudentReport(
+    val studentId: String,
     val moduleId: String,
-    val studentId: String,
-    val nickname: String,
-    val preScore: Double,
-    val postScore: Double,
-    val learningGain: Double,
-    val objectiveGains: List<ObjectiveGain>
-)
-
-data class ObjectiveGain(
-    val objective: String,
-    val pre: Double,
-    val post: Double
-)
-
-data class GamificationBadge(
-    val studentId: String,
-    val nickname: String,
-    val badge: String,
-    val description: String
+    val preTestScore: Int,
+    val postTestScore: Int,
+    val scoreGain: Int,
+    val objectiveMastery: Map<String, Float> // objective -> percentage mastery
 )
