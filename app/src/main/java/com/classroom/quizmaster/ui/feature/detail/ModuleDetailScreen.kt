@@ -2,33 +2,40 @@ package com.classroom.quizmaster.ui.feature.detail
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowBack
-import androidx.compose.material.icons.filled.Group
-import androidx.compose.material.icons.filled.PlayArrow
-import androidx.compose.material.icons.filled.Sync
+import androidx.compose.material.icons.rounded.CloudSync
+import androidx.compose.material.icons.rounded.Group
+import androidx.compose.material.icons.rounded.PlayArrow
+import androidx.compose.material.icons.rounded.School
 import androidx.compose.material3.Button
-import androidx.compose.material3.Icon
+import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.IconButton
+import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Scaffold
+import androidx.compose.material3.OutlinedButton
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.remember
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import com.classroom.quizmaster.domain.model.Module
+import com.classroom.quizmaster.ui.components.GenZScaffold
+import com.classroom.quizmaster.ui.components.InfoPill
+import com.classroom.quizmaster.ui.components.SectionCard
+import com.classroom.quizmaster.ui.components.TopBarAction
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ModuleDetailScreen(
     viewModel: ModuleDetailViewModel,
@@ -38,56 +45,159 @@ fun ModuleDetailScreen(
 ) {
     val state by viewModel.uiState.collectAsState()
     val module = state.module
-    Scaffold(
-        topBar = {
-            TopAppBar(
-                title = { Text(module?.topic ?: "Module") },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.Default.ArrowBack, contentDescription = null)
-                    }
-                },
-                actions = {
-                    IconButton(onClick = viewModel::syncToCloud) {
-                        Icon(Icons.Default.Sync, contentDescription = "Sync")
-                    }
-                }
+    val subtitle = remember(module) {
+        module?.objectives?.take(3)?.joinToString(" • ") ?: "Module overview"
+    }
+
+    GenZScaffold(
+        title = module?.topic ?: "Module",
+        subtitle = subtitle,
+        onBack = onBack,
+        actions = listOf(
+            TopBarAction(
+                icon = Icons.Rounded.CloudSync,
+                contentDescription = "Sync to cloud",
+                onClick = viewModel::syncToCloud
             )
-        }
+        )
     ) { innerPadding ->
         Column(
             modifier = Modifier
                 .fillMaxSize()
                 .padding(innerPadding)
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
+                .padding(horizontal = 20.dp, vertical = 24.dp),
+            verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             module?.let {
-                Text("Layunin: ${it.objectives.joinToString()}", style = MaterialTheme.typography.bodyLarge)
-                Text("Pre-Test Items: ${it.preTest.items.size}")
-                Text("Post-Test Items: ${it.postTest.items.size}")
-                Button(onClick = viewModel::createLiveSession, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.Group, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Create Live Session Code")
+                ModuleSnapshot(module = it)
+                LiveActions(
+                    liveSessionCode = state.liveSessionCode,
+                    onCreateSession = viewModel::createLiveSession,
+                    onStartDelivery = onStartDelivery,
+                    onAssignHomework = viewModel::assignHomework,
+                    onViewReports = onViewReports
+                )
+            } ?: LoadingState()
+        }
+    }
+}
+
+@Composable
+private fun ModuleSnapshot(module: Module) {
+    val preCount = remember(module) { module.preTest.items.size }
+    val postCount = remember(module) { module.postTest.items.size }
+    val slideCount = remember(module) { module.lesson.slides.size }
+    SectionCard(
+        title = "Module snapshot",
+        subtitle = module.subject,
+        caption = "Pre-test → Talakayan → Post-test bundled for quick launch.",
+        trailingContent = {
+            InfoPill(text = "${preCount + postCount} assessment items")
+        }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            FlowRow(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                InfoPill(text = "$preCount pre-test")
+                InfoPill(text = "$postCount post-test", backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.secondary)
+                InfoPill(text = "$slideCount slides", backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.tertiary)
+                InfoPill(text = "${module.settings.timePerItemSeconds}s cadence")
+            }
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text("Learning objectives", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                FlowRow(
+                    horizontalArrangement = Arrangement.spacedBy(8.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    module.objectives.forEach { objective ->
+                        InfoPill(text = objective)
+                    }
                 }
-                state.liveSessionCode?.let { code ->
-                    Text("Session Code: $code", style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold))
-                }
-                Button(onClick = onStartDelivery, modifier = Modifier.fillMaxWidth()) {
-                    Icon(Icons.Default.PlayArrow, contentDescription = null)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Simulan: Pre -> Lesson -> Post")
-                }
-                Button(onClick = viewModel::assignHomework, modifier = Modifier.fillMaxWidth()) {
-                    Text("Assign as Homework")
-                }
-                Button(onClick = onViewReports, modifier = Modifier.fillMaxWidth()) {
-                    Text("View Reports")
-                }
-            } ?: run {
-                Text("Loading module...")
             }
         }
+    }
+}
+
+@Composable
+private fun LiveActions(
+    liveSessionCode: String?,
+    onCreateSession: () -> Unit,
+    onStartDelivery: () -> Unit,
+    onAssignHomework: () -> Unit,
+    onViewReports: () -> Unit
+) {
+    SectionCard(
+        title = "Launch & share",
+        subtitle = "Pick the flow that matches your delivery mode",
+        caption = "Create a class code for synchronous sessions or push as homework."
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            FilledTonalButton(
+                onClick = onCreateSession,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.filledTonalButtonColors(
+                    containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
+                    contentColor = MaterialTheme.colorScheme.primary
+                )
+            ) {
+                Icon(imageVector = Icons.Rounded.Group, contentDescription = null)
+                Text("Create live session code", modifier = Modifier.padding(start = 8.dp))
+            }
+            liveSessionCode?.let { code ->
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 0.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                    ) {
+                        Text("Session code", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                        Text(
+                            text = code,
+                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                    }
+                }
+            }
+            Button(
+                onClick = onStartDelivery,
+                modifier = Modifier.fillMaxWidth(),
+                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+            ) {
+                Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = null)
+                Text("Simulan: Pre → Aralin → Post", modifier = Modifier.padding(start = 8.dp))
+            }
+            OutlinedButton(
+                onClick = onAssignHomework,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(imageVector = Icons.Rounded.School, contentDescription = null)
+                Text("Assign as homework", modifier = Modifier.padding(start = 8.dp))
+            }
+            FilledTonalButton(
+                onClick = onViewReports,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("View reports")
+            }
+        }
+    }
+}
+
+@Composable
+private fun LoadingState() {
+    SectionCard(
+        title = "Loading module",
+        subtitle = "Fetching the latest details",
+        caption = "Please wait while we retrieve objectives and assessments."
+    ) {
+        Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
