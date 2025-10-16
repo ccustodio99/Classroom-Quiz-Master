@@ -38,7 +38,7 @@ class AppContainer(context: Context) {
         classDiscriminator = "type"
     }
 
-    private val database = QuizMasterDatabase.build(context, json)
+    private val database = QuizMasterDatabase.build(context)
 
     val moduleRepository: ModuleRepository = ModuleRepositoryImpl(database.moduleDao(), json)
     val attemptRepository: AttemptRepository = AttemptRepositoryImpl(database.attemptDao(), json)

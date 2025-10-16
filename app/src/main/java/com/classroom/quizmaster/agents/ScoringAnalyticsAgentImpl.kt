@@ -7,7 +7,7 @@ import com.classroom.quizmaster.domain.model.AttemptSummary
 import com.classroom.quizmaster.domain.model.ClassReport
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.ObjectiveMastery
-import com.classroom.quizmaster.domain.model.Scorecard
+import com.classroom.quizmaster.domain.model.AttemptItemResult
 import com.classroom.quizmaster.domain.model.StudentReport
 import kotlinx.coroutines.flow.first
 
@@ -52,8 +52,8 @@ class ScoringAnalyticsAgentImpl(
         if (attempts.isEmpty()) return null
         val pre = attempts.find { it.assessmentId == module.preTest.id }
         val post = attempts.find { it.assessmentId == module.postTest.id }
-        val preScore = pre?.responses?.sumOf { it.score }?.let { it / (pre.responses.sumOf { result -> result.maxScore }) * 100 }
-        val postScore = post?.responses?.sumOf { it.score }?.let { it / (post.responses.sumOf { result -> result.maxScore }) * 100 }
+        val preScore = pre?.responses?.percentOrNull()
+        val postScore = post?.responses?.percentOrNull()
         return AttemptSummary(
             student = attempts.first().student,
             prePercent = preScore,
@@ -65,15 +65,13 @@ class ScoringAnalyticsAgentImpl(
         val objectives = module.objectives
         val preMap = mutableMapOf<String, MutableList<Double>>()
         val postMap = mutableMapOf<String, MutableList<Double>>()
+        val itemsById = (module.preTest.items + module.postTest.items).associateBy { it.id }
         attempts.forEach { attempt ->
-            val objectiveScores = attempt.responses.map { response ->
-                val item = (module.preTest.items + module.postTest.items).firstOrNull { it.id == response.itemId }
-                item?.objective to response
-            }.filter { it.first != null }
-            val map = if (attempt.assessmentId == module.preTest.id) preMap else postMap
-            objectiveScores.forEach { (objective, result) ->
-                val percent = if (result!!.maxScore == 0.0) 0.0 else (result.score / result.maxScore) * 100
-                map.getOrPut(objective!!) { mutableListOf() } += percent
+            val bucket = if (attempt.assessmentId == module.preTest.id) preMap else postMap
+            attempt.responses.forEach { response ->
+                val objective = itemsById[response.itemId]?.objective ?: return@forEach
+                val percent = response.percentScore()
+                bucket.getOrPut(objective) { mutableListOf() } += percent
             }
         }
         return objectives.associateWith { objective ->
@@ -87,3 +85,15 @@ class ScoringAnalyticsAgentImpl(
 }
 
 private fun List<Double>.averageOrZero(): Double = if (isEmpty()) 0.0 else average()
+
+private fun List<AttemptItemResult>?.percentOrNull(): Double? {
+    if (this == null || isEmpty()) return null
+    val total = sumOf { it.maxScore }
+    if (total <= 0.0) return null
+    val earned = sumOf { it.score }
+    return (earned / total) * 100.0
+}
+
+private fun AttemptItemResult.percentScore(): Double =
+    if (maxScore <= 0.0) 0.0 else (score / maxScore) * 100.0
+
