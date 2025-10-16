@@ -97,6 +97,43 @@ class AgentFlowTest {
     }
 
     @Test
+    fun `live session deduplicates answers and marks completion`() {
+        val sessionId = liveSessionAgent.createSession(module.id, SessionSettings(true, SessionPace.TEACHER_LED))
+        val student = students.first()
+        assertTrue(liveSessionAgent.join(sessionId, student))
+
+        val items = module.preTest.items
+        val firstItem = items.first()
+
+        // first attempt earns credit
+        assertTrue(liveSessionAgent.submit(sessionId, student.id, AnswerPayload(firstItem.id, firstItem.answer)))
+        // resubmitting the same item should not increase the answered count
+        assertTrue(liveSessionAgent.submit(sessionId, student.id, AnswerPayload(firstItem.id, firstItem.answer)))
+
+        var snapshot = liveSessionAgent.snapshot(sessionId)
+        assertNotNull(snapshot)
+        var participant = snapshot.participants.first { it.studentId == student.id }
+        assertEquals(1, participant.answered)
+        assertEquals(1.0, participant.score)
+
+        // finish remaining items to complete the attempt
+        items.drop(1).forEach { item ->
+            assertTrue(liveSessionAgent.submit(sessionId, student.id, AnswerPayload(item.id, item.answer)))
+        }
+
+        snapshot = liveSessionAgent.snapshot(sessionId)
+        assertNotNull(snapshot)
+        participant = snapshot.participants.first { it.studentId == student.id }
+        assertEquals(items.size, participant.answered)
+        assertEquals(items.size.toDouble(), participant.score)
+
+        val attempt = attemptRepository.attemptsForStudent(module.id, student.id)
+            .first { it.assessmentId == module.preTest.id }
+        assertEquals(AttemptStatus.SUBMITTED, attempt.status)
+        assertNotNull(attempt.submittedAt)
+    }
+
+    @Test
     fun `assessment agent scores attempts and persists state`() {
         val student = students.first()
         val attempt = assessmentAgent.start(module.preTest.id, student, module.id)
