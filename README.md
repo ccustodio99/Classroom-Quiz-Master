@@ -1,4 +1,4 @@
-#Classroom Quiz Master (Android • Kotlin)
+# Classroom Quiz Master (Android • Kotlin)
 
 A fun, teacher‑friendly Android app that turns **Grade 11 General Mathematics** lessons into interactive modules with **Pre‑Test → Discussion → Post‑Test** and clear **learning‑gain** reports. Built with **Kotlin** for Android.
 
