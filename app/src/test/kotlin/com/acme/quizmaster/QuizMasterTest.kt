@@ -111,6 +111,31 @@ class QuizMasterTest {
         val studentPath = reportExporter.exportStudentReport(studentReport, "build/test/student.txt")
         assertTrue(java.io.File(classPath).exists())
         assertTrue(java.io.File(studentPath).exists())
+        assertEquals(student.nickname, studentReport.nickname)
+    }
+
+    @Test
+    fun `student nicknames flow through analytics and gamification`() {
+        val student = Student(nickname = "Jude")
+        val preAttempt = assessmentAgent.start(module.preTest.id, student, module.id)
+        assessmentAgent.submit(preAttempt.id, module.preTest.items.map { AnswerPayload(it.id, "wrong") })
+        val postAttempt = assessmentAgent.start(module.postTest.id, student, module.id)
+        assessmentAgent.submit(postAttempt.id, module.postTest.items.map { AnswerPayload(it.id, it.answer) })
+
+        val report = analyticsAgent.buildReports(module.id)
+        val studentReport = analyticsAgent.studentReport(module.id, student.id)
+        assertEquals(student.nickname, studentReport?.nickname)
+
+        val badges = gamificationAgent.topImprovers(module.id)
+        val badge = badges.firstOrNull { it.studentId == student.id }
+        if (badge != null) {
+            assertEquals(student.nickname, badge.nickname)
+        }
+        gamificationAgent.starOfTheDay(module.id)?.let {
+            if (it.studentId == student.id) {
+                assertEquals(student.nickname, it.nickname)
+            }
+        }
     }
 
     @Test

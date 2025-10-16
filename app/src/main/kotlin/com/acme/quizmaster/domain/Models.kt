@@ -92,6 +92,7 @@ data class Attempt(
     val assessmentId: String,
     val moduleId: String,
     val studentId: String,
+    val studentNickname: String,
     val startedAt: Instant = Instant.now(),
     val submittedAt: Instant? = null,
     val responses: List<AnswerPayload> = emptyList(),
@@ -108,6 +109,7 @@ enum class AttemptStatus {
 data class Scorecard(
     val attemptId: String,
     val studentId: String,
+    val studentNickname: String,
     val moduleId: String,
     val assessmentId: String,
     val score: Double,
