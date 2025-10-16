@@ -1,149 +1,74 @@
-# Classroom Quiz Master (Android • Kotlin)
+# Classroom Quiz Master (Kotlin CLI)
 
-A fun, teacher‑friendly Android app that turns **Grade 11 General Mathematics** lessons into interactive modules with **Pre‑Test → Discussion → Post‑Test** and clear **learning‑gain** reports. Built with **Kotlin** for Android.
-
----
-
-## ✨ Core Features
-- **Module Flow (G11 Gen Math):** Pre‑Test → Lesson/Discussion → Post‑Test with parallel forms
-- **Item Types:** Multiple‑choice, True/False, Numeric entry, Matching; media support (images/audio/video)
-- **Delivery Modes:** Live (class code + leaderboard toggle) or Assignment (homework)
-- **Reports:** Auto‑scoring, Pre vs Post comparison, objective mastery, commonly missed items; export PDF/CSV
-- **Student UX:** Join via code + nickname/ID (no account), gentle timer + sfx, feedback explanations
-- **Teacher UX:** Module builder, progress monitor, optional gamification (avatars/badges), printable summaries
-
-> Localized labels (Tagalog) available for teachers: *Pagsusulit Bago ang Aralin*, *Talakayan/Aralin*, *Pagsusulit Pagkatapos ng Aralin*, *Pag‑angat ng Marka*.
+Classroom Quiz Master simulates a Grade 11 mathematics classroom workflow end-to-end: build a module, run a live pre-test, walk through the lesson, deliver a post-test, and export analytics-driven reports. The project follows the agent contracts in [`AGENTS.md`](AGENTS.md) and runs entirely on the JVM so it can be exercised from the command line or in automated tests.
 
 ---
 
-## 🏗️ Tech Stack
-- **Language:** Kotlin (JDK 17)
-- **UI:** Jetpack Compose (Material 3)
-- **Architecture:** MVVM + Clean Architecture (Domain / Data / UI), Unidirectional data flow
-- **DI:** Hilt
-- **Async:** Kotlin Coroutines + Flow
-- **Persistence:** Room (local item bank, attempts, results)
-- **Serialization:** Kotlinx Serialization
-- **Networking (optional):** Retrofit/OkHttp (for future cloud sync)
-- **PDF/CSV Export:** Android Print / PdfDocument + CSV via simple writer
-- **Testing:** JUnit4/5, Turbine (Flow), MockK, Compose UI testing
-- **Lint/Style:** ktlint, Detekt
-- **Build:** Gradle (Kotlin DSL)
+## ✨ Core Capabilities
+- **Module Builder Agent** – Validates objectives, lesson coverage, and parallel pre/post assessments before persisting.
+- **Live Session Agent** – Creates teacher-led sessions, lets students join via nickname, and tracks real-time scoring.
+- **Assessment Agent** – Starts and submits attempts, automatically scores responses (MCQ, True/False, Numeric, Matching).
+- **Lesson Agent** – Exposes the lesson slide deck aligned to objectives for the module.
+- **Assignment Agent** – Schedules homework windows with retry policies and enforces submission rules.
+- **Analytics & Reports** – Aggregates pre/post performance, computes objective gains, and exports class/student TXT + CSV reports.
+- **Gamification** – Surfaces “Top Improver” and “Star of the Day” badges based on post-test growth.
 
 ---
 
-## 📂 Suggested Project Structure
+## 🏗️ Project Layout
 ```
 app/
-  build.gradle.kts
   src/
-    main/
-      AndroidManifest.xml
-      java/com/acme/quizmaster/
-        App.kt
-        di/...
-        navigation/...
-        ui/
-          teacher/...
-          student/...
-          components/...
-        feature/
-          modulebuilder/...
-          delivery/ (live | assignment)
-          assessment/ (pre | post)
-          lesson/
-          reports/
-        domain/
-          model/ (Module, Item, Objective, Attempt, Report ...)
-          usecase/ (...)
-        data/
-          repo/ (...)
-          local/ (Room DAO, Entities, Migrations)
-          remote/ (Retrofit services — optional)
-    androidTest/...
-    test/...
+    main/kotlin/com/acme/quizmaster/
+      agents/        # Agent interfaces + implementations
+      data/          # In-memory repositories
+      domain/        # Core models (Module, Assessment, Attempt, Reports...)
+      util/          # Scoring helpers
+      Main.kt        # Demonstration entry point
+      SampleData.kt  # Helper to seed a sample module
+    test/kotlin/...  # Behavioural tests covering the full agent flow
 ```
 
 ---
 
-## 🔧 Requirements
-- **Android Studio**: Ladybug or newer
-- **Android Gradle Plugin**: 8.x
-- **Kotlin**: 2.0+
-- **Min SDK**: 24  
-- **Target SDK**: 34/35
-
----
-
-## ▶️ Getting Started
+## ▶️ Running the Demo
 ```bash
-# 1) Clone
-# git clone https://github.com/<org>/<repo>.git
-
-# 2) Open in Android Studio and let it sync
-
-# 3) Create local.properties (if needed) and set JDK 17
-
-# 4) Build & run (Pixel 6 API 34 emulator recommended)
+./gradlew run
 ```
-
-### Optional: Local Config
-Create `app/src/main/assets/app-config.json` for toggles.
-```json
-{
-  "leaderboardEnabledByDefault": false,
-  "feedbackMode": "after-section",
-  "locale": "en-PH",
-  "cloudSync": false
-}
-```
+The CLI script builds a sample Linear Functions module, walks through a pre/post test session for two students, schedules an assignment, and exports reports under `app/build/reports/`.
 
 ---
 
 ## 🧪 Testing
 ```bash
-./gradlew ktlintCheck detekt test connectedAndroidTest
+./gradlew test
 ```
+Unit tests validate module validation, scoring, analytics, reporting, and gamification behaviour using the in-memory repositories.
 
 ---
 
-## 📊 Data Model (simplified)
+## 🔍 Key Domain Models
 ```kotlin
 data class Module(
-  val id: String,
-  val subject: String = "G11 General Mathematics",
-  val topic: String,
-  val objectives: List<String>, // e.g., ["LO1","LO2","LO3"]
-  val preTest: Assessment,
-  val lesson: Lesson,
-  val postTest: Assessment,
-  val settings: ModuleSettings
+    val topic: String,
+    val objectives: List<String>,
+    val preTest: Assessment,
+    val lesson: Lesson,
+    val postTest: Assessment,
+    val settings: ModuleSettings
 )
 ```
-(See `AGENTS.md` for agent contracts and flows.)
-
----
-
-## 🔒 Privacy & Classroom Safety
-- No student accounts required; join via code + nickname/ID
-- Local‑first storage; optional future cloud sync
-- Minimal personally identifiable information (PII) by default
-
----
-
-## 🧩 Roadmap (v1 → v2)
-- v1: Module builder, delivery, reports, exports, light gamification
-- v2: Item bank authoring on device, team mode, advanced analytics, cloud sync, teacher portal
+See [`domain/Models.kt`](app/src/main/kotlin/com/acme/quizmaster/domain/Models.kt) for the complete data model.
 
 ---
 
 ## 🤝 Contributing
-1. Fork & create a feature branch
-2. Write tests where sensible
-3. Run linters (`ktlint`, `detekt`)
-4. Open a PR with a clear description & screenshots
+1. Fork & create a feature branch.
+2. Update or add tests for new behaviour.
+3. Run `./gradlew test` before submitting a PR.
+4. Describe the agent responsibilities touched by the change in the PR summary.
 
 ---
 
 ## 📜 License
-MIT (or school‑specific license). Add a `LICENSE` file.
+MIT (add a `LICENSE` file if you intend to redistribute).
