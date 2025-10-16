@@ -1,9 +1,4 @@
 plugins {
-    kotlin("jvm") version "1.9.23" apply false
-}
-
-allprojects {
-    repositories {
-        mavenCentral()
-    }
+    id("com.android.application") version "8.2.2" apply false
+    id("org.jetbrains.kotlin.android") version "1.9.23" apply false
 }
