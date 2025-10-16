@@ -153,16 +153,17 @@ private fun DashboardHeader(
     onCreateModule: () -> Unit,
     onQuickModule: () -> Unit
 ) {
+    val colorScheme = MaterialTheme.colorScheme
     val gradient = remember(
-        MaterialTheme.colorScheme.primary,
-        MaterialTheme.colorScheme.secondary,
-        MaterialTheme.colorScheme.tertiary
+        colorScheme.primary,
+        colorScheme.secondary,
+        colorScheme.tertiary
     ) {
         Brush.linearGradient(
             listOf(
-                MaterialTheme.colorScheme.primary,
-                MaterialTheme.colorScheme.secondary,
-                MaterialTheme.colorScheme.tertiary
+                colorScheme.primary,
+                colorScheme.secondary,
+                colorScheme.tertiary
             )
         )
     }
