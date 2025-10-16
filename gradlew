@@ -15,8 +15,6 @@
 # See the License for the specific language governing permissions and
 # limitations under the License.
 #
-# SPDX-License-Identifier: Apache-2.0
-#
 
 ##############################################################################
 #
@@ -57,7 +55,7 @@
 #       Darwin, MinGW, and NonStop.
 #
 #   (3) This script is generated from the Groovy template
-#       https://github.com/gradle/gradle/blob/HEAD/platforms/jvm/plugins-application/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
+#       https://github.com/gradle/gradle/blob/HEAD/subprojects/plugins/src/main/resources/org/gradle/api/internal/plugins/unixStartScript.txt
 #       within the Gradle project.
 #
 #       You can find Gradle at https://github.com/gradle/gradle/.
@@ -86,7 +84,7 @@ done
 # shellcheck disable=SC2034
 APP_BASE_NAME=${0##*/}
 # Discard cd standard output in case $CDPATH is set (https://github.com/gradle/gradle/issues/25036)
-APP_HOME=$( cd -P "${APP_HOME:-./}" > /dev/null && printf '%s\n' "$PWD" ) || exit
+APP_HOME=$( cd "${APP_HOME:-./}" > /dev/null && pwd -P ) || exit
 
 # Use the maximum available, or set MAX_FD != -1 to use that value.
 MAX_FD=maximum
@@ -114,7 +112,7 @@ case "$( uname )" in                #(
   NONSTOP* )        nonstop=true ;;
 esac
 
-CLASSPATH="\\\"\\\""
+CLASSPATH=$APP_HOME/gradle/wrapper/gradle-wrapper.jar
 
 
 # Determine the Java command to use to start the JVM.
@@ -141,6 +139,43 @@ Please set the JAVA_HOME variable in your environment to match the
 location of your Java installation."
     fi
 fi
+
+# Ensure the Gradle distribution is available locally for commands that require
+# loading plugins from the installed Gradle home. Some environments only fetch
+# the wrapper distribution into the user cache which causes plugin lookups to
+# fail if the extracted directory is not discoverable from the project root.
+ensure_gradle_installation() {
+    local props_file="$APP_HOME/gradle/wrapper/gradle-wrapper.properties"
+    [ -f "$props_file" ] || return
+
+    local dist_url
+    dist_url=$(grep '^distributionUrl=' "$props_file" | cut -d'=' -f2- | tr -d '\\')
+    [ -n "$dist_url" ] || return
+
+    local dist_name version_dir install_dir cache_dir
+    dist_name=${dist_url##*/}
+    dist_name=${dist_name%.zip}
+    version_dir=${dist_name%-bin}
+    [ -n "$version_dir" ] || return
+
+    install_dir="$APP_HOME/$version_dir"
+    if [ -d "$install_dir" ] || [ -L "$install_dir" ]; then
+        return
+    fi
+
+    cache_dir="${GRADLE_USER_HOME:-$HOME/.gradle}/wrapper/dists/$dist_name"
+    if [ ! -d "$cache_dir" ]; then
+        "$JAVACMD" -classpath "$CLASSPATH" org.gradle.wrapper.GradleWrapperMain --version >/dev/null 2>&1 || true
+    fi
+
+    if [ -d "$cache_dir" ]; then
+        for candidate in "$cache_dir"/*/"$version_dir"; do
+            if [ -d "$candidate" ]; then
+                ln -s "$candidate" "$install_dir" 2>/dev/null && return
+            fi
+        done
+    fi
+}
 
 # Increase the maximum file descriptors if we can.
 if ! "$cygwin" && ! "$darwin" && ! "$nonstop" ; then
@@ -204,8 +239,12 @@ fi
 # Add default JVM options here. You can also use JAVA_OPTS and GRADLE_OPTS to pass JVM options to this script.
 DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 
+# Make sure the Gradle installation folder can be resolved even when only the
+# user cache contains the extracted distribution.
+ensure_gradle_installation
+
 # Collect all arguments for the java command:
-#   * DEFAULT_JVM_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
+#   * DEFAULT_JVM_OPTS, JAVA_OPTS, JAVA_OPTS, and optsEnvironmentVar are not allowed to contain shell fragments,
 #     and any embedded shellness will be escaped.
 #   * For example: A user cannot expect ${Hostname} to be expanded, as it is an environment variable and will be
 #     treated as '${Hostname}' itself on the command line.
@@ -213,7 +252,7 @@ DEFAULT_JVM_OPTS='"-Xmx64m" "-Xms64m"'
 set -- \
         "-Dorg.gradle.appname=$APP_BASE_NAME" \
         -classpath "$CLASSPATH" \
-        -jar "$APP_HOME/gradle/wrapper/gradle-wrapper.jar" \
+        org.gradle.wrapper.GradleWrapperMain \
         "$@"
 
 # Stop when "xargs" is not available.
