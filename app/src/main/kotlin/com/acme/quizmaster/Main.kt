@@ -9,6 +9,7 @@ import com.acme.quizmaster.data.SessionRepository
 import com.acme.quizmaster.domain.*
 import java.time.Instant
 import java.time.temporal.ChronoUnit
+import java.util.Locale
 
 fun main() {
     val moduleRepository = ModuleRepository()
@@ -89,10 +90,18 @@ fun main() {
     val studentReportPath = studentReport?.let {
         reportExporter.exportStudentReport(it, "build/reports/student-${it.studentId}.txt")
     }
+    val classCsvPath = reportExporter.exportClassCsv(classReport, "build/reports/class-${module.id}.csv")
+    val studentCsvPath = studentReport?.let {
+        reportExporter.exportStudentCsv(it, "build/reports/student-${it.studentId}.csv")
+    }
 
     println("Class report exported to $classReportPath")
     println("Student report exported to $studentReportPath")
+    println("Class CSV exported to $classCsvPath")
+    println("Student CSV exported to $studentCsvPath")
 
+    val gainPercent = String.format(Locale.US, "%.1f", classReport.learningGain * 100)
+    println("Learning Gain: ${gainPercent}%")
     println("Top Improvers: ${gamificationAgent.topImprovers(module.id)}")
     println("Star of the Day: ${gamificationAgent.starOfTheDay(module.id)}")
 }

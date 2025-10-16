@@ -174,6 +174,7 @@ data class ClassReport(
     val postAssessmentId: String,
     val preAverage: Double,
     val postAverage: Double,
+    val learningGain: Double,
     val objectives: List<ObjectiveGain>,
     val attempts: List<Scorecard>
 )
@@ -184,6 +185,7 @@ data class StudentReport(
     val nickname: String,
     val preScore: Double,
     val postScore: Double,
+    val learningGain: Double,
     val objectiveGains: List<ObjectiveGain>
 )
 
