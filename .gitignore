@@ -2,4 +2,4 @@
 build/
 *.log
 android-commandlinetools.zip
-gradle/wrapper/gradle-wrapper.jar
+gradle-8.5/
