@@ -1,12 +1,13 @@
 package com.classroom.quizmaster.ui.feature.reports
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.PictureAsPdf
@@ -24,6 +25,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.domain.model.ClassReport
@@ -133,9 +135,13 @@ private fun OverviewCard(report: ClassReport) {
         caption = "Track how the cohort moved from pre to post."
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            FlowRow(
+            val overviewScroll = rememberScrollState()
+            Row(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .horizontalScroll(overviewScroll),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+                verticalAlignment = Alignment.CenterVertically
             ) {
                 InfoPill(text = "Pre ${"%.1f".format(report.preAverage)}%")
                 InfoPill(text = "Post ${"%.1f".format(report.postAverage)}%", backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.tertiary)
@@ -214,9 +220,13 @@ private fun AttemptsCard(report: ClassReport) {
                         verticalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
                         Text(summary.student.displayName, fontWeight = FontWeight.SemiBold)
-                        FlowRow(
+                        val attemptScroll = rememberScrollState()
+                        Row(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .horizontalScroll(attemptScroll),
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
                             summary.prePercent?.let { InfoPill(text = "Pre ${"%.1f".format(it)}%") }
                             summary.postPercent?.let { InfoPill(text = "Post ${"%.1f".format(it)}%", backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.tertiary) }
