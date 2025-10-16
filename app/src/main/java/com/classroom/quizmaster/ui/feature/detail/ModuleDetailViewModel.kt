@@ -37,10 +37,16 @@ class ModuleDetailViewModel(
 
     fun assignHomework() {
         val module = _uiState.value.module ?: return
-        val due = System.currentTimeMillis() + 3 * 24 * 60 * 60 * 1000L
-        val assignment = container.assignmentAgent.assign(module.id, due)
         viewModelScope.launch {
-            snackbarHostState.showSnackbar("Assignment created: ${assignment.id}")
+            val due = System.currentTimeMillis() + 3 * 24 * 60 * 60 * 1000L
+            try {
+                val assignment = container.assignmentAgent.assign(module.id, due)
+                snackbarHostState.showSnackbar("Assignment created: ${assignment.id}")
+            } catch (error: Exception) {
+                val message = error.message?.takeIf { it.isNotBlank() }
+                    ?: "Assignment creation failed"
+                snackbarHostState.showSnackbar(message)
+            }
         }
     }
 
