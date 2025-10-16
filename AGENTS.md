@@ -1,19 +1,19 @@
-# Functional Agents & Contracts
+# AGENTS.md — Functional Agents (Kotlin Android • Mobile)
 
-This document describes the **functional agents** (modular services) that orchestrate the module lifecycle: **Pre‑Test → Lesson → Post‑Test → Reports** inside the Kotlin **Android mobile application**. Agents run on‑device by default, with optional adapters for cloud.
+This app is modularized into **functional agents** (service‑like components) that orchestrate the flow:
+**Pre‑Test → Lesson → Post‑Test → Reports**. Implementations are **on‑device** by default with optional cloud adapters.
 
-> Each agent lists: **Responsibility • Triggers • Inputs • Outputs • Failures/Notes**
+> Each agent lists: **Responsibility • Triggers • Inputs • Outputs • Notes/Failures**
 
 ---
 
 ## 1) ModuleBuilderAgent
-**Responsibility:** Create/edit module packages (tests, lesson slides, settings).  
-**Triggers:** Teacher taps *New Module* or *Edit*.  
-**Inputs:** Item bank, media assets, teacher settings.  
-**Outputs:** `Module` object persisted in Room.  
-**Notes:** Validates parallel forms (Pre/Post alignment), objective mapping.
+**Responsibility:** Create/edit module packages (pre‑test, lesson slides, post‑test, settings).  
+**Triggers:** Teacher selects *New Module* or *Edit*.  
+**Inputs:** Item bank (local), media, teacher settings.  
+**Outputs:** `Module` persisted via Room.  
+**Notes:** Validates **parallel forms** and objective mapping.
 
-**Contract (Kotlin)**
 ```kotlin
 interface ModuleBuilderAgent {
   suspend fun createOrUpdate(module: Module): Result<Unit>
@@ -23,14 +23,42 @@ interface ModuleBuilderAgent {
 
 ---
 
-## 2) LiveSessionAgent
-**Responsibility:** Run **Live Mode** delivery with class code, pacing, leaderboard toggle.  
-**Triggers:** Teacher starts *Live*.  
+## 2) AssessmentAgent
+**Responsibility:** Deliver assessments (pre/post), timing, scoring keys, feedback gating.  
+**Inputs:** `Assessment`, timer config.  
+**Outputs:** `Attempt` with item‑level results + timestamps.  
+**Notes:** Pre/Post tests disable speed bonuses for diagnostic fairness.
+
+```kotlin
+interface AssessmentAgent {
+  suspend fun start(assessmentId: String, student: Student): AttemptId
+  suspend fun submit(attemptId: AttemptId, answers: List<AnswerPayload>): Scorecard
+}
+```
+
+---
+
+## 3) LessonAgent
+**Responsibility:** Present slides, worked examples, mini checks; manage reveal of solution steps.  
+**Inputs:** `Lesson` slides/cards, media assets.  
+**Outputs:** Interaction logs (optional), mini‑check results.
+
+```kotlin
+interface LessonAgent {
+  fun start(lessonId: String): LessonSessionId
+  fun next(): LessonSlide
+  fun recordCheck(answer: Any): CheckResult
+}
+```
+
+---
+
+## 4) LiveSessionAgent
+**Responsibility:** Live delivery with class code, pacing, optional leaderboard.  
 **Inputs:** `Module`, session settings.  
 **Outputs:** Session state (participants, progress, responses).  
-**Failures:** Connectivity hiccups (if using local wifi/P2P); fallback to offline local queue.
+**Failures:** Network hiccups → local queue & retry.
 
-**Contract**
 ```kotlin
 interface LiveSessionAgent {
   fun createSession(moduleId: String): SessionId
@@ -42,48 +70,29 @@ interface LiveSessionAgent {
 
 ---
 
-## 3) AssignmentAgent
-**Responsibility:** Package module for homework; schedule availability; collect submissions.  
-**Triggers:** Teacher assigns *Due Date*.  
+## 5) AssignmentAgent
+**Responsibility:** Package module for homework; set availability; collect submissions.  
 **Inputs:** `Module`, assignment settings.  
-**Outputs:** Attempt records per student; completion status.
+**Outputs:** Attempts per student; completion status.
 
----
-
-## 4) AssessmentAgent
-**Responsibility:** Deliver **Pre/Post** tests, timing, scoring keys, feedback gating.  
-**Inputs:** Assessment blueprint, timer config.  
-**Outputs:** `Attempt` (per student), item‑level scores, timestamps.  
-**Notes:** Disables speed bonus for fairness in diagnostics.
-
-**Contract**
 ```kotlin
-interface AssessmentAgent {
-  suspend fun start(assessmentId: String, student: Student): AttemptId
-  suspend fun submit(attemptId: AttemptId, answers: List<AnswerPayload>): Scorecard
+interface AssignmentAgent {
+  fun assign(moduleId: String, dueEpochMs: Long): AssignmentId
+  fun status(assignmentId: AssignmentId): AssignmentStatus
 }
 ```
 
 ---
 
-## 5) LessonAgent
-**Responsibility:** Present slides, worked examples, mini‑checks; manage reveal of solution steps.  
-**Inputs:** `Lesson` slides/cards, media.  
-**Outputs:** Interaction logs (optional), mini‑check results.
-
----
-
 ## 6) ScoringAnalyticsAgent
-**Responsibility:** Aggregate **Pre vs Post**; compute gains, objective mastery, common errors.  
-**Inputs:** Attempts (pre/post), item metadata (objective tags).  
-**Outputs:** `ClassReport`, `StudentReport`, CSV rows.  
-**Failures:** Missing parallel mapping → warn ModuleBuilderAgent.
+**Responsibility:** Compute **Pre vs Post** gains, per‑objective mastery, and common errors.  
+**Inputs:** Attempts (pre/post), item metadata with objective tags.  
+**Outputs:** `ClassReport`, `StudentReport`, CSV rows.
 
-**Contract**
 ```kotlin
 interface ScoringAnalyticsAgent {
-  fun buildReports(moduleId: String): ClassReport
-  fun studentReport(moduleId: String, studentId: String): StudentReport
+  fun buildClassReport(moduleId: String): ClassReport
+  fun buildStudentReport(moduleId: String, studentId: String): StudentReport
 }
 ```
 
@@ -92,24 +101,39 @@ interface ScoringAnalyticsAgent {
 ## 7) ReportExportAgent
 **Responsibility:** Generate **PDF** (class & per‑student) and **CSV** exports.  
 **Inputs:** Reports + templates.  
-**Outputs:** PDF/CSV files in app‑private storage; share intents.
+**Outputs:** Files in app‑private storage; share intents.
+
+```kotlin
+interface ReportExportAgent {
+  suspend fun exportClassPdf(report: ClassReport): FileRef
+  suspend fun exportStudentPdf(report: StudentReport): FileRef
+  suspend fun exportCsv(rows: List<CsvRow>): FileRef
+}
+```
 
 ---
 
 ## 8) ItemBankAgent
-**Responsibility:** Manage item bank (G11 Gen Math), difficulty tags, parallel forms, explanations.  
-**Inputs:** Seed content, teacher‑authored items.  
+**Responsibility:** Manage the G11 Gen Math item bank: difficulty tags, parallel forms, explanations.  
+**Inputs:** Seed content & teacher‑authored items.  
 **Outputs:** Queryable items for module assembly.  
-**Notes:** Local‑first; import/export JSON for sharing.
+**Notes:** Local‑first; supports import/export JSON for sharing.
 
-**Sample JSON Schema**
+```kotlin
+interface ItemBankAgent {
+  fun query(objectives: List<String>, limit: Int = 20): List<Item>
+  fun upsert(items: List<Item>): Result<Unit>
+}
+```
+
+**Item JSON (example)**
 ```json
 {
   "id": "item-uuid",
   "type": "numeric",
   "objective": "LO2",
-  "stem": "P=10,000, r=8% quarterly, t=2y. Find A.",
-  "answer": "11716.59",
+  "prompt": "P=10,000, r=8% quarterly, t=2y. Find A.",
+  "answer": 11716.59,
   "tolerance": 0.01,
   "explanation": "A=P(1+r/m)^{mt}",
   "media": []
@@ -119,19 +143,33 @@ interface ScoringAnalyticsAgent {
 ---
 
 ## 9) GamificationAgent (lightweight)
-**Responsibility:** Avatars/badges; *Top Improver* and *Star of the Day*.  
+**Responsibility:** Avatars/badges; *Top Improver* & *Star of the Day*.  
 **Inputs:** Reports/attempts.  
-**Outputs:** Unlock events; optional UI banners.
+**Outputs:** Unlock events; optional banners.
+
+```kotlin
+interface GamificationAgent {
+  fun onReportsAvailable(report: ClassReport)
+  fun unlocksFor(studentId: String): List<Badge>
+}
+```
 
 ---
 
 ## 10) SyncAgent (optional)
-**Responsibility:** Future cloud sync (modules, attempts, reports).  
-**Notes:** Off by default; complies with PII minimization.
+**Responsibility:** Future cloud sync for modules, attempts, reports.  
+**Notes:** Off by default; minimal PII.
+
+```kotlin
+interface SyncAgent {
+  suspend fun pushModule(moduleId: String): Result<Unit>
+  suspend fun pullUpdates(): Result<Int>
+}
+```
 
 ---
 
-## 🔗 Agent Interactions (Happy Path)
+## 🔗 Interactions (Happy Path)
 ```
 Teacher -> ModuleBuilderAgent -> Module(Room)
 Teacher -> (Live or Assignment)
@@ -143,23 +181,16 @@ GamificationAgent listens to ScoringAnalyticsAgent events
 
 ---
 
-## 🛡️ Failure & Recovery
-- **Missing Post parallel items** → block publish; show which objectives need items
-- **Intermittent network** (Live) → local queue & retry; continue offline
-- **Corrupt media** → skip slide and log warning in report
-
----
-
 ## ✅ Acceptance Criteria (v1)
-- Build & run on API 34 emulator; create a module; deliver pre/lesson/post; export PDF & CSV
-- Reports display **Pre vs Post** and **per‑objective mastery**
-- Student join via code without account; nickname/ID captured locally
+- Build & run; create a module; deliver pre/lesson/post; export PDF & CSV
+- Reports display **Pre vs Post** and per‑objective mastery
+- Students join via code; nickname/ID captured locally
 
 ---
 
-## 📎 Appendix: Tagalog Labels
-- Pre‑Test — **Pagsusulit Bago ang Aralin**  
-- Discussion — **Talakayan / Aralin**  
-- Post‑Test — **Pagsusulit Pagkatapos ng Aralin**  
-- Learning Gain — **Pag‑angat ng Marka**  
+## 📎 Tagalog Labels
+- Pre‑Test — **Pagsusulit Bago ang Aralin**
+- Discussion — **Talakayan / Aralin**
+- Post‑Test — **Pagsusulit Pagkatapos ng Aralin**
+- Learning Gain — **Pag‑angat ng Marka**
 - Mastery — **Antas ng Pagkatuto**
