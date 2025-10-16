@@ -5,13 +5,16 @@ Classroom Quiz Master is a Kotlin-based **Android mobile application** that simu
 ---
 
 ## ✨ Core Capabilities
-- **Module Builder Agent** – Validates objectives, lesson coverage, and parallel pre/post assessments before publishing a module to Room.
-- **Live Session Agent** – Hosts teacher-led sessions, lets students join via nickname/QR, and tracks real-time scoring and pacing controls.
-- **Assessment Agent** – Starts and submits attempts, automatically scores responses (MCQ, True/False, Numeric, Matching), and synchronizes timing with the session.
-- **Lesson Agent** – Presents the lesson slide deck and revealable solution steps aligned to objectives for the module.
-- **Assignment Agent** – Schedules homework availability windows with retry policies and enforces submission rules.
-- **Analytics & Reports** – Aggregates pre/post performance, computes objective gains, and exports class/student PDF + CSV reports from the device.
-- **Gamification** – Surfaces “Top Improver” and “Star of the Day” badges based on post-test growth.
+- **Module Builder Agent** – Creates and validates module packages, ensuring alignment between objectives, lessons, and assessments before saving to the local database.
+- **Item Bank Agent** – Manages the collection of questions, supporting various types (MCQ, T/F, Numeric), difficulty tagging, and sharing via JSON.
+- **Live Session Agent** – Hosts real-time, teacher-led sessions where students can join via nickname or QR code, with controls for pacing and live scoring.
+- **Assignment Agent** – Schedules modules as homework with defined availability windows and submission policies.
+- **Assessment Agent** – Delivers pre-tests and post-tests, handles submission, and performs automatic scoring for all question types.
+- **Lesson Agent** – Presents lesson materials, including slide decks and interactive examples with revealable solutions.
+- **Scoring & Analytics Agent** – Aggregates pre-test vs. post-test results to compute learning gains and identify areas of difficulty.
+- **Report Export Agent** – Generates and shares detailed class and student reports in both PDF and CSV formats.
+- **Gamification Agent** – Awards badges for achievements like "Top Improver" and "Star of the Day" based on performance growth.
+- **Sync Agent (Optional)** – Provides a mechanism for future cloud synchronization of application data, disabled by default.
 
 ---
 
@@ -39,7 +42,7 @@ Before opening the project, make sure the Android SDK location is configured. Ei
 variable or create a `local.properties` file at the project root that points to your SDK installation:
 
 ```
-sdk.dir=C:\\Users\\you\\AppData\\Local\\Android\\Sdk
+sdk.dir=C:\Users\you\AppData\Local\Android\Sdk
 ```
 
 The repository's `.gitignore` excludes `local.properties`, so each developer can reference their own SDK path without breaking
