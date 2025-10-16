@@ -1,93 +1,150 @@
-# Classroom Quiz Master (Kotlin Android)
+# Classroom Quiz Master (Kotlin Android • Jetpack Compose)
 
-Classroom Quiz Master is a Kotlin-based **Android mobile application** that simulates a Grade 11 mathematics classroom workflow end-to-end: build a module, run a live pre-test, walk through the lesson, deliver a post-test, and export analytics-driven reports. The app follows the agent contracts in [`AGENTS.md`](AGENTS.md) and is designed to run on phones or tablets—no command-line interface is required.
+A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General Mathematics** lessons into interactive, measurable modules with a **Pre‑Test → Discussion → Post‑Test** flow and clear learning‑gain reports.
 
----
-
-## ✨ Core Capabilities
-- **Module Builder Agent** – Creates and validates module packages, ensuring alignment between objectives, lessons, and assessments before saving to the local database.
-- **Item Bank Agent** – Manages the collection of questions, supporting various types (MCQ, T/F, Numeric), difficulty tagging, and sharing via JSON.
-- **Live Session Agent** – Hosts real-time, teacher-led sessions where students can join via nickname or QR code, with controls for pacing and live scoring.
-- **Assignment Agent** – Schedules modules as homework with defined availability windows and submission policies.
-- **Assessment Agent** – Delivers pre-tests and post-tests, handles submission, and performs automatic scoring for all question types.
-- **Lesson Agent** – Presents lesson materials, including slide decks and interactive examples with revealable solutions.
-- **Scoring & Analytics Agent** – Aggregates pre-test vs. post-test results to compute learning gains and identify areas of difficulty.
-- **Report Export Agent** – Generates and shares detailed class and student reports in both PDF and CSV formats.
-- **Gamification Agent** – Awards badges for achievements like "Top Improver" and "Star of the Day" based on performance growth.
-- **Sync Agent (Optional)** – Provides a mechanism for future cloud synchronization of application data, disabled by default.
+> **Platform:** Android (Kotlin) • **UI:** Jetpack Compose (Material 3) • **Arch:** MVVM + Clean Architecture • **Min SDK:** 24 • **Target SDK:** 34/35
 
 ---
 
-## 🏗️ Project Layout
+## ✨ Features
+- **Module Flow:** Pre‑Test → Lesson/Discussion → Post‑Test (parallel forms for fair comparison)
+- **Item Types:** Multiple‑choice, True/False, Numeric entry, Matching; with media (images/audio/video)
+- **Delivery Modes:** Live (class code, optional leaderboard) and Assignment (homework)
+- **Reports:** Auto‑scoring, **Pre vs Post** comparison, objective mastery, commonly missed items; export **PDF/CSV**
+- **Students:** Join via code + nickname/ID (no accounts), gentle timer & feedback explanations
+- **Teachers:** Simple module builder, progress monitor, togglable gamification (avatars/badges), printable summaries
+- **Localization:** Tagalog labels available for teacher UI
+
+---
+
+## 🏗 Tech Stack
+- **Language:** Kotlin (JDK 17)
+- **UI:** Jetpack Compose (Material 3)
+- **Navigation:** Navigation‑Compose
+- **Architecture:** MVVM + Clean Architecture (Domain/Data/UI), unidirectional data flow
+- **DI:** Hilt (optional; interface‑driven, can be swapped later)
+- **Async:** Coroutines + Flow
+- **Persistence:** Room (local‑first storage of modules, attempts, results)
+- **Serialization:** Kotlinx Serialization
+- **Networking (optional):** Retrofit/OkHttp (future cloud sync)
+- **Export:** Android Print/PdfDocument; CSV writer
+- **Testing:** JUnit, MockK, Turbine, Compose UI tests
+- **Quality:** ktlint, Detekt
+- **Build:** Gradle (Kotlin DSL)
+
+---
+
+## 📂 Project Structure (suggested)
 ```
 app/
-  src/
-    main/
-      AndroidManifest.xml
-      java|kotlin/com/acme/quizmaster/
-        agents/        # Agent interfaces + implementations
-        data/          # Local Room database + repositories
-        domain/        # Core models (Module, Assessment, Attempt, Reports...)
-        ui/            # Android Activities/Fragments/Compose screens for teacher + student flows
-        util/          # Scoring helpers
-      res/             # Layouts, drawables, strings, themes
-    androidTest/       # Instrumented tests covering end-to-end agent flows on device
-    test/              # JVM unit tests
+  build.gradle.kts
+  src/main/
+    AndroidManifest.xml
+    java/com/<org>/<app>/
+      App.kt
+      MainActivity.kt
+      navigation/          # Nav graph + routes
+      ui/theme/            # Material 3 theme
+      feature/
+        pretest/           # Pre‑test UI + logic
+        lesson/            # Slides, worked examples, checks
+        posttest/          # Post‑test UI + logic
+      domain/
+        model/             # Module, Item, Objective, Attempt, Report...
+        usecase/           # BuildModule, ScoreAttempt, BuildReports...
+      data/
+        local/             # Room entities/DAO
+        repo/              # Repositories
+        remote/            # Retrofit (optional)
+  proguard-rules.pro
 ```
 
 ---
 
-## ▶️ Building & Running the App
-Before opening the project, make sure the Android SDK location is configured. Either export the `ANDROID_HOME` environment
-variable or create a `local.properties` file at the project root that points to your SDK installation:
+## ▶️ Getting Started
+1. **Open in Android Studio** (Ladybug or newer) and let Gradle sync.
+2. Ensure **JDK 17**.
+3. Run the **app** configuration on an emulator (API 34/35) or device.
 
-```
-sdk.dir=C:\Users\you\AppData\Local\Android\Sdk
-```
-
-The repository's `.gitignore` excludes `local.properties`, so each developer can reference their own SDK path without breaking
-the build for others.
-
-1. Open the project in **Android Studio Flamingo or newer** (or import via the included Gradle wrapper).
-2. Allow Gradle sync to complete so dependencies and Room schemas are generated.
-3. Connect an Android device or start an API 34 emulator.
-4. Click **Run ▶** on the `app` configuration.
-
-When the app launches, teachers can assemble a module, guide students through pre-test → lesson → post-test flows, and share reports from app-private storage using Android share intents.
-
----
-
-## 🧪 Testing
 ```bash
-./gradlew test
-./gradlew connectedAndroidTest
+# Quality & tests
+./gradlew ktlintCheck detekt test connectedAndroidTest
 ```
-Unit tests validate module validation, live session tracking, scoring, analytics, reporting, and gamification behaviour using the in-memory repositories. Instrumented tests execute the same flows on an emulator/device to confirm UI and database integration. Ensure `adb` is available and an emulator is running before invoking `connectedAndroidTest`.
+
+> If you downloaded the provided starter zip, drop these files (**README.md**, **AGENTS.md**) in the project root.
 
 ---
 
-## 🔍 Key Domain Models
+## ⚙️ Optional Local Config
+Create `app/src/main/assets/app-config.json` to toggle features:
+```json
+{
+  "leaderboardEnabledByDefault": false,
+  "feedbackMode": "after-section",
+  "locale": "en-PH",
+  "cloudSync": false
+}
+```
+
+---
+
+## 📊 Core Data Models (simplified)
 ```kotlin
 data class Module(
-    val topic: String,
-    val objectives: List<String>,
-    val preTest: Assessment,
-    val lesson: Lesson,
-    val postTest: Assessment,
-    val settings: ModuleSettings
+  val id: String,
+  val subject: String = "G11 General Mathematics",
+  val topic: String,
+  val objectives: List<String>,   // e.g., ["LO1","LO2","LO3"]
+  val preTest: Assessment,
+  val lesson: Lesson,
+  val postTest: Assessment,
+  val settings: ModuleSettings
 )
+
+data class Assessment(
+  val id: String,
+  val items: List<Item>,
+  val timePerItemSec: Int = 60
+)
+
+sealed interface Item {
+  val id: String
+  val objective: String
+}
+
+data class NumericItem(
+  override val id: String,
+  override val objective: String,
+  val prompt: String,
+  val answer: Double,
+  val tolerance: Double = 0.01,
+  val explanation: String
+) : Item
 ```
-See [`domain/Models.kt`](app/src/main/kotlin/com/acme/quizmaster/domain/Models.kt) for the complete data model.
+See **AGENTS.md** for agent contracts and flows.
+
+---
+
+## 🔒 Privacy & Classroom Safety
+- No student accounts required by default
+- Local‑first storage, minimal PII
+- Optional cloud sync can be disabled
+
+---
+
+## 🧩 Roadmap
+- **v1:** Module builder, delivery (live/assignment), reports (Pre vs Post), exports, light gamification
+- **v2:** Team mode, richer analytics, item‑bank authoring on device, cloud sync, teacher portal
 
 ---
 
 ## 🤝 Contributing
-1. Fork & create a feature branch.
-2. Update or add unit *and* instrumented tests for new behaviour.
-3. Run `./gradlew test` and `./gradlew connectedAndroidTest` before submitting a PR (Android Studio bundles a compatible Gradle wrapper).
-4. Describe the agent responsibilities and UI flows touched by the change in the PR summary.
+1. Fork → feature branch
+2. Add tests where sensible
+3. Run `ktlint` and `detekt`
+4. Open a PR with screenshots and a concise description
 
 ---
 
 ## 📜 License
-MIT (add a `LICENSE` file if you intend to redistribute).
+MIT (or school‑specific). Add a `LICENSE` file.
