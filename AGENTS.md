@@ -1,4 +1,4 @@
-# AGENTS.md — Functional Agents & Contracts
+# Functional Agents & Contracts
 
 This document describes the **functional agents** (modular services) that orchestrate the module lifecycle: **Pre‑Test → Lesson → Post‑Test → Reports**. Agents run on‑device by default, with optional adapters for cloud.
 
