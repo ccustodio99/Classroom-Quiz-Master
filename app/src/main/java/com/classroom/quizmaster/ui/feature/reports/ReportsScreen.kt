@@ -35,7 +35,7 @@ import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.TopBarAction
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ReportsScreen(
     viewModel: ReportsViewModel,

@@ -36,7 +36,7 @@ import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.TopBarAction
 
-@OptIn(ExperimentalMaterial3Api::class)
+@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
 @Composable
 fun ModuleDetailScreen(
     viewModel: ModuleDetailViewModel,
@@ -97,13 +97,9 @@ private fun ModuleSnapshot(module: Module) {
         }
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            val metaScroll = rememberScrollState()
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .horizontalScroll(metaScroll),
+            FlowRow(
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
+                verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 InfoPill(text = "$preCount pre-test")
                 InfoPill(text = "$postCount post-test", backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.secondary)
@@ -112,13 +108,9 @@ private fun ModuleSnapshot(module: Module) {
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Learning objectives", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
-                val objectiveScroll = rememberScrollState()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(objectiveScroll),
+                FlowRow(
                     horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
                     module.objectives.forEach { objective ->
                         InfoPill(text = objective)
