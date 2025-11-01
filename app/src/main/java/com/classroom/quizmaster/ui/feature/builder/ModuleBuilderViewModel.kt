@@ -36,7 +36,6 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.max
-import kotlin.math.min
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
@@ -99,7 +98,7 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
                 ).withPreview()
                 return@launch
             }
-            val formSize = min(generatedPre.size, generatedPost.size, objectives.size * 4)
+            val formSize = minOf(generatedPre.size, generatedPost.size, objectives.size * 4)
             if (formSize == 0) {
                 _uiState.value = state.copy(
                     errors = listOf("Hindi sapat ang mga item para sa pre at post test."),

@@ -145,7 +145,7 @@ private fun LoadingStage() {
     SectionCard(
         title = "Warming up",
         subtitle = "Syncing module assets",
-        caption = "We’re fetching the latest assessment keys and lesson cards."
+        caption = "We're fetching the latest assessment keys and lesson cards."
     ) {
         Text(
             text = "Preparing content...",
@@ -371,6 +371,7 @@ private fun LessonStageView(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun InteractiveStageView(
     stage: Stage.InteractiveStage,
     onNext: () -> Unit
@@ -425,7 +426,7 @@ private fun InteractiveStageView(
                 }
                 is TypeAnswerActivity -> {
                     Text(
-                        text = "Type answer (≤ ${activity.maxCharacters} chars): ${activity.correctAnswer}",
+                        text = "Type answer (<= ${activity.maxCharacters} chars): ${activity.correctAnswer}",
                         style = MaterialTheme.typography.bodyMedium,
                         color = MaterialTheme.colorScheme.onSurface
                     )
@@ -523,7 +524,7 @@ private fun SummaryStage(
                                     trackColor = MaterialTheme.colorScheme.background
                                 )
                                 Text(
-                                    text = "Pre ${"%.1f".format(mastery.pre)}% → Post ${"%.1f".format(mastery.post)}%",
+                                    text = "Pre ${"%.1f".format(mastery.pre)}% -> Post ${"%.1f".format(mastery.post)}%",
                                     style = MaterialTheme.typography.bodySmall,
                                     color = MaterialTheme.colorScheme.onSurfaceVariant
                                 )
@@ -567,9 +568,9 @@ private fun SummaryScores(pre: Double, post: Double) {
             verticalArrangement = Arrangement.spacedBy(12.dp),
             horizontalAlignment = Alignment.CenterHorizontally
         ) {
-            Text("Pre ${"%.1f".format(pre)}% → Post ${"%.1f".format(post)}%", fontWeight = FontWeight.SemiBold)
+            Text("Pre ${"%.1f".format(pre)}% -> Post ${"%.1f".format(post)}%", fontWeight = FontWeight.SemiBold)
             Text(
-                text = if (gain >= 0) "▲ +$gain pts" else "▼ ${gain.absoluteValue} pts",
+                text = if (gain >= 0) "+$gain pts" else "-${gain.absoluteValue} pts",
                 style = MaterialTheme.typography.bodyLarge,
                 color = if (gain >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
             )

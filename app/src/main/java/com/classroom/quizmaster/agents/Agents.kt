@@ -10,12 +10,14 @@ import com.classroom.quizmaster.domain.model.Scorecard
 import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.StudentReport
 import kotlinx.coroutines.flow.Flow
+import kotlinx.serialization.Serializable
 
 interface ModuleBuilderAgent {
     suspend fun createOrUpdate(module: Module): Result<Unit>
     fun validate(module: Module): List<Violation>
 }
 
+@Serializable
 data class Violation(val field: String, val message: String)
 
 interface AssessmentAgent {
@@ -23,6 +25,7 @@ interface AssessmentAgent {
     suspend fun submit(attemptId: String, answers: List<AnswerPayload>): Scorecard
 }
 
+@Serializable
 data class AnswerPayload(
     val itemId: String,
     val answer: String,
@@ -57,9 +60,13 @@ interface LiveSessionAgent {
     ): Boolean
 }
 
+@Serializable
 data class JoinResult(val student: Student, val sessionId: String)
+
+@Serializable
 data class Ack(val accepted: Boolean)
 
+@Serializable
 data class LiveSnapshot(
     val moduleId: String,
     val participants: List<Student>,
@@ -85,8 +92,10 @@ interface ReportExportAgent {
     suspend fun exportCsv(rows: List<CsvRow>): FileRef
 }
 
+@Serializable
 data class FileRef(val path: String)
 
+@Serializable
 data class CsvRow(val cells: List<String>)
 
 interface ItemBankAgent {
