@@ -1,21 +1,12 @@
 package com.classroom.quizmaster.agents
 
 import com.classroom.quizmaster.data.repo.ModuleRepository
-import com.classroom.quizmaster.domain.model.BrainstormActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.MatchingItem
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.MultipleChoiceItem
 import com.classroom.quizmaster.domain.model.NumericItem
-import com.classroom.quizmaster.domain.model.OpenEndedActivity
-import com.classroom.quizmaster.domain.model.PollActivity
-import com.classroom.quizmaster.domain.model.PuzzleActivity
-import com.classroom.quizmaster.domain.model.QuizActivity
-import com.classroom.quizmaster.domain.model.SliderActivity
-import com.classroom.quizmaster.domain.model.TrueFalseActivity as TrueFalseInteractive
 import com.classroom.quizmaster.domain.model.TrueFalseItem
-import com.classroom.quizmaster.domain.model.TypeAnswerActivity
-import com.classroom.quizmaster.domain.model.WordCloudActivity
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -65,47 +56,33 @@ class ModuleBuilderAgentImpl(
                 "Some objectives are not assessed: ${missingObjectives.joinToString()}"
             )
         }
-        val lessonObjectives = module.lesson.slides.flatMap { slide ->
-            slide.miniCheck?.let { listOf(it.prompt) } ?: emptyList()
-        }
-        if (lessonObjectives.isEmpty()) {
+        val miniChecks = module.lesson.slides.mapNotNull { it.miniCheck }
+        if (miniChecks.isEmpty()) {
             issues += Violation("lesson", "Add at least one slide with a mini check prompt to reinforce objectives")
         }
-        val uncoveredObjectives = module.objectives
-            .map { it.trim() }
-            .filter { it.isNotEmpty() }
-            .filterNot { objective ->
-                module.lesson.slides.any { slide ->
-                    slide.miniCheck?.prompt?.contains(objective, ignoreCase = true) == true
-                }
-            }
+        val lessonObjectives = miniChecks.flatMap { miniCheck ->
+            miniCheck.objectives.map { it.trim() }.filter { it.isNotEmpty() }
+        }.toSet()
+        val uncoveredObjectives = module.objectives.filterNot { objective ->
+            objective in lessonObjectives
+        }
         if (uncoveredObjectives.isNotEmpty()) {
             issues += Violation(
                 "lesson",
-                "Mini checks should reinforce objectives: ${uncoveredObjectives.joinToString()}"
+                "Mini checks should tag objectives they reinforce: ${uncoveredObjectives.joinToString()}"
             )
         }
         val interactive = module.lesson.interactiveActivities
-        val requiredInteractive = listOf(
-            QuizActivity::class,
-            TrueFalseInteractive::class,
-            TypeAnswerActivity::class,
-            PuzzleActivity::class,
-            SliderActivity::class,
-            PollActivity::class,
-            WordCloudActivity::class,
-            OpenEndedActivity::class,
-            BrainstormActivity::class
-        )
-        val missingInteractive = requiredInteractive.filterNot { klass ->
-            interactive.any { klass.isInstance(it) }
+        if (interactive.isEmpty()) {
+            issues += Violation("interactive", "Add at least one interactive activity to keep learners engaged")
         }
-        if (missingInteractive.isNotEmpty()) {
-            val readable = missingInteractive.joinToString { it.simpleName ?: "activity" }
-            issues += Violation(
-                "interactive",
-                "Interactive lesson missing: $readable"
-            )
+        val hasScored = interactive.any { it.isScored }
+        if (!hasScored) {
+            issues += Violation("interactive", "Include at least one scored interactive activity for practice")
+        }
+        val hasReflective = interactive.any { !it.isScored }
+        if (!hasReflective) {
+            issues += Violation("interactive", "Include at least one reflection activity for discussion")
         }
         return issues
     }

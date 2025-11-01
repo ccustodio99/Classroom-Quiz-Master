@@ -130,19 +130,31 @@ object GeneralMathSampleCatalog {
                         id = "mp2-slide-1",
                         title = "Savings Glow-Up Story",
                         content = "Pag-IBIG Fund flexed a 7.03% MP2 dividend in 2023. Source: Pag-IBIG Fund 2023 Annual Report. Track how your cash snowballs when dividends compound.",
-                        miniCheck = MiniCheck("What formula turns deposits into future value when interest compounds annually?", "A = P(1 + r)^t")
+                        miniCheck = MiniCheck(
+                            "What formula turns deposits into future value when interest compounds annually?",
+                            "A = P(1 + r)^t",
+                            objectives = listOf("M11GM-Ic-1")
+                        )
                     ),
                     LessonSlide(
                         id = "mp2-slide-2",
                         title = "Policy Rate Pulse",
                         content = "As of 21 March 2024, BSP held the policy rate at 6.50%. Source: BSP Monetary Board statement. This anchors bank promos and loan pricing—aka the vibe of your time deposits.",
-                        miniCheck = MiniCheck("How do you compute simple interest using the BSP rate?", "I = Prt with r = 0.065")
+                        miniCheck = MiniCheck(
+                            "How do you compute simple interest using the BSP rate?",
+                            "I = Prt with r = 0.065",
+                            objectives = listOf("M11GM-Ic-2")
+                        )
                     ),
                     LessonSlide(
                         id = "mp2-slide-3",
                         title = "Safety Net Receipts",
                         content = "PDIC insures up to ₱500,000 per depositor per bank. Source: PDIC deposit insurance primer. Digital-first banks ride on that same safety net.",
-                        miniCheck = MiniCheck("What’s the peso cap of PDIC coverage per bank?", "₱500,000")
+                        miniCheck = MiniCheck(
+                            "What’s the peso cap of PDIC coverage per bank?",
+                            "₱500,000",
+                            objectives = listOf("M11GM-Ic-3")
+                        )
                     )
                 ),
                 interactiveActivities = sampleInteractivePack(
@@ -264,19 +276,31 @@ object GeneralMathSampleCatalog {
                         id = "inflation-slide-1",
                         title = "Receipts from PSA",
                         content = "PSA pegged average inflation at 6.0% in 2023 and 8.7% in January. Sources: PSA CPI monthly releases. We turn those stats into price moves Gen Z actually feels.",
-                        miniCheck = MiniCheck("What operation do you use to inflate last year’s price?", "Multiply by (1 + inflation)")
+                        miniCheck = MiniCheck(
+                            "What operation do you use to inflate last year’s price?",
+                            "Multiply by (1 + inflation)",
+                            objectives = listOf("M11GM-IIa-1")
+                        )
                     ),
                     LessonSlide(
                         id = "inflation-slide-2",
                         title = "Cooling Down",
                         content = "By December 2023 inflation slid to 3.9% (PSA). That’s a slower climb, not a price rollback—key nuance for budgeting.",
-                        miniCheck = MiniCheck("Does 3.9% inflation mean prices dropped?", "No, they still rose but slower")
+                        miniCheck = MiniCheck(
+                            "Does 3.9% inflation mean prices dropped?",
+                            "No, they still rose but slower",
+                            objectives = listOf("M11GM-IIa-3")
+                        )
                     ),
                     LessonSlide(
                         id = "inflation-slide-3",
                         title = "Budget Remix",
                         content = "Use PSA data to adjust allowances, subscriptions, and merch wish lists. Real talk: keep the spreadsheet updated with legit stats.",
-                        miniCheck = MiniCheck("How do you find real value after inflation?", "Divide the nominal amount by (1 + inflation)")
+                        miniCheck = MiniCheck(
+                            "How do you find real value after inflation?",
+                            "Divide the nominal amount by (1 + inflation)",
+                            objectives = listOf("M11GM-IIa-2")
+                        )
                     )
                 ),
                 interactiveActivities = sampleInteractivePack(
@@ -398,19 +422,31 @@ object GeneralMathSampleCatalog {
                         id = "population-slide-1",
                         title = "PSA Census Receipts",
                         content = "PSA logged 100,981,437 Filipinos in 2015 and 109,035,343 in 2020. Source: PSA Census of Population and Housing. That’s our dataset for modeling growth.",
-                        miniCheck = MiniCheck("What’s the absolute growth from 2015 to 2020?", "8,053,906")
+                        miniCheck = MiniCheck(
+                            "What’s the absolute growth from 2015 to 2020?",
+                            "8,053,906",
+                            objectives = listOf("M11GM-IIIb-1")
+                        )
                     ),
                     LessonSlide(
                         id = "population-slide-2",
                         title = "Glow-Up Rate",
                         content = "Average annual growth clocks in at 1.547% using PSA’s counts. We’ll use that as the growth rate in exponential models.",
-                        miniCheck = MiniCheck("What formula pulls out the growth rate?", "(P2/P1)^(1/n) − 1")
+                        miniCheck = MiniCheck(
+                            "What formula pulls out the growth rate?",
+                            "(P2/P1)^(1/n) − 1",
+                            objectives = listOf("M11GM-IIIb-2")
+                        )
                     ),
                     LessonSlide(
                         id = "population-slide-3",
                         title = "Projecting 2025",
                         content = "Project the Philippines hitting about 117.7M people by 2025 if the 1.547% pace holds. That’s the kind of projection policymakers track.",
-                        miniCheck = MiniCheck("What model do we use for steady percentage growth?", "Exponential growth")
+                        miniCheck = MiniCheck(
+                            "What model do we use for steady percentage growth?",
+                            "Exponential growth",
+                            objectives = listOf("M11GM-IIIb-3")
+                        )
                     )
                 ),
                 interactiveActivities = sampleInteractivePack(

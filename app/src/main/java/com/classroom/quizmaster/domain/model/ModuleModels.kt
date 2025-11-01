@@ -48,7 +48,8 @@ data class LessonSlide(
 @Serializable
 data class MiniCheck(
     val prompt: String,
-    val correctAnswer: String
+    val correctAnswer: String,
+    val objectives: List<String> = emptyList()
 )
 
 @Serializable
