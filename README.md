@@ -1,76 +1,78 @@
 # Classroom Quiz Master (Kotlin Android • Jetpack Compose)
 
-A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General Mathematics** lessons into interactive, measurable modules with a **Pre‑Test → Discussion → Post‑Test** flow and clear learning‑gain reports.
+A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General Mathematics** lessons into interactive, measurable modules with a **Pre‑Test → Lesson → Post‑Test** flow and clear learning‑gain reports.
 
 > **Platform:** Android (Kotlin) • **UI:** Jetpack Compose (Material 3) • **Arch:** MVVM + Clean Architecture • **Min SDK:** 24 • **Target SDK:** 34/35
 
 ---
 
-## ✨ Features
-- **Module Flow:** Pre‑Test → Lesson/Discussion → Post‑Test (parallel forms for fair comparison)
-- **Item Types:** Multiple‑choice, True/False, Numeric entry, Matching; with media (images/audio/video)
-- **Delivery Modes:** Live (class code, optional leaderboard) and Assignment (homework)
-- **Reports:** Auto‑scoring, **Pre vs Post** comparison, objective mastery, commonly missed items; export **PDF/CSV**
-- **Students:** Join via code + nickname/ID (no accounts), gentle timer & feedback explanations
-- **Teachers:** Simple module builder, progress monitor, togglable gamification (avatars/badges), printable summaries
-- **Localization:** Tagalog labels available for teacher UI
+## 🎓 How Classroom Quiz Master Works
+Classroom Quiz Master brings interactive assessments, structured lessons, and actionable reporting together so teachers can measure learning in real time—online or offline.
+
+### 🧑‍🏫 Teacher Experience
+1. **Create or Import a Lesson Module** – Define objectives, attach slides/media, and configure timers, randomization, and optional leaderboards across the pre/lesson/post segments.
+2. **Launch a Live Session** – Tap **Start Live Delivery** to generate a short-lived class code (e.g., `845 209`). Mirror your device to a projector, TV, or screen-share so everyone sees prompts and leaderboards.
+3. **Monitor and Report** – Scores, participation, and learning gains are stored locally. Export PDF or CSV reports to highlight objective mastery and commonly missed concepts.
+
+### 👩‍🎓 Student Experience
+1. **Join the Session** – Open the join screen on any phone, tablet, or laptop connected to the same Wi‑Fi or the teacher’s offline hotspot. Enter the class code and nickname or ID.
+2. **Play and Engage** – Watch the shared display for questions and respond from personal devices. Scoring balances accuracy and fairness—pre/post diagnostics disable speed bonuses.
+3. **Privacy & Reliability** – No mandatory accounts or cloud sync. All data stays on the teacher’s device, enabling fully offline operation for low-connectivity classrooms.
+
+### ✨ Core Capabilities
+- **Module Flow:** Pre‑Test → Lesson/Discussion → Post‑Test with parallel forms for diagnostic comparison.
+- **Delivery Modes:** Live classroom sessions and asynchronous assignments.
+- **Reports & Exports:** Automatic Pre vs Post analytics, objective mastery insights, and PDF/CSV exports.
+- **Engagement:** Optional leaderboards, podium celebrations, and lightweight gamification (avatars/badges).
+- **Localization:** Tagalog labels across key teacher-facing surfaces.
 
 ---
 
-## 🧑‍🏫 Teacher Setup Flow
-1. **Create the Classroom or Subject Shell** – Pick the strand/section, tag the subject (e.g., Gen Math), and set schedule details so future reports group correctly.
-2. **Author the Lesson Package** – Define lesson objectives, drop in slide materials or reference files, and align each objective with the right assessment items.
-3. **Build the Pre-Test** – Select or import diagnostic questions to benchmark prior knowledge; tune timers and feedback rules for fairness.
-4. **Plan the Guided Lesson** – Sequence slides, worked examples, and mini activities; attach any external media for live presentation or assignments.
-5. **Assemble the Post-Test** – Create a parallel assessment that checks the same objectives to measure learning gains.
-6. **Configure Interactive Activities** – Mix and match engagement formats (quiz, poll, brainstorming, etc.) that you will launch during delivery or as asynchronous practice.
-
-> The flow keeps everything in one module so teachers can reuse the same package for live sessions or assignments while tracking pre/post gains automatically.
-
----
-
-## 🎯 Types of Questions
-This is what you ask the players. When creating a kahoot, you can use many different question formats to make your game more engaging:
-
-**To Test Knowledge:**
- * **Quiz:** The classic format. A question with 2-4 multiple-choice answers, where only one is correct (or multiple can be correct).
- * **True / False:** A simple question with only two options.
- * **Type Answer:** Players must type the correct answer (with a 20-character limit). This is much harder as there are no options to guess from.
- * **Puzzle:** Players must drag and drop blocks into the correct order to form a sequence or sort items.
- * **Slider:** Players slide a pin to a specific number on a scale (e.g., "What year was this company founded?").
-
-**To Gather Opinions (No points awarded):**
- * **Poll:** Ask the audience their opinion with multiple-choice options.
- * **Word Cloud:** An open-ended question where players submit short words. The most popular answers appear larger on the screen.
- * **Open-Ended:** Players can type and submit longer-form ideas or feedback.
- * **Brainstorm:** A collaborative mode where players submit ideas, and then the group can vote on their favorites.
-
-> Tip: For the most reliable classroom experience, run live quizzes on a shared local network so the teacher and students stay connected even when the wider internet is unavailable.
+## 🧩 Question Types
+| Purpose | Type | Description |
+| --- | --- | --- |
+| **Test Knowledge** | Multiple Choice | 2–4 options with one or more correct answers. |
+|  | True / False | Quick factual checks with binary choices. |
+|  | Numeric Entry | Students type numeric answers with tolerance settings. |
+|  | Matching | Pair related terms, formulas, or definitions. |
+|  | Type Answer | Short response (≤20 characters) with variant matching. |
+|  | Puzzle | Arrange steps or ideas in the correct order. |
+|  | Slider | Indicate a numeric value or confidence level. |
+| **Gather Opinions** | Poll | Collect quick opinions or gauge understanding. |
+|  | Word Cloud | Players submit one word; popular answers grow larger. |
+|  | Open-Ended | Invite longer reflections or feedback. |
+|  | Brainstorm | Collaborative idea generation with optional voting. |
 
 ---
 
-## 🕹️ How Live Quizzes Work (Local Network First)
-Classroom Quiz Master follows a host/participant model similar to Kahoot! but is optimized for intranet or offline hotspot play so teachers can keep the class engaged even when the wider internet is unreliable.
+## 🕹️ Live Quiz Flow (Local-First Design)
+1. **Teacher Hosts the Session** – Run the module locally; all timing, scoring, and media playback stay on the teacher device.
+2. **Students Join via Local Network** – Devices auto-discover the session across LAN or the teacher’s hotspot—no internet required.
+3. **Play, Score, Reflect** – After each question, the leaderboard updates live. Responses feed into instant analytics comparing Pre vs Post performance.
 
-1. **Teacher Hosts the Session**
-   - Build or select a module, then start a live delivery from the app. A short‑lived **Class Code** (e.g., `845 209`) appears on the teacher device.
-   - Mirror the teacher screen to the class display (projector, TV, or a screen‑share app) so everyone can see questions, answer reveals, and the leaderboard.
-   - All pacing, scoring, and media playback run on the host device; outbound internet calls are optional.
+### Why Local-First Matters
+- **Reliability:** Sessions stay stable even if campus internet drops; submissions queue until confirmed.
+- **Privacy:** Student data remains on the teacher device unless optional sync is enabled.
+- **Low Bandwidth:** Requires only lightweight LAN traffic, ideal for resource-constrained schools.
 
-2. **Students Join on the Same LAN**
-   - Students open the companion join screen on their phones, tablets, or laptops. When everyone is on the same Wi‑Fi—or the teacher spins up an offline hotspot—device discovery works over the local network broadcast.
-   - Learners type the class code and choose a nickname (accounts optional). Rosters can be enforced for attendance.
-   - Student devices act as lightweight controllers that send answer choices to the host. Color/shape cues match the shared display.
+### 🧠 Example Module Flow
+**Module:** Simple Interest and Compound Interest (Objectives: LO1, LO2, LO3)
 
-3. **Play, Score, Celebrate**
-   - Questions appear on the shared screen; students respond from their devices. Correctness and response speed award points, while diagnostic pre/post tests automatically disable speed bonuses for fairness.
-   - After each question, the leaderboard highlights the top five performers or teams to sustain excitement.
-   - A podium animation closes the session. All response data is stored locally for instant reporting—no mandatory cloud sync.
+`Pre-Test → Lesson Slides → Interactive Quizzes → Post-Test → Report`
 
-### Why Local‑First Matters
-- **Reliability:** Sessions continue even if campus internet drops; answers queue locally until the host confirms receipt.
-- **Privacy:** Student nicknames and responses stay on the teacher device unless cloud sync is explicitly triggered.
-- **Low Bandwidth Friendly:** Only lightweight LAN traffic is required. Remote challenges remain opt‑in for schools that prefer offline play.
+Each stage feeds into the performance report, highlighting mastery per objective and growth between pre and post assessments.
+
+---
+
+## 🧑‍🏫 Teacher Setup Checklist
+1. **Create the Classroom or Subject Shell** – Tag the section, subject, and schedule so reports group correctly.
+2. **Author the Lesson Package** – Define objectives, attach slide decks or reference files, and align each objective with the right assessment items.
+3. **Build the Pre-Test** – Select or import diagnostic questions, tuning timers and feedback rules for fairness.
+4. **Plan the Guided Lesson** – Sequence slides, worked examples, and mini activities; attach external media for live presentation or assignments.
+5. **Assemble the Post-Test** – Create a parallel assessment to measure learning gains on the same objectives.
+6. **Configure Interactive Activities** – Blend quizzes, polls, and brainstorms for synchronous or asynchronous engagement.
+
+> Keeping everything inside a single module lets teachers reuse the package for live sessions or assignments while automatically tracking pre/post gains.
 
 ---
 
@@ -79,9 +81,9 @@ Classroom Quiz Master follows a host/participant model similar to Kahoot! but is
 - **UI:** Jetpack Compose (Material 3)
 - **Navigation:** Navigation‑Compose
 - **Architecture:** MVVM + Clean Architecture (Domain/Data/UI), unidirectional data flow
-- **DI:** Hilt (optional; interface‑driven, can be swapped later)
+- **DI:** Hilt (optional; interface-driven, can be swapped later)
 - **Async:** Coroutines + Flow
-- **Persistence:** Room (local‑first storage of modules, attempts, results)
+- **Persistence:** Room (local-first storage of modules, attempts, results)
 - **Serialization:** Kotlinx Serialization
 - **Networking (optional):** Retrofit/OkHttp (future cloud sync)
 - **Export:** Android Print/PdfDocument; CSV writer
@@ -103,9 +105,9 @@ app/
       navigation/          # Nav graph + routes
       ui/theme/            # Material 3 theme
       feature/
-        pretest/           # Pre‑test UI + logic
+        pretest/           # Pre-test UI + logic
         lesson/            # Slides, worked examples, checks
-        posttest/          # Post‑test UI + logic
+        posttest/          # Post-test UI + logic
       domain/
         model/             # Module, Item, Objective, Attempt, Report...
         usecase/           # BuildModule, ScoreAttempt, BuildReports...
@@ -184,14 +186,14 @@ See **AGENTS.md** for agent contracts and flows.
 
 ## 🔒 Privacy & Classroom Safety
 - No student accounts required by default
-- Local‑first storage, minimal PII
+- Local-first storage, minimal PII
 - Optional cloud sync can be disabled
 
 ---
 
 ## 🧩 Roadmap
 - **v1:** Module builder, delivery (live/assignment), reports (Pre vs Post), exports, light gamification
-- **v2:** Team mode, richer analytics, item‑bank authoring on device, cloud sync, teacher portal
+- **v2:** Team mode, richer analytics, item-bank authoring on device, cloud sync, teacher portal
 
 ---
 
@@ -204,4 +206,4 @@ See **AGENTS.md** for agent contracts and flows.
 ---
 
 ## 📜 License
-MIT (or school‑specific). Add a `LICENSE` file.
+MIT (or school-specific). Add a `LICENSE` file.
