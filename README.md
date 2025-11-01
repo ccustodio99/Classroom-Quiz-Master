@@ -17,6 +17,18 @@ A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General
 
 ---
 
+## 🧑‍🏫 Teacher Setup Flow
+1. **Create the Classroom or Subject Shell** – Pick the strand/section, tag the subject (e.g., Gen Math), and set schedule details so future reports group correctly.
+2. **Author the Lesson Package** – Define lesson objectives, drop in slide materials or reference files, and align each objective with the right assessment items.
+3. **Build the Pre-Test** – Select or import diagnostic questions to benchmark prior knowledge; tune timers and feedback rules for fairness.
+4. **Plan the Guided Lesson** – Sequence slides, worked examples, and mini activities; attach any external media for live presentation or assignments.
+5. **Assemble the Post-Test** – Create a parallel assessment that checks the same objectives to measure learning gains.
+6. **Configure Interactive Activities** – Mix and match engagement formats (quiz, poll, brainstorming, etc.) that you will launch during delivery or as asynchronous practice.
+
+> The flow keeps everything in one module so teachers can reuse the same package for live sessions or assignments while tracking pre/post gains automatically.
+
+---
+
 ## 🎯 Types of Questions
 This is what you ask the players. When creating a kahoot, you can use many different question formats to make your game more engaging:
 
