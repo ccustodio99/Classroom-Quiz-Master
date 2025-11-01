@@ -9,6 +9,7 @@ import java.io.File
 import java.io.FileOutputStream
 import java.io.OutputStreamWriter
 import java.util.Locale
+import kotlin.text.Charsets
 
 class ReportExportAgentImpl(private val context: Context) : ReportExportAgent {
     override suspend fun exportClassPdf(report: ClassReport): FileRef {
@@ -97,12 +98,20 @@ class ReportExportAgentImpl(private val context: Context) : ReportExportAgent {
 
     override suspend fun exportCsv(rows: List<CsvRow>): FileRef {
         val file = File(context.filesDir, "quizmaster-export.csv")
-        OutputStreamWriter(FileOutputStream(file)).use { writer ->
+        OutputStreamWriter(FileOutputStream(file), Charsets.UTF_8).use { writer ->
             rows.forEach { row ->
-                writer.append(row.cells.joinToString(","))
+                val line = row.cells.joinToString(",") { cell -> escapeCsvCell(cell) }
+                writer.append(line)
                 writer.append('\n')
             }
         }
         return FileRef(file.absolutePath)
+    }
+
+    private fun escapeCsvCell(value: String): String {
+        val normalized = value.replace("\r\n", "\n").replace("\r", "\n")
+        val escaped = normalized.replace("\"", "\"\"")
+        val needsQuoting = escaped.any { it == ',' || it == '\n' || it == '"' }
+        return if (needsQuoting) "\"$escaped\"" else escaped
     }
 }

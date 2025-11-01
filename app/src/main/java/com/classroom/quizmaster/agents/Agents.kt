@@ -3,6 +3,7 @@ package com.classroom.quizmaster.agents
 import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.Badge
 import com.classroom.quizmaster.domain.model.ClassReport
+import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.Scorecard
@@ -24,19 +25,21 @@ interface AssessmentAgent {
 
 data class AnswerPayload(
     val itemId: String,
-    val answer: String
+    val answer: String,
+    val studentId: String? = null
 )
 
 interface LessonAgent {
-    fun start(lessonId: String): String
+    suspend fun start(lessonId: String): String
     fun next(sessionId: String): LessonStep
     fun recordCheck(sessionId: String, answer: String): Boolean
 }
 
 data class LessonStep(
-    val slideTitle: String,
-    val slideContent: String,
+    val slideTitle: String?,
+    val slideContent: String?,
     val miniCheckPrompt: String?,
+    val activity: InteractiveActivity?,
     val finished: Boolean
 )
 
@@ -45,6 +48,13 @@ interface LiveSessionAgent {
     fun join(sessionId: String, nickname: String): JoinResult
     fun submit(sessionId: String, answer: AnswerPayload): Ack
     fun snapshot(sessionId: String): LiveSnapshot
+    fun observe(sessionId: String): Flow<LiveSnapshot>
+    fun setActiveItem(
+        sessionId: String,
+        itemId: String?,
+        prompt: String? = null,
+        objective: String? = null
+    ): Boolean
 }
 
 data class JoinResult(val student: Student, val sessionId: String)
@@ -53,7 +63,10 @@ data class Ack(val accepted: Boolean)
 data class LiveSnapshot(
     val moduleId: String,
     val participants: List<Student>,
-    val answers: Map<String, List<AnswerPayload>>
+    val answers: Map<String, List<AnswerPayload>>,
+    val activeItemId: String?,
+    val activePrompt: String?,
+    val activeObjective: String?
 )
 
 interface AssignmentAgent {

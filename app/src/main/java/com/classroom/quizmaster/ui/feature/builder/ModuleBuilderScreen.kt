@@ -56,6 +56,39 @@ fun ModuleBuilderScreen(
         ) {
             item {
                 SectionCard(
+                    title = "Classroom setup",
+                    subtitle = "Frame the space before crafting the flow",
+                    caption = "Subject + classroom notes power reporting labels and live session codes.",
+                    trailingContent = {
+                        InfoPill(text = if (state.subject.isBlank()) "No subject" else state.subject)
+                    }
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedTextField(
+                            value = state.classroomName,
+                            onValueChange = viewModel::onClassroomNameChanged,
+                            label = { Text("Classroom / Section") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = state.subject,
+                            onValueChange = viewModel::onSubjectChanged,
+                            label = { Text("Subject / Strand") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = state.classroomDescription,
+                            onValueChange = viewModel::onClassroomDescriptionChanged,
+                            label = { Text("Notes (room vibe, reminders, etc.)") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 80.dp)
+                        )
+                    }
+                }
+            }
+            item {
+                SectionCard(
                     title = "Module identity",
                     subtitle = "Start with the essentials so reports stay meaningful",
                     trailingContent = {
@@ -97,6 +130,42 @@ fun ModuleBuilderScreen(
                             .fillMaxWidth()
                             .heightIn(min = 180.dp)
                     )
+                }
+            }
+            item {
+                SectionCard(
+                    title = "Interactive lesson pack",
+                    subtitle = "Auto-generated blend of knowledge checks and opinion pulses",
+                    caption = "Edit your objectives, slides, or pacing to instantly refresh the activities.",
+                    trailingContent = {
+                        InfoPill(text = "${state.interactivePreview.total} activities")
+                    }
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (state.interactivePreview.isEmpty()) {
+                            Text(
+                                text = "Magdagdag ng objectives at slides para makita ang interactive flow.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            InteractivePreviewGroup(
+                                title = "To Test Knowledge",
+                                count = state.interactivePreview.knowledgeCount,
+                                entries = state.interactivePreview.knowledgeChecks
+                            )
+                            InteractivePreviewGroup(
+                                title = "To Gather Opinions",
+                                count = state.interactivePreview.opinionCount,
+                                entries = state.interactivePreview.opinionPulse
+                            )
+                        }
+                        Text(
+                            text = "To Test Knowledge: Quiz, True/False, Type Answer, Puzzle, Slider. To Gather Opinions: Poll, Word Cloud, Open-Ended, Brainstorm.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
                 }
             }
             item {
@@ -206,3 +275,47 @@ fun ModuleBuilderScreen(
         }
     }
 }
+
+@Composable
+private fun InteractivePreviewGroup(
+    title: String,
+    count: Int,
+    entries: List<String>
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            InfoPill(text = "$count")
+        }
+        if (entries.isEmpty()) {
+            Text(
+                text = "No cards generated yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            entries.forEach { summary ->
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 0.dp
+                ) {
+                    Text(
+                        text = summary,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+            }
+        }
+    }
+}
+

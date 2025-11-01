@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui
 
+import android.net.Uri
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -8,9 +9,11 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
+import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import androidx.navigation.navArgument
 import com.classroom.quizmaster.LocalAppContainer
 import com.classroom.quizmaster.ui.feature.builder.ModuleBuilderScreen
 import com.classroom.quizmaster.ui.feature.builder.ModuleBuilderViewModel
@@ -20,6 +23,11 @@ import com.classroom.quizmaster.ui.feature.delivery.DeliveryScreen
 import com.classroom.quizmaster.ui.feature.delivery.DeliveryViewModel
 import com.classroom.quizmaster.ui.feature.detail.ModuleDetailScreen
 import com.classroom.quizmaster.ui.feature.detail.ModuleDetailViewModel
+import com.classroom.quizmaster.ui.feature.help.HelpGuideScreen
+import com.classroom.quizmaster.ui.feature.join.JoinSessionScreen
+import com.classroom.quizmaster.ui.feature.join.JoinSessionViewModel
+import com.classroom.quizmaster.ui.feature.livesession.LiveSessionScreen
+import com.classroom.quizmaster.ui.feature.livesession.LiveSessionViewModel
 import com.classroom.quizmaster.ui.feature.reports.ReportsScreen
 import com.classroom.quizmaster.ui.feature.reports.ReportsViewModel
 
@@ -42,7 +50,9 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                 DashboardScreen(
                     viewModel = viewModel,
                     onCreateModule = { navController.navigate(Screen.Builder.route) },
-                    onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) }
+                    onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) },
+                    onJoinSession = { navController.navigate(Screen.Join.route) },
+                    onOpenHelp = { navController.navigate(Screen.Help.route) }
                 )
             }
             composable(Screen.Builder.route) {
@@ -63,6 +73,9 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     viewModel = viewModel,
                     onStartDelivery = { navController.navigate(Screen.Delivery.createRoute(moduleId)) },
                     onViewReports = { navController.navigate(Screen.Reports.createRoute(moduleId)) },
+                    onOpenLiveSession = { sessionId ->
+                        navController.navigate(Screen.LiveSession.createRoute(moduleId, sessionId))
+                    },
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -77,6 +90,28 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(
+                route = Screen.LiveSession.route,
+                arguments = listOf(
+                    navArgument("moduleId") { type = NavType.StringType },
+                    navArgument("sessionId") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                        nullable = true
+                    }
+                )
+            ) { backStackEntry ->
+                val moduleId = backStackEntry.arguments?.getString("moduleId") ?: return@composable
+                val sessionId = backStackEntry.arguments?.getString("sessionId")
+                    ?.takeIf { it.isNotBlank() }
+                val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<LiveSessionViewModel>(
+                    factory = viewModelFactory { LiveSessionViewModel(container, moduleId, sessionId) }
+                )
+                LiveSessionScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
             composable(Screen.Reports.route) { backStackEntry ->
                 val moduleId = backStackEntry.arguments?.getString("moduleId") ?: return@composable
                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<ReportsViewModel>(
@@ -84,6 +119,20 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                 )
                 ReportsScreen(
                     viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Join.route) {
+                val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<JoinSessionViewModel>(
+                    factory = viewModelFactory { JoinSessionViewModel() }
+                )
+                JoinSessionScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
+            composable(Screen.Help.route) {
+                HelpGuideScreen(
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -100,7 +149,15 @@ sealed class Screen(val route: String) {
     data object Delivery : Screen("delivery/{moduleId}") {
         fun createRoute(moduleId: String) = "delivery/$moduleId"
     }
+    data object LiveSession : Screen("liveSession/{moduleId}?sessionId={sessionId}") {
+        fun createRoute(moduleId: String, sessionId: String?): String {
+            val encoded = sessionId?.let { Uri.encode(it) } ?: ""
+            return "liveSession/$moduleId?sessionId=$encoded"
+        }
+    }
     data object Reports : Screen("reports/{moduleId}") {
         fun createRoute(moduleId: String) = "reports/$moduleId"
     }
+    data object Join : Screen("join")
+    data object Help : Screen("help")
 }

@@ -37,13 +37,25 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
+import com.classroom.quizmaster.domain.model.BrainstormActivity
 import com.classroom.quizmaster.domain.model.MatchingItem
 import com.classroom.quizmaster.domain.model.MultipleChoiceItem
 import com.classroom.quizmaster.domain.model.NumericItem
+import com.classroom.quizmaster.domain.model.OpenEndedActivity
+import com.classroom.quizmaster.domain.model.PollActivity
+import com.classroom.quizmaster.domain.model.PuzzleActivity
+import com.classroom.quizmaster.domain.model.QuizActivity
+import com.classroom.quizmaster.domain.model.SliderActivity
+import com.classroom.quizmaster.domain.model.TypeAnswerActivity
+import com.classroom.quizmaster.domain.model.TrueFalseActivity as TrueFalseInteractive
 import com.classroom.quizmaster.domain.model.TrueFalseItem
+import com.classroom.quizmaster.domain.model.WordCloudActivity
 import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
+import com.classroom.quizmaster.ui.util.categoryLabel
+import com.classroom.quizmaster.ui.util.summaryLabel
+import com.classroom.quizmaster.ui.util.typeLabel
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -89,6 +101,10 @@ fun DeliveryScreen(
                     stage = stage,
                     onSubmitCheck = viewModel::submitMiniCheck,
                     onNextSlide = viewModel::goToNextLessonStep
+                )
+                is Stage.InteractiveStage -> InteractiveStageView(
+                    stage = stage,
+                    onNext = viewModel::goToNextLessonStep
                 )
                 is Stage.Summary -> SummaryStage(
                     stage = stage,
@@ -354,6 +370,129 @@ private fun LessonStageView(
     }
 }
 
+@Composable
+private fun InteractiveStageView(
+    stage: Stage.InteractiveStage,
+    onNext: () -> Unit
+) {
+    val activity = stage.activity
+    SectionCard(
+        title = "Interactive ${stage.activityIndex}/${stage.totalActivities}",
+        subtitle = activity.title,
+        caption = activity.prompt
+    ) {
+        Column(
+            modifier = Modifier.verticalScroll(rememberScrollState()),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoPill(text = activity.categoryLabel())
+                InfoPill(text = if (activity.isScored) "Scored" else "No points")
+                InfoPill(text = activity.typeLabel())
+            }
+            Text(
+                text = activity.summaryLabel(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            when (activity) {
+                is QuizActivity -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        activity.options.forEachIndexed { index, option ->
+                            val isCorrect = index in activity.correctAnswers
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = if (isCorrect) MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                                else MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 0.dp
+                            ) {
+                                Text(
+                                    text = option,
+                                    modifier = Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodyMedium,
+                                    color = MaterialTheme.colorScheme.onSurface
+                                )
+                            }
+                        }
+                    }
+                }
+                is TrueFalseInteractive -> {
+                    Text(
+                        text = "Correct answer: ${if (activity.correctAnswer) "TRUE" else "FALSE"}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.primary
+                    )
+                }
+                is TypeAnswerActivity -> {
+                    Text(
+                        text = "Type answer (≤ ${activity.maxCharacters} chars): ${activity.correctAnswer}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                is PuzzleActivity -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Arrange blocks into this order:")
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activity.correctOrder.forEach { block ->
+                                InfoPill(text = block)
+                            }
+                        }
+                    }
+                }
+                is SliderActivity -> {
+                    Text(
+                        text = "Scale ${activity.minValue} - ${activity.maxValue}; target ${activity.target}",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                is PollActivity -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        activity.options.forEach { option ->
+                            InfoPill(text = option)
+                        }
+                    }
+                }
+                is WordCloudActivity -> {
+                    Text(
+                        text = "Players submit up to ${activity.maxWords} word(s), ${activity.maxCharacters} chars each.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                is OpenEndedActivity -> {
+                    Text(
+                        text = "Open response limit: ${activity.maxCharacters} characters.",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                }
+                is BrainstormActivity -> {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        Text("Idea buckets:")
+                        FlowRow(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
+                        ) {
+                            activity.categories.forEach { category ->
+                                InfoPill(text = category)
+                            }
+                        }
+                        Text("Votes per player: ${activity.voteLimit}")
+                    }
+                }
+            }
+            Button(onClick = onNext, modifier = Modifier.fillMaxWidth()) {
+                Text(if (stage.finished) "Pumunta sa Post-Test" else "Susunod na Activity")
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SummaryStage(
@@ -476,6 +615,15 @@ private fun Stage.toMeta(): StageMeta = when (this) {
             subtitle = "Slide $slideIndex / $totalSlides",
             badgeLabel = "Talakayan",
             progress = (0.46f + ratio * 0.24f).coerceIn(0f, 0.9f)
+        )
+    }
+    is Stage.InteractiveStage -> {
+        val ratio = if (totalActivities > 0) activityIndex.toFloat() / totalActivities else 0f
+        StageMeta(
+            headline = activity.categoryLabel(),
+            subtitle = "Activity $activityIndex / ${maxOf(totalActivities, 1)}",
+            badgeLabel = activity.typeLabel(),
+            progress = (0.7f + ratio * 0.15f).coerceIn(0f, 0.96f)
         )
     }
     is Stage.Summary -> StageMeta(

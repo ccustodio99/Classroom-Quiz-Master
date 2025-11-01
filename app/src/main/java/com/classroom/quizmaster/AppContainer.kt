@@ -28,9 +28,11 @@ import com.classroom.quizmaster.data.repo.AttemptRepository
 import com.classroom.quizmaster.data.repo.AttemptRepositoryImpl
 import com.classroom.quizmaster.data.repo.ModuleRepository
 import com.classroom.quizmaster.data.repo.ModuleRepositoryImpl
+import com.classroom.quizmaster.lan.LiveSessionLanFactory
 import kotlinx.serialization.json.Json
 
 class AppContainer(context: Context) {
+    val appContext: Context = context.applicationContext
     private val json = Json {
         ignoreUnknownKeys = true
         prettyPrint = false
@@ -38,7 +40,8 @@ class AppContainer(context: Context) {
         classDiscriminator = "type"
     }
 
-    private val database = QuizMasterDatabase.build(context)
+    private val database = QuizMasterDatabase.build(appContext)
+    private val lanFactory = LiveSessionLanFactory()
 
     val moduleRepository: ModuleRepository = ModuleRepositoryImpl(database.moduleDao(), json)
     val attemptRepository: AttemptRepository = AttemptRepositoryImpl(database.attemptDao(), json)
@@ -47,10 +50,10 @@ class AppContainer(context: Context) {
     val moduleBuilderAgent: ModuleBuilderAgent = ModuleBuilderAgentImpl(moduleRepository)
     val assessmentAgent: AssessmentAgent = AssessmentAgentImpl(moduleRepository, attemptRepository)
     val lessonAgent: LessonAgent = LessonAgentImpl(moduleRepository)
-    val liveSessionAgent: LiveSessionAgent = LiveSessionAgentImpl()
+    val liveSessionAgent: LiveSessionAgent = LiveSessionAgentImpl(lanFactory)
     val assignmentAgent: AssignmentAgent = AssignmentAgentImpl(assignmentRepository)
     val scoringAnalyticsAgent: ScoringAnalyticsAgent = ScoringAnalyticsAgentImpl(moduleRepository, attemptRepository)
-    val reportExportAgent: ReportExportAgent = ReportExportAgentImpl(context)
+    val reportExportAgent: ReportExportAgent = ReportExportAgentImpl(appContext)
     val itemBankAgent: ItemBankAgent = ItemBankAgentImpl()
     val gamificationAgent: GamificationAgent = GamificationAgentImpl()
     val syncAgent: SyncAgent = SyncAgentImpl()
