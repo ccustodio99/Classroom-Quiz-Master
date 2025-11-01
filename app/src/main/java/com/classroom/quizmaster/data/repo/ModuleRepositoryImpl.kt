@@ -2,6 +2,7 @@ package com.classroom.quizmaster.data.repo
 
 import com.classroom.quizmaster.data.local.ModuleDao
 import com.classroom.quizmaster.data.local.ModuleEntity
+import com.classroom.quizmaster.domain.model.Lesson
 import com.classroom.quizmaster.domain.model.Module
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -26,6 +27,13 @@ class ModuleRepositoryImpl(
         return dao.getAll().firstNotNullOfOrNull { entity ->
             val module = entity.toDomainOrNull(json) ?: return@firstNotNullOfOrNull null
             if (module.preTest.id == assessmentId || module.postTest.id == assessmentId) module else null
+        }
+    }
+
+    override suspend fun findLesson(lessonId: String): Lesson? {
+        return dao.getAll().firstNotNullOfOrNull { entity ->
+            val module = entity.toDomainOrNull(json) ?: return@firstNotNullOfOrNull null
+            module.lesson.takeIf { it.id == lessonId }
         }
     }
 

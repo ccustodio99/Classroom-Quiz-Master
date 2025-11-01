@@ -6,18 +6,36 @@ import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
+import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.runBlocking
+import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.launch
 
 class LessonAgentImpl(
-    private val moduleRepository: ModuleRepository
+    private val moduleRepository: ModuleRepository,
+    private val scope: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) : LessonAgent {
     private val sessions = mutableMapOf<String, LessonSession>()
     private val lessonCache = ConcurrentHashMap<String, Lesson>()
     private val lock = ReentrantLock()
 
-    override fun start(lessonId: String): String {
+    init {
+        scope.launch {
+            moduleRepository.observeModules().collect { modules ->
+                val observed = mutableSetOf<String>()
+                modules.forEach { module ->
+                    val lesson = module.lesson
+                    lessonCache[lesson.id] = lesson
+                    observed += lesson.id
+                }
+                val stale = lessonCache.keys - observed
+                stale.forEach { lessonCache.remove(it) }
+            }
+        }
+    }
+
+    override suspend fun start(lessonId: String): String {
         val lesson = loadLesson(lessonId)
         val sessionId = UUID.randomUUID().toString()
         lock.withLock { sessions[sessionId] = LessonSession(lesson, 0) }
@@ -55,14 +73,10 @@ class LessonAgentImpl(
         slide?.miniCheck?.let { it.correctAnswer.equals(answer.trim(), ignoreCase = true) } ?: false
     }
 
-    private fun loadLesson(lessonId: String): Lesson {
+    private suspend fun loadLesson(lessonId: String): Lesson {
         lessonCache[lessonId]?.let { return it }
-        val lesson = runBlocking(Dispatchers.IO) {
-            moduleRepository.observeModules()
-                .first()
-                .firstOrNull { it.lesson.id == lessonId }
-                ?.lesson
-        } ?: error("Lesson not found")
+        val lesson = moduleRepository.findLesson(lessonId)
+            ?: error("Lesson not found")
         lessonCache[lessonId] = lesson
         return lesson
     }
