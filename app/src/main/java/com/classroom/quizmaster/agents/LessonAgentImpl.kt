@@ -104,8 +104,29 @@ class LessonAgentImpl(
     override fun recordCheck(sessionId: String, answer: String): Boolean = lock.withLock {
         val session = sessions[sessionId] ?: return false
         val lastShownIndex = (session.index - 1).coerceAtLeast(0)
-        val slide = session.lesson.slides.getOrNull(lastShownIndex)
-        slide?.miniCheck?.let { it.correctAnswer.equals(answer.trim(), ignoreCase = true) } ?: false
+        val slide = session.lesson.slides.getOrNull(lastShownIndex) ?: return false
+        val miniCheck = slide.miniCheck ?: return false
+        evaluateMiniCheck(miniCheck.correctAnswer, answer)
+    }
+
+    private fun evaluateMiniCheck(expected: String, submitted: String): Boolean {
+        val normalizedResponse = submitted.normalizeResponse()
+        if (normalizedResponse.isEmpty()) return false
+        val normalizedExpected = expected.normalizeResponse()
+        if (normalizedExpected.isEmpty()) return true
+        val keywords = normalizedExpected.split(Regex("[^A-Za-z0-9]+"))
+            .map { it.trim().lowercase() }
+            .filter { it.length >= 4 }
+            .toSet()
+        if (keywords.isEmpty()) {
+            return normalizedExpected.equals(normalizedResponse, ignoreCase = true)
+        }
+        val response = normalizedResponse.lowercase()
+        return keywords.any { keyword -> response.contains(keyword) }
+    }
+
+    private fun String.normalizeResponse(): String {
+        return this.replace("\n", " ").replace(Regex("\\s+"), " ").trim()
     }
 
     private suspend fun loadLesson(lessonId: String): Lesson {

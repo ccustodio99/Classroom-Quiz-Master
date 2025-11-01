@@ -133,14 +133,7 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
                 preTest = Assessment(id = UUID.randomUUID().toString(), items = preItems),
                 lesson = Lesson(
                     id = UUID.randomUUID().toString(),
-                    slides = slides.mapIndexed { index, text ->
-                        LessonSlide(
-                            id = "slide-${index + 1}",
-                            title = "Slide ${index + 1}",
-                            content = text,
-                            miniCheck = MiniCheck(prompt = "Ano ang takeaway?", correctAnswer = text.take(15))
-                        )
-                    },
+                    slides = buildLessonSlides(slides, objectives),
                     interactiveActivities = interactiveActivities
                 ),
                 postTest = Assessment(id = UUID.randomUUID().toString(), items = postItems),
@@ -192,6 +185,42 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
         val knowledge = activities.filter { it.isScored }.map { it.summaryLabel() }
         val opinions = activities.filterNot { it.isScored }.map { it.summaryLabel() }
         return copy(interactivePreview = InteractivePreviewSummary(knowledge, opinions))
+    }
+
+    private fun buildLessonSlides(slides: List<String>, objectives: List<String>): List<LessonSlide> {
+        if (slides.isEmpty()) return emptyList()
+        val normalizedObjectives = objectives.filter { it.isNotBlank() }
+        return slides.mapIndexed { index, text ->
+            val objective = normalizedObjectives.getOrNull(index % maxOf(normalizedObjectives.size, 1))
+            LessonSlide(
+                id = "slide-${index + 1}",
+                title = "Slide ${index + 1}",
+                content = text,
+                miniCheck = MiniCheck(
+                    prompt = buildMiniCheckPrompt(objective),
+                    correctAnswer = extractMiniCheckAnswer(text),
+                    objectives = objective?.let { listOf(it) } ?: emptyList()
+                )
+            )
+        }
+    }
+
+    private fun buildMiniCheckPrompt(objective: String?): String {
+        return if (objective.isNullOrBlank()) {
+            "Ano ang takeaway mula sa bahaging ito?"
+        } else {
+            "Ibahagi ang pangunahing ideya para sa layunin $objective."
+        }
+    }
+
+    private fun extractMiniCheckAnswer(text: String): String {
+        val normalized = text.replace("\n", " ").replace(Regex("\\s+"), " ").trim()
+        if (normalized.isEmpty()) return ""
+        val sentences = normalized.split(Regex("(?<=[.!?]) "))
+        val preferred = sentences.firstOrNull { it.length >= 40 }
+            ?: sentences.maxByOrNull { it.length }
+            ?: normalized
+        return preferred.trim().take(160)
     }
 
     private fun generateInteractiveActivities(
