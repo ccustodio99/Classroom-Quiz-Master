@@ -30,8 +30,22 @@ class ItemBankAgentImpl : ItemBankAgent {
     }
 
     override fun upsert(items: List<Item>): Result<Unit> {
-        items.forEach { item -> this.items[item.id.ifBlank { UUID.randomUUID().toString() }] = item }
+        items.forEach { item ->
+            val ensured = item.ensureId()
+            this.items[ensured.id] = ensured
+        }
         return Result.success(Unit)
+    }
+
+    private fun Item.ensureId(): Item {
+        if (id.isNotBlank()) return this
+        val generatedId = UUID.randomUUID().toString()
+        return when (this) {
+            is MultipleChoiceItem -> copy(id = generatedId)
+            is NumericItem -> copy(id = generatedId)
+            is TrueFalseItem -> copy(id = generatedId)
+            is MatchingItem -> copy(id = generatedId)
+        }
     }
 
     private fun seededItems(): List<Item> {

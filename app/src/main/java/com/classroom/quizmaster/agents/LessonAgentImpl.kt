@@ -114,10 +114,14 @@ class LessonAgentImpl(
         if (normalizedResponse.isEmpty()) return false
         val normalizedExpected = expected.normalizeResponse()
         if (normalizedExpected.isEmpty()) return true
-        val keywords = normalizedExpected.split(Regex("[^A-Za-z0-9]+"))
-            .map { it.trim().lowercase() }
-            .filter { it.length >= 4 }
-            .toSet()
+
+        val expectedDigits = normalizedExpected.onlyDigits()
+        val responseDigits = normalizedResponse.onlyDigits()
+        if (expectedDigits.isNotEmpty() && expectedDigits == responseDigits) {
+            return true
+        }
+
+        val keywords = normalizedExpected.extractKeywords()
         if (keywords.isEmpty()) {
             return normalizedExpected.equals(normalizedResponse, ignoreCase = true)
         }
@@ -125,9 +129,15 @@ class LessonAgentImpl(
         return keywords.any { keyword -> response.contains(keyword) }
     }
 
-    private fun String.normalizeResponse(): String {
-        return this.replace("\n", " ").replace(Regex("\\s+"), " ").trim()
-    }
+    private fun String.normalizeResponse(): String =
+        replace("\n", " ").replace(Regex("\\s+"), " ").trim()
+
+    private fun String.onlyDigits(): String = filter { it.isDigit() }
+
+    private fun String.extractKeywords(): Set<String> = split(Regex("[^A-Za-z0-9]+"))
+        .map { it.trim().lowercase() }
+        .filter { token -> token.isNotEmpty() && (token.length >= 3 || token.all { it.isDigit() }) }
+        .toSet()
 
     private suspend fun loadLesson(lessonId: String): Lesson {
         lessonCache[lessonId]?.let { return it }

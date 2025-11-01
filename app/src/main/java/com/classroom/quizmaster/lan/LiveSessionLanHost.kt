@@ -56,6 +56,8 @@ class LiveSessionLanHost(
         connections.values.forEach { it.close() }
     }
 
+    fun isRunning(): Boolean = scope.isActive
+
     fun broadcast(snapshot: LiveSnapshot) {
         val message = LanServerMessage.Snapshot(snapshot)
         val encoded = json.encodeToString(LanServerMessage.serializer(), message)

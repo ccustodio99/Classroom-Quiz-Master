@@ -21,7 +21,14 @@ class LiveSessionAgentImpl(
     private val lock = ReentrantLock()
 
     override fun createSession(moduleId: String): String = lock.withLock {
-        shutdownLanSessionsLocked()
+        cleanupStaleSessionsLocked()
+        val existing = sessions.entries.firstOrNull { (_, state) ->
+            state.moduleId == moduleId && state.isActive()
+        }
+        if (existing != null) {
+            existing.value.publish()
+            return@withLock existing.key
+        }
         var attempts = 0
         var sessionId: String
         do {
@@ -180,12 +187,14 @@ class LiveSessionAgentImpl(
         LanAnswerAck(result.accepted, reason = reason)
     }
 
-    private fun shutdownLanSessionsLocked() {
+    private fun cleanupStaleSessionsLocked() {
         if (sessions.isEmpty()) return
-        sessions.values.forEach { state ->
-            runCatching { state.lanSession?.stop() }
+        val staleIds = sessions.filterValues { state -> !state.isActive() }.keys
+        staleIds.forEach { id ->
+            sessions.remove(id)?.lanSession?.let { lan ->
+                runCatching { lan.stop() }
+            }
         }
-        sessions.clear()
     }
 
     companion object {
@@ -193,4 +202,6 @@ class LiveSessionAgentImpl(
     }
 
     private data class AnswerAcceptance(val accepted: Boolean, val reason: String? = null)
+
+    private fun LiveState.isActive(): Boolean = lanSession?.isRunning() == true
 }
