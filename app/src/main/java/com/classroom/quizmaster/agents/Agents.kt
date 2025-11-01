@@ -24,7 +24,8 @@ interface AssessmentAgent {
 
 data class AnswerPayload(
     val itemId: String,
-    val answer: String
+    val answer: String,
+    val studentId: String? = null
 )
 
 interface LessonAgent {
@@ -45,6 +46,7 @@ interface LiveSessionAgent {
     fun join(sessionId: String, nickname: String): JoinResult
     fun submit(sessionId: String, answer: AnswerPayload): Ack
     fun snapshot(sessionId: String): LiveSnapshot
+    fun observe(sessionId: String): Flow<LiveSnapshot>
 }
 
 data class JoinResult(val student: Student, val sessionId: String)

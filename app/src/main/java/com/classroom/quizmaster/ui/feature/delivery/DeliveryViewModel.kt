@@ -90,7 +90,7 @@ class DeliveryViewModel(
         val student = student ?: return
         if (stage !is Stage.AssessmentStage) return
         viewModelScope.launch {
-            val payload = stage.questions.map { AnswerPayload(it.item.id, it.answer) }
+            val payload = stage.questions.map { AnswerPayload(it.item.id, it.answer, student.id) }
             val scorecard = container.assessmentAgent.submit(stage.attemptId, payload)
             if (stage.kind == AssessmentKind.PRE) {
                 _uiState.value = _uiState.value.copy(prePercent = scorecard.percent)

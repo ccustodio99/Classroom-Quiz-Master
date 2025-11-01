@@ -17,7 +17,6 @@ import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
@@ -39,6 +38,7 @@ fun ModuleDetailScreen(
     viewModel: ModuleDetailViewModel,
     onStartDelivery: () -> Unit,
     onViewReports: () -> Unit,
+    onOpenLiveSession: (String) -> Unit,
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -69,8 +69,9 @@ fun ModuleDetailScreen(
             module?.let {
                 ModuleSnapshot(module = it)
                 LiveActions(
-                    liveSessionCode = state.liveSessionCode,
-                    onCreateSession = viewModel::createLiveSession,
+                    onHostLiveSession = {
+                        viewModel.createLiveSession()?.let(onOpenLiveSession)
+                    },
                     onStartDelivery = onStartDelivery,
                     onAssignHomework = viewModel::assignHomework,
                     onViewReports = onViewReports
@@ -120,8 +121,7 @@ private fun ModuleSnapshot(module: Module) {
 
 @Composable
 private fun LiveActions(
-    liveSessionCode: String?,
-    onCreateSession: () -> Unit,
+    onHostLiveSession: () -> Unit,
     onStartDelivery: () -> Unit,
     onAssignHomework: () -> Unit,
     onViewReports: () -> Unit
@@ -129,11 +129,11 @@ private fun LiveActions(
     SectionCard(
         title = "Launch & share",
         subtitle = "Pick the flow that matches your delivery mode",
-        caption = "Create a class code for synchronous sessions or push as homework."
+        caption = "Open the live lobby for synchronous sessions or push as homework."
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             FilledTonalButton(
-                onClick = onCreateSession,
+                onClick = onHostLiveSession,
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.filledTonalButtonColors(
                     containerColor = MaterialTheme.colorScheme.primary.copy(alpha = 0.14f),
@@ -141,28 +141,7 @@ private fun LiveActions(
                 )
             ) {
                 Icon(imageVector = Icons.Rounded.Group, contentDescription = null)
-                Text("Create live session code", modifier = Modifier.padding(start = 8.dp))
-            }
-            liveSessionCode?.let { code ->
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    color = MaterialTheme.colorScheme.surfaceVariant,
-                    tonalElevation = 0.dp
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text("Session code", style = MaterialTheme.typography.labelMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                        Text(
-                            text = code,
-                            style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                    }
-                }
+                Text("Host live session", modifier = Modifier.padding(start = 8.dp))
             }
             Button(
                 onClick = onStartDelivery,
