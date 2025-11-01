@@ -22,6 +22,7 @@ import androidx.compose.material.icons.rounded.Add
 import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Explore
+import androidx.compose.material.icons.rounded.Info
 import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Star
@@ -59,7 +60,8 @@ fun DashboardScreen(
     viewModel: DashboardViewModel,
     onCreateModule: () -> Unit,
     onOpenModule: (String) -> Unit,
-    onJoinSession: () -> Unit
+    onJoinSession: () -> Unit,
+    onOpenHelp: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val modules = state.modules
@@ -70,6 +72,11 @@ fun DashboardScreen(
         title = "QuizMaster Control",
         subtitle = "Gen Z-ready classroom flow",
         actions = listOf(
+            TopBarAction(
+                icon = Icons.Rounded.Info,
+                contentDescription = "Open help & guide",
+                onClick = onOpenHelp
+            ),
             TopBarAction(
                 icon = Icons.Rounded.AutoAwesome,
                 contentDescription = "Drop sample modules",

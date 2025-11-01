@@ -23,6 +23,7 @@ import com.classroom.quizmaster.ui.feature.delivery.DeliveryScreen
 import com.classroom.quizmaster.ui.feature.delivery.DeliveryViewModel
 import com.classroom.quizmaster.ui.feature.detail.ModuleDetailScreen
 import com.classroom.quizmaster.ui.feature.detail.ModuleDetailViewModel
+import com.classroom.quizmaster.ui.feature.help.HelpGuideScreen
 import com.classroom.quizmaster.ui.feature.join.JoinSessionScreen
 import com.classroom.quizmaster.ui.feature.join.JoinSessionViewModel
 import com.classroom.quizmaster.ui.feature.livesession.LiveSessionScreen
@@ -50,7 +51,8 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     viewModel = viewModel,
                     onCreateModule = { navController.navigate(Screen.Builder.route) },
                     onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) },
-                    onJoinSession = { navController.navigate(Screen.Join.route) }
+                    onJoinSession = { navController.navigate(Screen.Join.route) },
+                    onOpenHelp = { navController.navigate(Screen.Help.route) }
                 )
             }
             composable(Screen.Builder.route) {
@@ -129,6 +131,11 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(Screen.Help.route) {
+                HelpGuideScreen(
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
@@ -152,4 +159,5 @@ sealed class Screen(val route: String) {
         fun createRoute(moduleId: String) = "reports/$moduleId"
     }
     data object Join : Screen("join")
+    data object Help : Screen("help")
 }
