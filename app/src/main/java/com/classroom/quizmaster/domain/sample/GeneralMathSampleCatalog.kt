@@ -1,6 +1,9 @@
 package com.classroom.quizmaster.domain.sample
 
 import com.classroom.quizmaster.domain.model.Assessment
+import com.classroom.quizmaster.domain.model.BrainstormActivity
+import com.classroom.quizmaster.domain.model.ClassroomProfile
+import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Lesson
 import com.classroom.quizmaster.domain.model.LessonSlide
@@ -11,7 +14,15 @@ import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.ModuleSettings
 import com.classroom.quizmaster.domain.model.MultipleChoiceItem
 import com.classroom.quizmaster.domain.model.NumericItem
+import com.classroom.quizmaster.domain.model.OpenEndedActivity
+import com.classroom.quizmaster.domain.model.PollActivity
+import com.classroom.quizmaster.domain.model.PuzzleActivity
+import com.classroom.quizmaster.domain.model.QuizActivity
+import com.classroom.quizmaster.domain.model.SliderActivity
+import com.classroom.quizmaster.domain.model.TrueFalseActivity as TrueFalseInteractive
 import com.classroom.quizmaster.domain.model.TrueFalseItem
+import com.classroom.quizmaster.domain.model.TypeAnswerActivity
+import com.classroom.quizmaster.domain.model.WordCloudActivity
 
 object GeneralMathSampleCatalog {
     fun modules(): List<Module> {
@@ -98,6 +109,13 @@ object GeneralMathSampleCatalog {
         )
         return Module(
             id = "module-digital-savings",
+            classroom = ClassroomProfile(
+                id = "classroom-stem-bayanihan",
+                name = "STEM 11 Bayanihan",
+                subject = "G11 General Mathematics",
+                description = "Financial literacy sprint cohort"
+            ),
+            subject = "G11 General Mathematics",
             topic = "Compound Interest Glow-Up",
             objectives = objectives,
             preTest = Assessment(
@@ -126,6 +144,14 @@ object GeneralMathSampleCatalog {
                         content = "PDIC insures up to ₱500,000 per depositor per bank. Source: PDIC deposit insurance primer. Digital-first banks ride on that same safety net.",
                         miniCheck = MiniCheck("What’s the peso cap of PDIC coverage per bank?", "₱500,000")
                     )
+                ),
+                interactiveActivities = sampleInteractivePack(
+                    prefix = "mp2",
+                    topic = "Compound Interest Glow-Up",
+                    objectives = objectives,
+                    sliderTarget = 75,
+                    pollOptions = listOf("Hype level 5/5", "Need pa ng sample", "Practice muna", "Pause for Qs"),
+                    brainstormCategories = listOf("Savings wins", "Digital platforms", "Risk checks")
                 )
             ),
             postTest = Assessment(
@@ -217,6 +243,13 @@ object GeneralMathSampleCatalog {
         )
         return Module(
             id = "module-inflation-pulse",
+            classroom = ClassroomProfile(
+                id = "classroom-abm-trendsetters",
+                name = "ABM 11 Trendsetters",
+                subject = "G11 General Mathematics",
+                description = "Market math and consumer price labs"
+            ),
+            subject = "G11 General Mathematics",
             topic = "Inflation Pulse Check",
             objectives = objectives,
             preTest = Assessment(
@@ -245,6 +278,14 @@ object GeneralMathSampleCatalog {
                         content = "Use PSA data to adjust allowances, subscriptions, and merch wish lists. Real talk: keep the spreadsheet updated with legit stats.",
                         miniCheck = MiniCheck("How do you find real value after inflation?", "Divide the nominal amount by (1 + inflation)")
                     )
+                ),
+                interactiveActivities = sampleInteractivePack(
+                    prefix = "inflation",
+                    topic = "Inflation Pulse Check",
+                    objectives = objectives,
+                    sliderTarget = 68,
+                    pollOptions = listOf("Gets na", "Need more CPI practice", "Relate sa buhay", "Confused pa"),
+                    brainstormCategories = listOf("Budget hacks", "Price watch", "Community stories")
                 )
             ),
             postTest = Assessment(
@@ -336,6 +377,13 @@ object GeneralMathSampleCatalog {
         )
         return Module(
             id = "module-population-trends",
+            classroom = ClassroomProfile(
+                id = "classroom-humss-visionaries",
+                name = "HUMSS 11 Visionaries",
+                subject = "G11 General Mathematics",
+                description = "Data storytelling on population growth"
+            ),
+            subject = "G11 General Mathematics",
             topic = "Population Trend Tracker",
             objectives = objectives,
             preTest = Assessment(
@@ -364,6 +412,14 @@ object GeneralMathSampleCatalog {
                         content = "Project the Philippines hitting about 117.7M people by 2025 if the 1.547% pace holds. That’s the kind of projection policymakers track.",
                         miniCheck = MiniCheck("What model do we use for steady percentage growth?", "Exponential growth")
                     )
+                ),
+                interactiveActivities = sampleInteractivePack(
+                    prefix = "population",
+                    topic = "Population Trend Tracker",
+                    objectives = objectives,
+                    sliderTarget = 72,
+                    pollOptions = listOf("Solid ang trend", "Need pa ng graph", "Practice modeling", "Unsure pa"),
+                    brainstormCategories = listOf("Community data", "Policy moves", "Youth impact")
                 )
             ),
             postTest = Assessment(
@@ -375,6 +431,81 @@ object GeneralMathSampleCatalog {
                 allowLeaderboard = true,
                 revealAnswersAfterSection = true,
                 timePerItemSeconds = 75
+            )
+        )
+    }
+
+    private fun sampleInteractivePack(
+        prefix: String,
+        topic: String,
+        objectives: List<String>,
+        sliderTarget: Int,
+        pollOptions: List<String>,
+        brainstormCategories: List<String>
+    ): List<InteractiveActivity> {
+        val focus = objectives.firstOrNull() ?: topic
+        val secondary = objectives.getOrNull(1) ?: "Apply the concept"
+        val puzzleOrder = if (objectives.isNotEmpty()) objectives else listOf("Recall", "Compute", "Reflect")
+        return listOf(
+            QuizActivity(
+                id = "$prefix-quiz",
+                title = "Quiz blast",
+                prompt = "Which statement aligns with $focus?",
+                options = listOf(focus, secondary, "Maling konsepto", "Kailangan ng review"),
+                correctAnswers = listOf(0)
+            ),
+            TrueFalseInteractive(
+                id = "$prefix-tf",
+                title = "True or False",
+                prompt = "$topic builds on $focus.",
+                correctAnswer = true
+            ),
+            TypeAnswerActivity(
+                id = "$prefix-type",
+                title = "Type answer",
+                prompt = "Type the keyword that unlocks $focus.",
+                correctAnswer = focus.take(20)
+            ),
+            PuzzleActivity(
+                id = "$prefix-puzzle",
+                title = "Arrange the flow",
+                prompt = "Arrange the steps to apply $topic.",
+                blocks = puzzleOrder,
+                correctOrder = puzzleOrder
+            ),
+            SliderActivity(
+                id = "$prefix-slider",
+                title = "Confidence slider",
+                prompt = "Rate readiness for $topic (0-100%).",
+                minValue = 0,
+                maxValue = 100,
+                target = sliderTarget
+            ),
+            PollActivity(
+                id = "$prefix-poll",
+                title = "Pulse check",
+                prompt = "How’s the class vibe on $topic?",
+                options = pollOptions
+            ),
+            WordCloudActivity(
+                id = "$prefix-cloud",
+                title = "Word cloud",
+                prompt = "Drop one word that captures $topic.",
+                maxWords = 1,
+                maxCharacters = 14
+            ),
+            OpenEndedActivity(
+                id = "$prefix-open",
+                title = "Reflection",
+                prompt = "What still feels hazy about $topic?",
+                maxCharacters = 240
+            ),
+            BrainstormActivity(
+                id = "$prefix-brain",
+                title = "Brainstorm",
+                prompt = "Collect applications of $topic.",
+                categories = brainstormCategories,
+                voteLimit = 2
             )
         )
     }

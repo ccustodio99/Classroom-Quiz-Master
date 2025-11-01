@@ -56,6 +56,39 @@ fun ModuleBuilderScreen(
         ) {
             item {
                 SectionCard(
+                    title = "Classroom setup",
+                    subtitle = "Frame the space before crafting the flow",
+                    caption = "Subject + classroom notes power reporting labels and live session codes.",
+                    trailingContent = {
+                        InfoPill(text = if (state.subject.isBlank()) "No subject" else state.subject)
+                    }
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        OutlinedTextField(
+                            value = state.classroomName,
+                            onValueChange = viewModel::onClassroomNameChanged,
+                            label = { Text("Classroom / Section") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = state.subject,
+                            onValueChange = viewModel::onSubjectChanged,
+                            label = { Text("Subject / Strand") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = state.classroomDescription,
+                            onValueChange = viewModel::onClassroomDescriptionChanged,
+                            label = { Text("Notes (room vibe, reminders, etc.)") },
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .heightIn(min = 80.dp)
+                        )
+                    }
+                }
+            }
+            item {
+                SectionCard(
                     title = "Module identity",
                     subtitle = "Start with the essentials so reports stay meaningful",
                     trailingContent = {
@@ -101,34 +134,41 @@ fun ModuleBuilderScreen(
             }
             item {
                 SectionCard(
-                    title = "Question formats",
-                    subtitle = "Blend quick checks with opinion pulses",
-                    caption = "Rotate formats to keep energy high while staying aligned to objectives."
+                    title = "Interactive lesson pack",
+                    subtitle = "Auto-generated blend of knowledge checks and opinion pulses",
+                    caption = "Edit your objectives, slides, or pacing to instantly refresh the activities.",
+                    trailingContent = {
+                        InfoPill(text = "${state.interactivePreview.size} activities")
+                    }
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        Text(
-                            text = "To test knowledge",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
-                        )
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            BulletPoint("Quiz — classic multiple choice with one or more correct answers.")
-                            BulletPoint("True/False — fast binary checks to warm up the class.")
-                            BulletPoint("Type Answer — short-form responses (≤20 characters) for precise recall.")
-                            BulletPoint("Puzzle — drag blocks into the right order to sequence steps or sort ideas.")
-                            BulletPoint("Slider — ask for a number on a scale, perfect for timelines or estimates.")
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        if (state.interactivePreview.isEmpty()) {
+                            Text(
+                                text = "Magdagdag ng objectives at slides para makita ang interactive flow.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        } else {
+                            state.interactivePreview.forEach { summary ->
+                                Surface(
+                                    shape = MaterialTheme.shapes.medium,
+                                    color = MaterialTheme.colorScheme.surfaceVariant,
+                                    tonalElevation = 0.dp
+                                ) {
+                                    Text(
+                                        text = summary,
+                                        modifier = Modifier.padding(16.dp),
+                                        style = MaterialTheme.typography.bodyMedium,
+                                        color = MaterialTheme.colorScheme.onSurface
+                                    )
+                                }
+                            }
                         }
                         Text(
-                            text = "To gather opinions (no points)",
-                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
-                            color = MaterialTheme.colorScheme.onSurface
+                            text = "Included: Quiz, True/False, Type Answer, Puzzle, Slider, Poll, Word Cloud, Open-Ended, Brainstorm.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            BulletPoint("Poll — capture sentiment with quick multiple choice taps.")
-                            BulletPoint("Word Cloud — surface keywords that resonate with the class.")
-                            BulletPoint("Open-Ended — let students share longer thoughts or reflections.")
-                            BulletPoint("Brainstorm — co-create ideas and let the group upvote favourites.")
-                        }
                     }
                 }
             }
@@ -240,21 +280,3 @@ fun ModuleBuilderScreen(
     }
 }
 
-@Composable
-private fun BulletPoint(text: String) {
-    Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp),
-        verticalAlignment = Alignment.Top
-    ) {
-        Text(
-            text = "•",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.primary
-        )
-        Text(
-            text = text,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
-}
