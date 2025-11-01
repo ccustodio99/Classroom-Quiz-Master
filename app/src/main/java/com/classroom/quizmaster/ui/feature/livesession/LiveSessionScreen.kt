@@ -13,9 +13,9 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
@@ -24,8 +24,7 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TextFieldDefaults
-import androidx.compose.material3.menuAnchor
+import androidx.compose.material3.OutlinedTextFieldDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -122,8 +121,11 @@ private fun SessionCodeSection(
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
             } else {
+                val formattedCode = remember(sessionCode) {
+                    sessionCode.chunked(3).joinToString(" ")
+                }
                 Text(
-                    text = sessionCode,
+                    text = formattedCode,
                     style = MaterialTheme.typography.displaySmall.copy(fontWeight = FontWeight.Bold),
                     color = MaterialTheme.colorScheme.onSurface
                 )
@@ -191,10 +193,10 @@ private fun ActiveQuestionSection(
                         readOnly = true,
                         label = { Text("Pinned prompt") },
                         trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-                        colors = TextFieldDefaults.outlinedTextFieldColors(),
-                        modifier = Modifier.menuAnchor()
+                        colors = OutlinedTextFieldDefaults.colors(),
+                        modifier = Modifier.fillMaxWidth()
                     )
-                    ExposedDropdownMenu(
+                    DropdownMenu(
                         expanded = expanded,
                         onDismissRequest = { expanded = false }
                     ) {

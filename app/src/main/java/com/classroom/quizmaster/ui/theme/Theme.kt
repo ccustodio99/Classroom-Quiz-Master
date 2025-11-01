@@ -8,35 +8,35 @@ import androidx.compose.runtime.Composable
 import androidx.compose.ui.graphics.Color
 
 private val LightColors = lightColorScheme(
-    primary = PrimaryIndigo,
+    primary = PrimaryCrimson,
     onPrimary = Color.White,
-    secondary = SecondaryMagenta,
+    secondary = SecondaryMaroon,
     onSecondary = Color.White,
-    tertiary = TertiaryCyan,
-    onTertiary = Color.Black,
-    background = MistBackground,
-    onBackground = InkDark,
-    surface = Color.White,
-    onSurface = InkDark,
-    surfaceVariant = Color.White.copy(alpha = 0.92f),
-    onSurfaceVariant = InkDark.copy(alpha = 0.72f),
-    outline = PrimaryIndigo.copy(alpha = 0.4f)
+    tertiary = AccentAmber,
+    onTertiary = Color.White,
+    background = BlushBackground,
+    onBackground = Onyx,
+    surface = BlushSurface,
+    onSurface = Onyx,
+    surfaceVariant = SurfaceVariantClay,
+    onSurfaceVariant = OnSurfaceVariantClay,
+    outline = OutlineClay
 )
 
 private val DarkColors = darkColorScheme(
-    primary = PrimaryIndigo,
-    onPrimary = Color.White,
-    secondary = SecondaryMagenta,
-    onSecondary = Color.Black,
-    tertiary = TertiaryCyan,
-    onTertiary = Color.Black,
-    background = InkDark,
-    onBackground = Color.White,
-    surface = MidnightSurface,
-    onSurface = Color.White,
-    surfaceVariant = MidnightSurface.copy(alpha = 0.9f),
-    onSurfaceVariant = Color.White.copy(alpha = 0.7f),
-    outline = TertiaryCyan.copy(alpha = 0.4f)
+    primary = PrimaryCrimsonDark,
+    onPrimary = OnPrimaryCrimsonDark,
+    secondary = SecondaryMaroonDark,
+    onSecondary = OnSecondaryMaroonDark,
+    tertiary = AccentAmberDark,
+    onTertiary = OnAccentAmberDark,
+    background = NightBackground,
+    onBackground = NightOnyx,
+    surface = NightSurface,
+    onSurface = NightOnyx,
+    surfaceVariant = NightSurfaceVariant,
+    onSurfaceVariant = NightOnSurfaceVariant,
+    outline = NightOutline
 )
 
 @Composable

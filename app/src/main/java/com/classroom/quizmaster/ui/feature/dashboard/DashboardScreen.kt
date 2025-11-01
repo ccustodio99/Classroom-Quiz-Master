@@ -1,10 +1,8 @@
 package com.classroom.quizmaster.ui.feature.dashboard
 
 import androidx.compose.foundation.BorderStroke
-import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -30,7 +28,7 @@ import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
@@ -44,9 +42,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.draw.clip
-import androidx.compose.ui.graphics.Brush
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
@@ -141,51 +136,41 @@ private fun DashboardHeader(
     onJoinSession: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val gradient = remember(
-        colorScheme.primary,
-        colorScheme.secondary,
-        colorScheme.tertiary
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = RoundedCornerShape(32.dp),
+        color = colorScheme.primary,
+        contentColor = colorScheme.onPrimary,
+        tonalElevation = 0.dp
     ) {
-        Brush.linearGradient(
-            listOf(
-                colorScheme.primary,
-                colorScheme.secondary,
-                colorScheme.tertiary
-            )
-        )
-    }
-
-    Box(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clip(RoundedCornerShape(32.dp))
-            .background(gradient)
-            .padding(24.dp)
-    ) {
-        Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Column(
+            modifier = Modifier.padding(24.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
+        ) {
             HeaderPills(moduleCount = moduleCount, objectiveCount = objectiveCount)
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text(
                     text = "Kamusta, Guro!",
                     style = MaterialTheme.typography.labelMedium,
-                    color = Color.White.copy(alpha = 0.8f)
+                    color = colorScheme.onPrimary.copy(alpha = 0.8f)
                 )
                 Text(
                     text = "Craft immersive quiz flows for your class",
                     style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                    color = Color.White
+                    color = colorScheme.onPrimary
                 )
                 Text(
                     text = "Modern visuals, quick pacing, mastery-focused diagnostics.",
                     style = MaterialTheme.typography.bodyMedium,
-                    color = Color.White.copy(alpha = 0.9f)
+                    color = colorScheme.onPrimary.copy(alpha = 0.9f)
                 )
             }
             if (!trendingTopics.isNullOrBlank()) {
                 Surface(
-                    color = Color.White.copy(alpha = 0.18f),
+                    color = colorScheme.onPrimary.copy(alpha = 0.12f),
                     tonalElevation = 0.dp,
-                    shape = RoundedCornerShape(18.dp)
+                    shape = RoundedCornerShape(18.dp),
+                    contentColor = colorScheme.onPrimary
                 ) {
                     Row(
                         modifier = Modifier.padding(horizontal = 16.dp, vertical = 10.dp),
@@ -195,12 +180,12 @@ private fun DashboardHeader(
                         Icon(
                             imageVector = Icons.Rounded.Star,
                             contentDescription = null,
-                            tint = Color.White.copy(alpha = 0.9f)
+                            tint = colorScheme.onPrimary.copy(alpha = 0.9f)
                         )
                         Text(
                             text = "Hot topics: $trendingTopics",
                             style = MaterialTheme.typography.labelMedium,
-                            color = Color.White
+                            color = colorScheme.onPrimary
                         )
                     }
                 }
@@ -209,8 +194,8 @@ private fun DashboardHeader(
                 Button(
                     onClick = onCreateModule,
                     colors = ButtonDefaults.buttonColors(
-                        containerColor = Color.White,
-                        contentColor = MaterialTheme.colorScheme.primary
+                        containerColor = colorScheme.onPrimary,
+                        contentColor = colorScheme.primary
                     )
                 ) {
                     Icon(imageVector = Icons.Rounded.Add, contentDescription = null)
@@ -219,10 +204,10 @@ private fun DashboardHeader(
                 }
                 OutlinedButton(
                     onClick = onQuickModule,
-                    colors = ButtonDefaults.outlinedButtonColors(contentColor = Color.White),
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colorScheme.onPrimary),
                     border = BorderStroke(
                         width = 1.2.dp,
-                        color = Color.White.copy(alpha = 0.5f)
+                        color = colorScheme.onPrimary.copy(alpha = 0.5f)
                     )
                 ) {
                     Icon(imageVector = Icons.Rounded.Bolt, contentDescription = null)
@@ -232,8 +217,8 @@ private fun DashboardHeader(
                 FilledTonalButton(
                     onClick = onJoinSession,
                     colors = ButtonDefaults.filledTonalButtonColors(
-                        containerColor = Color.White.copy(alpha = 0.18f),
-                        contentColor = Color.White
+                        containerColor = colorScheme.onPrimary.copy(alpha = 0.12f),
+                        contentColor = colorScheme.onPrimary
                     )
                 ) {
                     Icon(imageVector = Icons.Rounded.People, contentDescription = null)
@@ -256,7 +241,7 @@ private fun HeaderPills(moduleCount: Int, objectiveCount: Int) {
 @Composable
 private fun HeaderPill(text: String) {
     Surface(
-        color = Color.White.copy(alpha = 0.15f),
+        color = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.12f),
         shape = RoundedCornerShape(50),
         tonalElevation = 0.dp
     ) {
@@ -264,7 +249,7 @@ private fun HeaderPill(text: String) {
             text = text,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelSmall,
-            color = Color.White
+            color = MaterialTheme.colorScheme.onPrimary
         )
     }
 }
@@ -307,7 +292,7 @@ private fun HighlightCard(
         modifier = modifier,
         shape = RoundedCornerShape(24.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -353,7 +338,7 @@ private fun ModuleCard(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 3.dp)
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(20.dp),
@@ -385,7 +370,7 @@ private fun ModuleCard(
                     }
                 }
             }
-            Divider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
             ModuleMetaRow(module = module)
             FilledTonalButton(
                 onClick = onOpen,
@@ -400,7 +385,8 @@ private fun ModuleCard(
 @Composable
 private fun ObjectivePill(objective: String) {
     Surface(
-        color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.14f),
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant,
         shape = RoundedCornerShape(50),
         tonalElevation = 0.dp
     ) {
@@ -408,7 +394,7 @@ private fun ObjectivePill(objective: String) {
             text = objective,
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 6.dp),
             style = MaterialTheme.typography.labelSmall.copy(fontWeight = FontWeight.Medium),
-            color = MaterialTheme.colorScheme.onSurface
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

@@ -107,8 +107,16 @@ private fun ModuleSnapshot(module: Module) {
                 verticalSpacing = 8.dp
             ) {
                 InfoPill(text = "$preCount pre-test")
-                InfoPill(text = "$postCount post-test", backgroundColor = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.secondary)
-                InfoPill(text = "$slideCount slides", backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.tertiary)
+                InfoPill(
+                    text = "$postCount post-test",
+                    backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f),
+                    contentColor = MaterialTheme.colorScheme.tertiary
+                )
+                InfoPill(
+                    text = "$slideCount slides",
+                    backgroundColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.16f),
+                    contentColor = MaterialTheme.colorScheme.onSurface
+                )
                 InfoPill(text = "${module.settings.timePerItemSeconds}s cadence")
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {

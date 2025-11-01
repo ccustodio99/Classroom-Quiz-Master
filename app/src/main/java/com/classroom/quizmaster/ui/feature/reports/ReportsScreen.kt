@@ -247,7 +247,10 @@ private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
             Button(
                 onClick = onExportPdf,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.primary,
+                    contentColor = MaterialTheme.colorScheme.onPrimary
+                )
             ) {
                 Icon(imageVector = Icons.Rounded.PictureAsPdf, contentDescription = null)
                 Text("Export class PDF", modifier = Modifier.padding(start = 8.dp))
@@ -255,7 +258,10 @@ private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
             Button(
                 onClick = onExportCsv,
                 modifier = Modifier.fillMaxWidth(),
-                colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                colors = ButtonDefaults.buttonColors(
+                    containerColor = MaterialTheme.colorScheme.tertiary,
+                    contentColor = MaterialTheme.colorScheme.onTertiary
+                )
             ) {
                 Icon(imageVector = Icons.Rounded.TableChart, contentDescription = null)
                 Text("Export CSV", modifier = Modifier.padding(start = 8.dp))

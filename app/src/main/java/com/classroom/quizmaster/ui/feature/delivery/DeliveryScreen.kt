@@ -14,7 +14,7 @@ import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.rounded.CheckCircle
-import androidx.compose.material.icons.rounded.Send
+import androidx.compose.material.icons.automirrored.rounded.Send
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -178,7 +178,7 @@ private fun CaptureStudentStage(
                 modifier = Modifier.fillMaxWidth(),
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
-                Icon(imageVector = Icons.Rounded.Send, contentDescription = null)
+                Icon(imageVector = Icons.AutoMirrored.Rounded.Send, contentDescription = null)
                 Text("Simulan ang Pagsusulit Bago ang Aralin", modifier = Modifier.padding(start = 8.dp))
             }
         }
@@ -302,7 +302,10 @@ private fun AssessmentStageView(
                     Button(
                         onClick = onSubmit,
                         modifier = Modifier.weight(1f),
-                        colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.secondary)
+                        colors = ButtonDefaults.buttonColors(
+                            containerColor = MaterialTheme.colorScheme.primary,
+                            contentColor = MaterialTheme.colorScheme.onPrimary
+                        )
                     ) {
                         Icon(imageVector = Icons.Rounded.CheckCircle, contentDescription = null)
                         Text("Isumite", modifier = Modifier.padding(start = 8.dp))

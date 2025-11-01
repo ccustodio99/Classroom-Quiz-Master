@@ -3,10 +3,10 @@ package com.classroom.quizmaster.ui.feature.join
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -31,6 +31,7 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.TopBarAction
@@ -126,7 +127,8 @@ private fun JoinFormSection(
                 onValueChange = onSessionCodeChanged,
                 label = { Text("Class code") },
                 singleLine = true,
-                modifier = Modifier.fillMaxWidth()
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
             )
             OutlinedTextField(
                 value = state.manualHost,
@@ -270,7 +272,7 @@ private fun AnswerPadSection(
 }
 
 @Composable
-private fun AnswerButton(label: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
+private fun RowScope.AnswerButton(label: String, color: Color, enabled: Boolean, onClick: () -> Unit) {
     Button(
         onClick = onClick,
         colors = ButtonDefaults.buttonColors(containerColor = color, contentColor = Color.White),

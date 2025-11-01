@@ -7,6 +7,7 @@ import com.classroom.quizmaster.lan.LanJoinAck
 import com.classroom.quizmaster.lan.LiveSessionLanFactory
 import com.classroom.quizmaster.lan.LiveSessionLanHost
 import java.util.UUID
+import java.util.concurrent.ThreadLocalRandom
 import java.util.concurrent.locks.ReentrantLock
 import kotlin.concurrent.withLock
 import kotlinx.coroutines.flow.Flow
@@ -96,10 +97,9 @@ class LiveSessionAgentImpl(
         true
     }
 
-    private fun generateCode(): String = UUID.randomUUID().toString()
-        .replace("-", "")
-        .take(6)
-        .uppercase()
+    private fun generateCode(): String = ThreadLocalRandom.current()
+        .nextInt(100_000, 1_000_000)
+        .toString()
 
     private data class LiveState(
         val moduleId: String,

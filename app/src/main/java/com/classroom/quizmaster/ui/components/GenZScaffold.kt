@@ -1,8 +1,6 @@
 package com.classroom.quizmaster.ui.components
 
-import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.ColumnScope
 import androidx.compose.foundation.layout.PaddingValues
@@ -20,22 +18,20 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.rounded.ArrowBack
+import androidx.compose.material.icons.automirrored.rounded.ArrowBack
 
 /**
- * Shared Gen Z inspired screen chrome to keep every screen consistent with the
- * playful + high-contrast identity. It wraps a [Scaffold] and renders a gradient
- * top bar that honours the 7 core UX principles used across the app.
+ * Shared screen chrome that keeps the minimalist crimson identity consistent across
+ * the app. It wraps a [Scaffold] and renders a solid-toned top bar with gentle
+ * curvature to ground each screen.
  */
 @Composable
 fun GenZScaffold(
@@ -48,16 +44,6 @@ fun GenZScaffold(
     content: @Composable (PaddingValues) -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
-    val gradient = remember(colorScheme) {
-        Brush.linearGradient(
-            listOf(
-                colorScheme.primary,
-                colorScheme.secondary,
-                colorScheme.tertiary
-            )
-        )
-    }
-
     Scaffold(
         modifier = modifier,
         containerColor = colorScheme.background,
@@ -65,13 +51,13 @@ fun GenZScaffold(
             floatingActionButton?.invoke()
         },
         topBar = {
-            Box(
+            Surface(
                 modifier = Modifier
-                    .fillMaxWidth()
-                    .background(
-                        brush = gradient,
-                        shape = RoundedCornerShape(bottomStart = 32.dp, bottomEnd = 32.dp)
-                    )
+                    .fillMaxWidth(),
+                color = colorScheme.primary,
+                contentColor = colorScheme.onPrimary,
+                tonalElevation = 0.dp,
+                shape = RoundedCornerShape(bottomStart = 28.dp, bottomEnd = 28.dp)
             ) {
                 Column(
                     modifier = Modifier
@@ -88,12 +74,12 @@ fun GenZScaffold(
                             Surface(
                                 onClick = onBack,
                                 shape = CircleShape,
-                                color = Color.White.copy(alpha = 0.18f)
+                                color = colorScheme.onPrimary.copy(alpha = 0.12f)
                             ) {
                                 Icon(
                                     imageVector = TopBarIcons.Back,
                                     contentDescription = "Go back",
-                                    tint = Color.White,
+                                    tint = colorScheme.onPrimary,
                                     modifier = Modifier.padding(10.dp)
                                 )
                             }
@@ -104,7 +90,7 @@ fun GenZScaffold(
                             Text(
                                 text = title,
                                 style = MaterialTheme.typography.titleLarge.copy(
-                                    color = Color.White,
+                                    color = colorScheme.onPrimary,
                                     fontWeight = FontWeight.SemiBold
                                 ),
                                 maxLines = 2,
@@ -113,7 +99,7 @@ fun GenZScaffold(
                             if (!subtitle.isNullOrBlank()) {
                                 Text(
                                     text = subtitle,
-                                    style = MaterialTheme.typography.labelMedium.copy(color = Color.White.copy(alpha = 0.82f)),
+                                    style = MaterialTheme.typography.labelMedium.copy(color = colorScheme.onPrimary.copy(alpha = 0.72f)),
                                     maxLines = 2,
                                     overflow = TextOverflow.Ellipsis
                                 )
@@ -123,12 +109,12 @@ fun GenZScaffold(
                             Surface(
                                 onClick = action.onClick,
                                 shape = CircleShape,
-                                color = Color.White.copy(alpha = 0.18f)
+                                color = colorScheme.onPrimary.copy(alpha = 0.12f)
                             ) {
                                 Icon(
                                     imageVector = action.icon,
                                     contentDescription = action.contentDescription,
-                                    tint = Color.White,
+                                    tint = colorScheme.onPrimary,
                                     modifier = Modifier.padding(10.dp)
                                 )
                             }
@@ -154,7 +140,7 @@ data class TopBarAction(
  */
 object TopBarIcons {
     val Back: ImageVector
-        @Composable get() = Icons.Rounded.ArrowBack
+        @Composable get() = Icons.AutoMirrored.Rounded.ArrowBack
 }
 
 /**
@@ -173,8 +159,8 @@ fun SectionCard(
     Card(
         modifier = modifier,
         colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        shape = RoundedCornerShape(26.dp),
-        elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
+        shape = RoundedCornerShape(20.dp),
+        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
             modifier = Modifier.padding(horizontal = 20.dp, vertical = 18.dp),
@@ -221,8 +207,8 @@ fun SectionCard(
 fun InfoPill(
     text: String,
     modifier: Modifier = Modifier,
-    backgroundColor: Color = MaterialTheme.colorScheme.secondary.copy(alpha = 0.18f),
-    contentColor: Color = MaterialTheme.colorScheme.secondary
+    backgroundColor: Color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f),
+    contentColor: Color = MaterialTheme.colorScheme.primary
 ) {
     Surface(
         modifier = modifier,

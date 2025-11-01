@@ -28,7 +28,8 @@ class JoinSessionViewModel : ViewModel() {
     }
 
     fun onSessionCodeChanged(value: String) {
-        _uiState.update { it.copy(sessionCode = value.uppercase()) }
+        val sanitized = value.filter { it.isDigit() }
+        _uiState.update { it.copy(sessionCode = sanitized) }
     }
 
     fun onHostAddressChanged(value: String) {
