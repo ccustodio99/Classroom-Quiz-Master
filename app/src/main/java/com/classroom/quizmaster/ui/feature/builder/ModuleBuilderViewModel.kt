@@ -4,6 +4,9 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.AppContainer
 import com.classroom.quizmaster.domain.model.Assessment
+import com.classroom.quizmaster.domain.model.BrainstormActivity
+import com.classroom.quizmaster.domain.model.ClassroomProfile
+import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Lesson
 import com.classroom.quizmaster.domain.model.LessonSlide
@@ -13,7 +16,15 @@ import com.classroom.quizmaster.domain.model.ModuleSettings
 import com.classroom.quizmaster.domain.model.MatchingItem
 import com.classroom.quizmaster.domain.model.MultipleChoiceItem
 import com.classroom.quizmaster.domain.model.NumericItem
+import com.classroom.quizmaster.domain.model.OpenEndedActivity
+import com.classroom.quizmaster.domain.model.PollActivity
+import com.classroom.quizmaster.domain.model.PuzzleActivity
+import com.classroom.quizmaster.domain.model.QuizActivity
+import com.classroom.quizmaster.domain.model.SliderActivity
+import com.classroom.quizmaster.domain.model.TrueFalseActivity as TrueFalseInteractive
 import com.classroom.quizmaster.domain.model.TrueFalseItem
+import com.classroom.quizmaster.domain.model.TypeAnswerActivity
+import com.classroom.quizmaster.domain.model.WordCloudActivity
 import java.text.DecimalFormat
 import java.text.NumberFormat
 import java.util.ArrayDeque
@@ -29,61 +40,95 @@ import kotlin.math.roundToInt
 import kotlin.random.Random
 
 class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() {
-    private val _uiState = MutableStateFlow(ModuleBuilderUiState())
+    private val _uiState = MutableStateFlow(ModuleBuilderUiState().withPreview())
     val uiState: StateFlow<ModuleBuilderUiState> = _uiState
 
-    fun onTopicChanged(value: String) {
-        _uiState.value = _uiState.value.copy(topic = value, errors = emptyList(), message = null)
-    }
+    fun onClassroomNameChanged(value: String) = updateState { it.copy(classroomName = value) }
 
-    fun onObjectivesChanged(value: String) {
-        _uiState.value = _uiState.value.copy(objectives = value, errors = emptyList(), message = null)
-    }
+    fun onSubjectChanged(value: String) = updateState { it.copy(subject = value) }
 
-    fun onSlidesChanged(value: String) {
-        _uiState.value = _uiState.value.copy(slides = value, errors = emptyList(), message = null)
-    }
+    fun onClassroomDescriptionChanged(value: String) = updateState { it.copy(classroomDescription = value) }
 
-    fun onTimePerItemChanged(value: String) {
-        _uiState.value = _uiState.value.copy(timePerItem = value, errors = emptyList(), message = null)
+    fun onTopicChanged(value: String) = updateState { it.copy(topic = value) }
+
+    fun onObjectivesChanged(value: String) = updateState { it.copy(objectives = value) }
+
+    fun onSlidesChanged(value: String) = updateState { it.copy(slides = value) }
+
+    fun onTimePerItemChanged(value: String) = updateState { it.copy(timePerItem = value) }
+
+    private fun updateState(transform: (ModuleBuilderUiState) -> ModuleBuilderUiState) {
+        val updated = transform(_uiState.value).copy(errors = emptyList(), message = null)
+        _uiState.value = updated.withPreview()
     }
 
     fun save(onSuccess: () -> Unit) {
         viewModelScope.launch {
             val state = _uiState.value
-            val objectives = state.objectives.split(',').mapNotNull { it.trim().takeIf { s -> s.isNotEmpty() } }
+            val objectives = parseObjectives(state.objectives)
             if (objectives.isEmpty()) {
-                _uiState.value = state.copy(errors = listOf("Magdagdag ng hindi bababa sa isang learning objective."))
+                _uiState.value = state.copy(
+                    errors = listOf("Magdagdag ng hindi bababa sa isang learning objective."),
+                    message = null
+                ).withPreview()
                 return@launch
             }
-            val slides = state.slides.split('\n').mapNotNull { line ->
-                val trimmed = line.trim()
-                if (trimmed.isEmpty()) null else trimmed
-            }
+            val slides = parseSlides(state.slides)
             if (slides.isEmpty()) {
-                _uiState.value = state.copy(errors = listOf("Magdagdag ng kahit isang lesson slide."))
+                _uiState.value = state.copy(
+                    errors = listOf("Magdagdag ng kahit isang lesson slide."),
+                    message = null
+                ).withPreview()
                 return@launch
             }
-            val items = container.itemBankAgent.query(objectives, limit = objectives.size * 6)
+            val timePerItemSeconds = state.timePerItem.toIntOrNull() ?: 60
+            val items = container.itemBankAgent.query(objectives, limit = max(objectives.size * 6, 12))
             if (items.isEmpty()) {
-                _uiState.value = state.copy(errors = listOf("Walang nakitang item para sa mga layunin."))
+                _uiState.value = state.copy(
+                    errors = listOf("Walang nakitang item para sa mga layunin."),
+                    message = null
+                ).withPreview()
                 return@launch
             }
             val (generatedPre, generatedPost) = buildParallelForms(items)
             if (generatedPre.isEmpty() || generatedPost.isEmpty()) {
-                _uiState.value = state.copy(errors = listOf("Hindi makabuo ng parallel na pagsusulit para sa post-test."))
+                _uiState.value = state.copy(
+                    errors = listOf("Hindi makabuo ng parallel na pagsusulit para sa post-test."),
+                    message = null
+                ).withPreview()
                 return@launch
             }
             val formSize = min(generatedPre.size, generatedPost.size, objectives.size * 4)
             if (formSize == 0) {
-                _uiState.value = state.copy(errors = listOf("Hindi sapat ang mga item para sa pre at post test."))
+                _uiState.value = state.copy(
+                    errors = listOf("Hindi sapat ang mga item para sa pre at post test."),
+                    message = null
+                ).withPreview()
                 return@launch
             }
             val preItems = generatedPre.take(formSize)
             val postItems = generatedPost.take(formSize)
+            val topic = state.topic.ifBlank { "G11 Math Module" }
+            val classroomName = state.classroomName.ifBlank { "${state.subject.ifBlank { "General Mathematics" }} Circle" }
+            val subject = state.subject.ifBlank { "G11 General Mathematics" }
+            val classroom = ClassroomProfile(
+                id = UUID.randomUUID().toString(),
+                name = classroomName,
+                subject = subject,
+                description = state.classroomDescription.ifBlank { "Learning circle for $subject" }
+            )
+            val interactiveActivities = generateInteractiveActivities(
+                topic = topic,
+                objectives = objectives,
+                slides = slides,
+                timePerItemSeconds = timePerItemSeconds,
+                classroomName = classroomName
+            )
             val module = Module(
                 id = UUID.randomUUID().toString(),
-                topic = state.topic.ifBlank { "G11 Math Module" },
+                classroom = classroom,
+                subject = subject,
+                topic = topic,
                 objectives = objectives,
                 preTest = Assessment(id = UUID.randomUUID().toString(), items = preItems),
                 lesson = Lesson(
@@ -95,33 +140,194 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
                             content = text,
                             miniCheck = MiniCheck(prompt = "Ano ang takeaway?", correctAnswer = text.take(15))
                         )
-                    }
+                    },
+                    interactiveActivities = interactiveActivities
                 ),
                 postTest = Assessment(id = UUID.randomUUID().toString(), items = postItems),
-                settings = ModuleSettings(timePerItemSeconds = state.timePerItem.toIntOrNull() ?: 60)
+                settings = ModuleSettings(timePerItemSeconds = timePerItemSeconds)
             )
             val violations = container.moduleBuilderAgent.validate(module)
             if (violations.isNotEmpty()) {
-                _uiState.value = state.copy(errors = violations.map { it.message })
+                _uiState.value = state.copy(
+                    errors = violations.map { it.message },
+                    message = null
+                ).withPreview()
                 return@launch
             }
             container.moduleBuilderAgent.createOrUpdate(module)
                 .onSuccess {
-                    _uiState.value = ModuleBuilderUiState(message = "Module saved!")
+                    _uiState.value = ModuleBuilderUiState(message = "Module saved!").withPreview()
                     onSuccess()
                 }
                 .onFailure { error ->
-                    _uiState.value = state.copy(errors = listOf(error.message ?: "Unknown error"))
+                    _uiState.value = state.copy(
+                        errors = listOf(error.message ?: "Unknown error"),
+                        message = null
+                    ).withPreview()
                 }
         }
+    }
+
+    private fun parseObjectives(raw: String): List<String> {
+        return raw.split(',').mapNotNull { it.trim().takeIf(String::isNotEmpty) }
+    }
+
+    private fun parseSlides(raw: String): List<String> {
+        return raw.lineSequence()
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .toList()
+    }
+
+    private fun ModuleBuilderUiState.withPreview(): ModuleBuilderUiState {
+        val objectives = parseObjectives(objectives)
+        val slides = parseSlides(slides)
+        val activities = generateInteractiveActivities(
+            topic = topic.ifBlank { "G11 Math Module" },
+            objectives = objectives,
+            slides = slides,
+            timePerItemSeconds = timePerItem.toIntOrNull() ?: 60,
+            classroomName = classroomName.ifBlank { "${subject.ifBlank { "General Mathematics" }} Circle" }
+        )
+        return copy(interactivePreview = activities.map { it.previewLine() })
+    }
+
+    private fun generateInteractiveActivities(
+        topic: String,
+        objectives: List<String>,
+        slides: List<String>,
+        timePerItemSeconds: Int,
+        classroomName: String
+    ): List<InteractiveActivity> {
+        val sanitizedTopic = topic.ifBlank { "New lesson" }
+        val highlightSnippets = slides.flatMap { content ->
+            content.split('.', '•', '-', '\n')
+                .map { it.trim() }
+                .filter { it.length > 3 }
+        }.distinct()
+        val focusObjective = objectives.firstOrNull()?.trim().takeUnless { it.isNullOrBlank() }
+            ?: sanitizedTopic
+        val quizOptions = buildList {
+            add(focusObjective)
+            addAll(highlightSnippets)
+            addAll(objectives.drop(1))
+        }.filter { it.isNotBlank() }
+            .distinct()
+            .take(4)
+            .let { options ->
+                if (options.size < 4) {
+                    options + List(4 - options.size) { index -> "Opsyon ${index + 1}" }
+                } else {
+                    options
+                }
+            }
+        val quiz = QuizActivity(
+            id = "quiz-${UUID.randomUUID()}",
+            title = "Quiz blast",
+            prompt = "Alin ang tumutugma sa layuning $focusObjective?",
+            options = quizOptions,
+            correctAnswers = listOf(0),
+            allowMultiple = false
+        )
+        val trueFalse = TrueFalseInteractive(
+            id = "tf-${UUID.randomUUID()}",
+            title = "True or False",
+            prompt = "$sanitizedTopic ay konektado sa $focusObjective.",
+            correctAnswer = true
+        )
+        val typeAnswer = TypeAnswerActivity(
+            id = "type-${UUID.randomUUID()}",
+            title = "Type answer",
+            prompt = "I-type ang keyword na nagpapatunay sa $focusObjective.",
+            correctAnswer = focusObjective.take(20)
+        )
+        val puzzleBlocks = if (objectives.isNotEmpty()) objectives else highlightSnippets.take(4)
+        val normalizedBlocks = if (puzzleBlocks.isEmpty()) {
+            listOf("Define", "Solve", "Reflect")
+        } else {
+            puzzleBlocks
+        }
+        val puzzle = PuzzleActivity(
+            id = "puzzle-${UUID.randomUUID()}",
+            title = "Arrange the flow",
+            prompt = "Ayusin ang proseso para sa $sanitizedTopic.",
+            blocks = normalizedBlocks,
+            correctOrder = normalizedBlocks
+        )
+        val slider = SliderActivity(
+            id = "slider-${UUID.randomUUID()}",
+            title = "Confidence slider",
+            prompt = "Gaano ka kahanda na ituro ang $sanitizedTopic?",
+            minValue = 0,
+            maxValue = 100,
+            target = timePerItemSeconds.coerceIn(10, 180)
+        )
+        val poll = PollActivity(
+            id = "poll-${UUID.randomUUID()}",
+            title = "Pulse check",
+            prompt = "Anong mood ng $classroomName matapos ang aralin?",
+            options = listOf("Game na!", "Medyo kulang", "Kailangan ng demo", "Maganda ang pacing")
+        )
+        val wordCloud = WordCloudActivity(
+            id = "cloud-${UUID.randomUUID()}",
+            title = "Word cloud",
+            prompt = "I-describe ang $sanitizedTopic sa iisang salita.",
+            maxWords = 1,
+            maxCharacters = 12
+        )
+        val openEnded = OpenEndedActivity(
+            id = "open-${UUID.randomUUID()}",
+            title = "Reflection",
+            prompt = "Ano ang pinaka-kailangan mong gabay tungkol sa $sanitizedTopic?",
+            maxCharacters = 240
+        )
+        val brainstormCategories = if (objectives.isNotEmpty()) {
+            objectives.take(3)
+        } else {
+            listOf("Ideas", "Questions", "Examples")
+        }
+        val brainstorm = BrainstormActivity(
+            id = "brain-${UUID.randomUUID()}",
+            title = "Brainstorm",
+            prompt = "Mag-ambag ng ideya kung paano i-aapply ang $sanitizedTopic.",
+            categories = brainstormCategories,
+            voteLimit = 2
+        )
+        return listOf(
+            quiz,
+            trueFalse,
+            typeAnswer,
+            puzzle,
+            slider,
+            poll,
+            wordCloud,
+            openEnded,
+            brainstorm
+        )
+    }
+
+    private fun InteractiveActivity.previewLine(): String = when (this) {
+        is QuizActivity -> "Quiz • ${options.size} opsyon — tamang sagot #${correctAnswers.joinToString { (it + 1).toString() }}"
+        is TrueFalseInteractive -> "True/False • ${if (correctAnswer) "Tama" else "Mali"} ang tamang sagot"
+        is TypeAnswerActivity -> "Type Answer • key: ${correctAnswer.take(20)}"
+        is PuzzleActivity -> "Puzzle • ${correctOrder.joinToString(" → ")}".take(80)
+        is SliderActivity -> "Slider • ${minValue}-${maxValue}, target ${target}"
+        is PollActivity -> "Poll • ${options.joinToString(limit = 4)}"
+        is WordCloudActivity -> "Word Cloud • hanggang ${maxWords} salita"
+        is OpenEndedActivity -> "Open-Ended • ${maxCharacters} chars limit"
+        is BrainstormActivity -> "Brainstorm • ${categories.joinToString()}"
     }
 }
 
 data class ModuleBuilderUiState(
+    val classroomName: String = "",
+    val subject: String = "G11 General Mathematics",
+    val classroomDescription: String = "",
     val topic: String = "",
     val objectives: String = "LO1, LO2, LO3",
     val slides: String = "Panimula sa simple interest\nPagkuwenta ng compound interest",
     val timePerItem: String = "60",
+    val interactivePreview: List<String> = emptyList(),
     val errors: List<String> = emptyList(),
     val message: String? = null
 )

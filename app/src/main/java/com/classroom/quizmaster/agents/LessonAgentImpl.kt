@@ -44,23 +44,50 @@ class LessonAgentImpl(
 
     override fun next(sessionId: String): LessonStep = lock.withLock {
         val session = sessions[sessionId] ?: error("Session not found")
-        val slide = session.lesson.slides.getOrNull(session.index)
-        if (slide == null) {
+        val lesson = session.lesson
+        val slideCount = lesson.slides.size
+        val activityCount = lesson.interactiveActivities.size
+        val totalSteps = slideCount + activityCount
+        if (session.index >= totalSteps) {
             sessions.remove(sessionId)
-            LessonStep(
-                slideTitle = "Tapos na",
-                slideContent = "Lahat ng slide ay natapos na.",
+            return@withLock LessonStep(
+                slideTitle = null,
+                slideContent = null,
                 miniCheckPrompt = null,
+                activity = null,
                 finished = true
             )
-        } else {
-            val nextIndex = session.index + 1
-            sessions[sessionId] = session.copy(index = nextIndex)
-            val finished = nextIndex >= session.lesson.slides.size
+        }
+
+        val currentIndex = session.index
+        val nextIndex = currentIndex + 1
+        sessions[sessionId] = session.copy(index = nextIndex)
+        val finished = nextIndex >= totalSteps
+
+        if (currentIndex < slideCount) {
+            val slide = lesson.slides[currentIndex]
             LessonStep(
                 slideTitle = slide.title,
                 slideContent = slide.content,
                 miniCheckPrompt = slide.miniCheck?.prompt,
+                activity = null,
+                finished = finished
+            )
+        } else {
+            val activityIndex = currentIndex - slideCount
+            val activity = lesson.interactiveActivities.getOrNull(activityIndex)
+                ?: return@withLock LessonStep(
+                    slideTitle = null,
+                    slideContent = null,
+                    miniCheckPrompt = null,
+                    activity = null,
+                    finished = true
+                )
+            LessonStep(
+                slideTitle = null,
+                slideContent = null,
+                miniCheckPrompt = null,
+                activity = activity,
                 finished = finished
             )
         }

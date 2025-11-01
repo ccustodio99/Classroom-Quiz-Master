@@ -3,6 +3,7 @@ package com.classroom.quizmaster.agents
 import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.Badge
 import com.classroom.quizmaster.domain.model.ClassReport
+import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.Scorecard
@@ -35,9 +36,10 @@ interface LessonAgent {
 }
 
 data class LessonStep(
-    val slideTitle: String,
-    val slideContent: String,
+    val slideTitle: String?,
+    val slideContent: String?,
     val miniCheckPrompt: String?,
+    val activity: InteractiveActivity?,
     val finished: Boolean
 )
 

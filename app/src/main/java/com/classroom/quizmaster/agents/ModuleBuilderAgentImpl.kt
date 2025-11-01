@@ -1,12 +1,21 @@
 package com.classroom.quizmaster.agents
 
 import com.classroom.quizmaster.data.repo.ModuleRepository
+import com.classroom.quizmaster.domain.model.BrainstormActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.MatchingItem
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.MultipleChoiceItem
 import com.classroom.quizmaster.domain.model.NumericItem
+import com.classroom.quizmaster.domain.model.OpenEndedActivity
+import com.classroom.quizmaster.domain.model.PollActivity
+import com.classroom.quizmaster.domain.model.PuzzleActivity
+import com.classroom.quizmaster.domain.model.QuizActivity
+import com.classroom.quizmaster.domain.model.SliderActivity
+import com.classroom.quizmaster.domain.model.TrueFalseActivity as TrueFalseInteractive
 import com.classroom.quizmaster.domain.model.TrueFalseItem
+import com.classroom.quizmaster.domain.model.TypeAnswerActivity
+import com.classroom.quizmaster.domain.model.WordCloudActivity
 import kotlin.math.abs
 import kotlin.math.max
 
@@ -62,6 +71,28 @@ class ModuleBuilderAgentImpl(
         }
         if (lessonObjectives.isEmpty()) {
             issues += Violation("lesson", "Add at least one slide with a mini check prompt to reinforce objectives")
+        }
+        val interactive = module.lesson.interactiveActivities
+        val requiredInteractive = listOf(
+            QuizActivity::class,
+            TrueFalseInteractive::class,
+            TypeAnswerActivity::class,
+            PuzzleActivity::class,
+            SliderActivity::class,
+            PollActivity::class,
+            WordCloudActivity::class,
+            OpenEndedActivity::class,
+            BrainstormActivity::class
+        )
+        val missingInteractive = requiredInteractive.filterNot { klass ->
+            interactive.any { klass.isInstance(it) }
+        }
+        if (missingInteractive.isNotEmpty()) {
+            val readable = missingInteractive.joinToString { it.simpleName ?: "activity" }
+            issues += Violation(
+                "interactive",
+                "Interactive lesson missing: $readable"
+            )
         }
         return issues
     }

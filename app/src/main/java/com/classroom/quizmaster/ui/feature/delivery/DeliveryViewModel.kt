@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.AppContainer
 import com.classroom.quizmaster.agents.AnswerPayload
 import com.classroom.quizmaster.domain.model.Badge
+import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.Student
@@ -26,10 +27,16 @@ class DeliveryViewModel(
     private var student: Student? = null
     private var lessonSessionId: String? = null
     private var lessonIndex: Int = 0
+    private var lessonSlides: Int = 0
+    private var interactiveCount: Int = 0
+    private var interactiveIndex: Int = 0
 
     init {
         viewModelScope.launch {
-            module = container.moduleRepository.getModule(moduleId)
+            module = container.moduleRepository.getModule(moduleId)?.also {
+                lessonSlides = it.lesson.slides.size
+                interactiveCount = it.lesson.interactiveActivities.size
+            }
             _uiState.value = DeliveryUiState(stage = Stage.CaptureStudent)
         }
     }
@@ -107,28 +114,44 @@ class DeliveryViewModel(
         val sessionId = container.lessonAgent.start(module.lesson.id)
         lessonSessionId = sessionId
         lessonIndex = 0
+        interactiveIndex = 0
         goToNextLessonStep()
     }
 
     fun goToNextLessonStep() {
         val sessionId = lessonSessionId ?: return
-        val module = module ?: return
         val step = container.lessonAgent.next(sessionId)
-        if (step.finished && lessonIndex >= module.lesson.slides.size) {
+        if (step.activity == null && step.slideTitle == null && step.finished) {
             startPostTest()
-        } else {
-            lessonIndex += 1
-            _uiState.value = _uiState.value.copy(
-                stage = Stage.LessonStage(
-                    sessionId = sessionId,
-                    slideIndex = lessonIndex,
-                    totalSlides = module.lesson.slides.size,
-                    slideTitle = step.slideTitle,
-                    slideContent = step.slideContent,
-                    miniCheckPrompt = step.miniCheckPrompt,
-                    finished = step.finished
+            return
+        }
+        when {
+            step.activity != null -> {
+                interactiveIndex += 1
+                _uiState.value = _uiState.value.copy(
+                    stage = Stage.InteractiveStage(
+                        sessionId = sessionId,
+                        activityIndex = interactiveIndex,
+                        totalActivities = interactiveCount,
+                        activity = step.activity,
+                        finished = step.finished
+                    )
                 )
-            )
+            }
+            step.slideTitle != null -> {
+                lessonIndex += 1
+                _uiState.value = _uiState.value.copy(
+                    stage = Stage.LessonStage(
+                        sessionId = sessionId,
+                        slideIndex = lessonIndex,
+                        totalSlides = lessonSlides,
+                        slideTitle = step.slideTitle,
+                        slideContent = step.slideContent.orEmpty(),
+                        miniCheckPrompt = step.miniCheckPrompt,
+                        finished = step.finished && interactiveCount == 0
+                    )
+                )
+            }
         }
     }
 
@@ -210,6 +233,13 @@ sealed class Stage {
         val miniCheckAnswer: String = "",
         val miniCheckResult: Boolean? = null,
         val finished: Boolean = false
+    ) : Stage()
+    data class InteractiveStage(
+        val sessionId: String,
+        val activityIndex: Int,
+        val totalActivities: Int,
+        val activity: InteractiveActivity,
+        val finished: Boolean
     ) : Stage()
     data class Summary(
         val pre: Double,
