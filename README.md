@@ -17,6 +17,26 @@ A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General
 
 ---
 
+## 🎯 Types of Questions
+This is what you ask the players. When creating a kahoot, you can use many different question formats to make your game more engaging:
+
+**To Test Knowledge:**
+ * **Quiz:** The classic format. A question with 2-4 multiple-choice answers, where only one is correct (or multiple can be correct).
+ * **True / False:** A simple question with only two options.
+ * **Type Answer:** Players must type the correct answer (with a 20-character limit). This is much harder as there are no options to guess from.
+ * **Puzzle:** Players must drag and drop blocks into the correct order to form a sequence or sort items.
+ * **Slider:** Players slide a pin to a specific number on a scale (e.g., "What year was this company founded?").
+
+**To Gather Opinions (No points awarded):**
+ * **Poll:** Ask the audience their opinion with multiple-choice options.
+ * **Word Cloud:** An open-ended question where players submit short words. The most popular answers appear larger on the screen.
+ * **Open-Ended:** Players can type and submit longer-form ideas or feedback.
+ * **Brainstorm:** A collaborative mode where players submit ideas, and then the group can vote on their favorites.
+
+> Tip: For the most reliable classroom experience, run live quizzes on a shared local network so the teacher and students stay connected even when the wider internet is unavailable.
+
+---
+
 ## 🕹️ How Live Quizzes Work (Local Network First)
 Classroom Quiz Master follows a host/participant model similar to Kahoot! but is optimized for intranet or offline hotspot play so teachers can keep the class engaged even when the wider internet is unreliable.
 

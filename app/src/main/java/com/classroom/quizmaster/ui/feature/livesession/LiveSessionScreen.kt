@@ -111,8 +111,8 @@ private fun SessionCodeSection(
 ) {
     SectionCard(
         title = "Class code",
-        subtitle = "Students join on the same network",
-        caption = "Each code is local-only. Generate a fresh one anytime."
+        subtitle = "Students join on the same local network",
+        caption = "Best reliability when teacher and learners share one Wi‑Fi or LAN—no internet required."
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (sessionCode == null) {
@@ -141,6 +141,18 @@ private fun SessionCodeSection(
                 ) {
                     Icon(imageVector = Icons.Rounded.ContentCopy, contentDescription = null)
                     Text("Copy code", modifier = Modifier.padding(start = 8.dp))
+                }
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.primary.copy(alpha = 0.08f),
+                    tonalElevation = 0.dp
+                ) {
+                    Text(
+                        text = "Pro tip: launch sessions while everyone is on the same classroom network for ultra-low latency.",
+                        modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.primary
+                    )
                 }
             }
         }
