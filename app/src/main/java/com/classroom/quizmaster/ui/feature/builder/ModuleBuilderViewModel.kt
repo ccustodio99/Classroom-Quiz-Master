@@ -25,6 +25,7 @@ import com.classroom.quizmaster.domain.model.TrueFalseActivity as TrueFalseInter
 import com.classroom.quizmaster.domain.model.TrueFalseItem
 import com.classroom.quizmaster.domain.model.TypeAnswerActivity
 import com.classroom.quizmaster.domain.model.WordCloudActivity
+import com.classroom.quizmaster.ui.util.summaryLabel
 import java.text.DecimalFormat
 import java.text.NumberFormat
 import java.util.ArrayDeque
@@ -189,7 +190,9 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             timePerItemSeconds = timePerItem.toIntOrNull() ?: 60,
             classroomName = classroomName.ifBlank { "${subject.ifBlank { "General Mathematics" }} Circle" }
         )
-        return copy(interactivePreview = activities.map { it.previewLine() })
+        val knowledge = activities.filter { it.isScored }.map { it.summaryLabel() }
+        val opinions = activities.filterNot { it.isScored }.map { it.summaryLabel() }
+        return copy(interactivePreview = InteractivePreviewSummary(knowledge, opinions))
     }
 
     private fun generateInteractiveActivities(
@@ -306,19 +309,7 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
         )
     }
 
-    private fun InteractiveActivity.previewLine(): String = when (this) {
-        is QuizActivity -> "Quiz • ${options.size} opsyon — tamang sagot #${correctAnswers.joinToString { (it + 1).toString() }}"
-        is TrueFalseInteractive -> "True/False • ${if (correctAnswer) "Tama" else "Mali"} ang tamang sagot"
-        is TypeAnswerActivity -> "Type Answer • key: ${correctAnswer.take(20)}"
-        is PuzzleActivity -> "Puzzle • ${correctOrder.joinToString(" → ")}".take(80)
-        is SliderActivity -> "Slider • ${minValue}-${maxValue}, target ${target}"
-        is PollActivity -> "Poll • ${options.joinToString(limit = 4)}"
-        is WordCloudActivity -> "Word Cloud • hanggang ${maxWords} salita"
-        is OpenEndedActivity -> "Open-Ended • ${maxCharacters} chars limit"
-        is BrainstormActivity -> "Brainstorm • ${categories.joinToString()}"
-    }
 }
-
 data class ModuleBuilderUiState(
     val classroomName: String = "",
     val subject: String = "G11 General Mathematics",
@@ -327,10 +318,20 @@ data class ModuleBuilderUiState(
     val objectives: String = "LO1, LO2, LO3",
     val slides: String = "Panimula sa simple interest\nPagkuwenta ng compound interest",
     val timePerItem: String = "60",
-    val interactivePreview: List<String> = emptyList(),
+    val interactivePreview: InteractivePreviewSummary = InteractivePreviewSummary(),
     val errors: List<String> = emptyList(),
     val message: String? = null
 )
+
+data class InteractivePreviewSummary(
+    val knowledgeChecks: List<String> = emptyList(),
+    val opinionPulse: List<String> = emptyList()
+) {
+    val total: Int get() = knowledgeChecks.size + opinionPulse.size
+    val knowledgeCount: Int get() = knowledgeChecks.size
+    val opinionCount: Int get() = opinionPulse.size
+    fun isEmpty(): Boolean = total == 0
+}
 
 private fun buildParallelForms(items: List<Item>): Pair<List<Item>, List<Item>> {
     if (items.isEmpty()) return emptyList<Item>() to emptyList()

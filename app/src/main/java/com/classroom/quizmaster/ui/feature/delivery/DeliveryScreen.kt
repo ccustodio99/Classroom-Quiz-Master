@@ -53,6 +53,9 @@ import com.classroom.quizmaster.domain.model.WordCloudActivity
 import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
+import com.classroom.quizmaster.ui.util.categoryLabel
+import com.classroom.quizmaster.ui.util.summaryLabel
+import com.classroom.quizmaster.ui.util.typeLabel
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
@@ -382,21 +385,16 @@ private fun InteractiveStageView(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            val typeLabel = when (activity) {
-                is QuizActivity -> "Quiz"
-                is TrueFalseInteractive -> "True/False"
-                is TypeAnswerActivity -> "Type Answer"
-                is PuzzleActivity -> "Puzzle"
-                is SliderActivity -> "Slider"
-                is PollActivity -> "Poll"
-                is WordCloudActivity -> "Word Cloud"
-                is OpenEndedActivity -> "Open-Ended"
-                is BrainstormActivity -> "Brainstorm"
-            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                InfoPill(text = activity.categoryLabel())
                 InfoPill(text = if (activity.isScored) "Scored" else "No points")
-                InfoPill(text = typeLabel)
+                InfoPill(text = activity.typeLabel())
             }
+            Text(
+                text = activity.summaryLabel(),
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurface
+            )
             when (activity) {
                 is QuizActivity -> {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -622,9 +620,9 @@ private fun Stage.toMeta(): StageMeta = when (this) {
     is Stage.InteractiveStage -> {
         val ratio = if (totalActivities > 0) activityIndex.toFloat() / totalActivities else 0f
         StageMeta(
-            headline = if (activity.isScored) "Knowledge pulse" else "Opinion pulse",
+            headline = activity.categoryLabel(),
             subtitle = "Activity $activityIndex / ${maxOf(totalActivities, 1)}",
-            badgeLabel = "Interactive",
+            badgeLabel = activity.typeLabel(),
             progress = (0.7f + ratio * 0.15f).coerceIn(0f, 0.96f)
         )
     }

@@ -138,7 +138,7 @@ fun ModuleBuilderScreen(
                     subtitle = "Auto-generated blend of knowledge checks and opinion pulses",
                     caption = "Edit your objectives, slides, or pacing to instantly refresh the activities.",
                     trailingContent = {
-                        InfoPill(text = "${state.interactivePreview.size} activities")
+                        InfoPill(text = "${state.interactivePreview.total} activities")
                     }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -149,23 +149,19 @@ fun ModuleBuilderScreen(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         } else {
-                            state.interactivePreview.forEach { summary ->
-                                Surface(
-                                    shape = MaterialTheme.shapes.medium,
-                                    color = MaterialTheme.colorScheme.surfaceVariant,
-                                    tonalElevation = 0.dp
-                                ) {
-                                    Text(
-                                        text = summary,
-                                        modifier = Modifier.padding(16.dp),
-                                        style = MaterialTheme.typography.bodyMedium,
-                                        color = MaterialTheme.colorScheme.onSurface
-                                    )
-                                }
-                            }
+                            InteractivePreviewGroup(
+                                title = "To Test Knowledge",
+                                count = state.interactivePreview.knowledgeCount,
+                                entries = state.interactivePreview.knowledgeChecks
+                            )
+                            InteractivePreviewGroup(
+                                title = "To Gather Opinions",
+                                count = state.interactivePreview.opinionCount,
+                                entries = state.interactivePreview.opinionPulse
+                            )
                         }
                         Text(
-                            text = "Included: Quiz, True/False, Type Answer, Puzzle, Slider, Poll, Word Cloud, Open-Ended, Brainstorm.",
+                            text = "To Test Knowledge: Quiz, True/False, Type Answer, Puzzle, Slider. To Gather Opinions: Poll, Word Cloud, Open-Ended, Brainstorm.",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -274,6 +270,49 @@ fun ModuleBuilderScreen(
                     ) {
                         Text("I-save ang Module")
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractivePreviewGroup(
+    title: String,
+    count: Int,
+    entries: List<String>
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+            InfoPill(text = "$count")
+        }
+        if (entries.isEmpty()) {
+            Text(
+                text = "No cards generated yet.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            entries.forEach { summary ->
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 0.dp
+                ) {
+                    Text(
+                        text = summary,
+                        modifier = Modifier.padding(16.dp),
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }
