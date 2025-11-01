@@ -8,6 +8,7 @@ import com.classroom.quizmaster.domain.model.ClassReport
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.ObjectiveMastery
 import com.classroom.quizmaster.domain.model.AttemptItemResult
+import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.StudentReport
 import kotlinx.coroutines.flow.first
 
@@ -41,7 +42,7 @@ class ScoringAnalyticsAgentImpl(
         val mastery = computeMastery(module, studentAttempts)
         return StudentReport(
             moduleId = moduleId,
-            student = studentAttempts.first().student,
+            student = summary.student,
             preScore = summary.prePercent ?: 0.0,
             postScore = summary.postPercent ?: 0.0,
             mastery = mastery
@@ -50,12 +51,12 @@ class ScoringAnalyticsAgentImpl(
 
     private fun summarizeStudent(module: Module, attempts: List<Attempt>): AttemptSummary? {
         if (attempts.isEmpty()) return null
-        val pre = attempts.find { it.assessmentId == module.preTest.id }
-        val post = attempts.find { it.assessmentId == module.postTest.id }
+        val pre = attempts.latestForAssessment(module.preTest.id)
+        val post = attempts.latestForAssessment(module.postTest.id)
         val preScore = pre?.responses?.percentOrNull()
         val postScore = post?.responses?.percentOrNull()
         return AttemptSummary(
-            student = attempts.first().student,
+            student = attempts.mostRecentStudent(),
             prePercent = preScore,
             postPercent = postScore
         )
@@ -66,7 +67,10 @@ class ScoringAnalyticsAgentImpl(
         val preMap = mutableMapOf<String, MutableList<Double>>()
         val postMap = mutableMapOf<String, MutableList<Double>>()
         val itemsById = (module.preTest.items + module.postTest.items).associateBy { it.id }
-        attempts.forEach { attempt ->
+        val latestAttempts = attempts
+            .groupBy { it.student.id to it.assessmentId }
+            .mapNotNull { (_, list) -> list.maxByOrNull { it.sortTimestamp() } }
+        latestAttempts.forEach { attempt ->
             val bucket = if (attempt.assessmentId == module.preTest.id) preMap else postMap
             attempt.responses.forEach { response ->
                 val objective = itemsById[response.itemId]?.objective ?: return@forEach
@@ -96,4 +100,13 @@ private fun List<AttemptItemResult>?.percentOrNull(): Double? {
 
 private fun AttemptItemResult.percentScore(): Double =
     if (maxScore <= 0.0) 0.0 else (score / maxScore) * 100.0
+
+private fun List<Attempt>.latestForAssessment(assessmentId: String): Attempt? =
+    filter { it.assessmentId == assessmentId }
+        .maxByOrNull { it.sortTimestamp() }
+
+private fun List<Attempt>.mostRecentStudent(): Student =
+    maxByOrNull { it.sortTimestamp() }?.student ?: first().student
+
+private fun Attempt.sortTimestamp(): Long = submittedAt ?: startedAt
 

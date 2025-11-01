@@ -11,7 +11,7 @@ interface AttemptDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insert(entity: AttemptEntity)
 
-    @Query("SELECT * FROM attempts WHERE module_id = :moduleId")
+    @Query("SELECT * FROM attempts WHERE module_id = :moduleId ORDER BY created_at DESC")
     fun observeByModule(moduleId: String): Flow<List<AttemptEntity>>
 
     @Query("SELECT * FROM attempts WHERE id = :id")
