@@ -47,6 +47,12 @@ interface LiveSessionAgent {
     fun submit(sessionId: String, answer: AnswerPayload): Ack
     fun snapshot(sessionId: String): LiveSnapshot
     fun observe(sessionId: String): Flow<LiveSnapshot>
+    fun setActiveItem(
+        sessionId: String,
+        itemId: String?,
+        prompt: String? = null,
+        objective: String? = null
+    ): Boolean
 }
 
 data class JoinResult(val student: Student, val sessionId: String)
@@ -55,7 +61,10 @@ data class Ack(val accepted: Boolean)
 data class LiveSnapshot(
     val moduleId: String,
     val participants: List<Student>,
-    val answers: Map<String, List<AnswerPayload>>
+    val answers: Map<String, List<AnswerPayload>>,
+    val activeItemId: String?,
+    val activePrompt: String?,
+    val activeObjective: String?
 )
 
 interface AssignmentAgent {

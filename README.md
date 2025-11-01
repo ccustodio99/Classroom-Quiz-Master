@@ -17,6 +17,31 @@ A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General
 
 ---
 
+## 🕹️ How Live Quizzes Work (Local Network First)
+Classroom Quiz Master follows a host/participant model similar to Kahoot! but is optimized for intranet or offline hotspot play so teachers can keep the class engaged even when the wider internet is unreliable.
+
+1. **Teacher Hosts the Session**
+   - Build or select a module, then start a live delivery from the app. A short‑lived **Class Code** (e.g., `845 209`) appears on the teacher device.
+   - Mirror the teacher screen to the class display (projector, TV, or a screen‑share app) so everyone can see questions, answer reveals, and the leaderboard.
+   - All pacing, scoring, and media playback run on the host device; outbound internet calls are optional.
+
+2. **Students Join on the Same LAN**
+   - Students open the companion join screen on their phones, tablets, or laptops. When everyone is on the same Wi‑Fi—or the teacher spins up an offline hotspot—device discovery works over the local network broadcast.
+   - Learners type the class code and choose a nickname (accounts optional). Rosters can be enforced for attendance.
+   - Student devices act as lightweight controllers that send answer choices to the host. Color/shape cues match the shared display.
+
+3. **Play, Score, Celebrate**
+   - Questions appear on the shared screen; students respond from their devices. Correctness and response speed award points, while diagnostic pre/post tests automatically disable speed bonuses for fairness.
+   - After each question, the leaderboard highlights the top five performers or teams to sustain excitement.
+   - A podium animation closes the session. All response data is stored locally for instant reporting—no mandatory cloud sync.
+
+### Why Local‑First Matters
+- **Reliability:** Sessions continue even if campus internet drops; answers queue locally until the host confirms receipt.
+- **Privacy:** Student nicknames and responses stay on the teacher device unless cloud sync is explicitly triggered.
+- **Low Bandwidth Friendly:** Only lightweight LAN traffic is required. Remote challenges remain opt‑in for schools that prefer offline play.
+
+---
+
 ## 🏗 Tech Stack
 - **Language:** Kotlin (JDK 17)
 - **UI:** Jetpack Compose (Material 3)
