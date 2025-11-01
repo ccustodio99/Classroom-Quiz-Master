@@ -101,6 +101,39 @@ fun ModuleBuilderScreen(
             }
             item {
                 SectionCard(
+                    title = "Question formats",
+                    subtitle = "Blend quick checks with opinion pulses",
+                    caption = "Rotate formats to keep energy high while staying aligned to objectives."
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        Text(
+                            text = "To test knowledge",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            BulletPoint("Quiz — classic multiple choice with one or more correct answers.")
+                            BulletPoint("True/False — fast binary checks to warm up the class.")
+                            BulletPoint("Type Answer — short-form responses (≤20 characters) for precise recall.")
+                            BulletPoint("Puzzle — drag blocks into the right order to sequence steps or sort ideas.")
+                            BulletPoint("Slider — ask for a number on a scale, perfect for timelines or estimates.")
+                        }
+                        Text(
+                            text = "To gather opinions (no points)",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
+                            color = MaterialTheme.colorScheme.onSurface
+                        )
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            BulletPoint("Poll — capture sentiment with quick multiple choice taps.")
+                            BulletPoint("Word Cloud — surface keywords that resonate with the class.")
+                            BulletPoint("Open-Ended — let students share longer thoughts or reflections.")
+                            BulletPoint("Brainstorm — co-create ideas and let the group upvote favourites.")
+                        }
+                    }
+                }
+            }
+            item {
+                SectionCard(
                     title = "Assessment pacing",
                     subtitle = "Balance focus with momentum",
                     caption = "A 45-60 second cadence works well for Gen Z attention spans while keeping rigour.",
@@ -204,5 +237,24 @@ fun ModuleBuilderScreen(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun BulletPoint(text: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Text(
+            text = "•",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
