@@ -102,9 +102,10 @@ class DeliveryViewModel(
         }
     }
 
-    private fun startLesson() {
+    private suspend fun startLesson() {
         val module = module ?: return
-        lessonSessionId = container.lessonAgent.start(module.lesson.id)
+        val sessionId = container.lessonAgent.start(module.lesson.id)
+        lessonSessionId = sessionId
         lessonIndex = 0
         goToNextLessonStep()
     }

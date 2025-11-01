@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.agents
 
+import android.util.Log
 import com.classroom.quizmaster.domain.model.Student
 import java.util.UUID
 import java.util.concurrent.locks.ReentrantLock
@@ -10,7 +11,15 @@ class LiveSessionAgentImpl : LiveSessionAgent {
     private val lock = ReentrantLock()
 
     override fun createSession(moduleId: String): String = lock.withLock {
-        val sessionId = UUID.randomUUID().toString().take(6).uppercase()
+        var attempts = 0
+        var sessionId: String
+        do {
+            sessionId = generateCode()
+            attempts += 1
+        } while (sessions.containsKey(sessionId))
+        if (attempts > 1) {
+            Log.w(TAG, "Session code collision detected after ${attempts - 1} retry/retries")
+        }
         sessions[sessionId] = LiveState(moduleId)
         sessionId
     }
@@ -38,9 +47,18 @@ class LiveSessionAgentImpl : LiveSessionAgent {
         )
     }
 
+    private fun generateCode(): String = UUID.randomUUID().toString()
+        .replace("-", "")
+        .take(6)
+        .uppercase()
+
     private data class LiveState(
         val moduleId: String,
         val participants: MutableList<Student> = mutableListOf(),
         val answers: MutableMap<String, MutableList<AnswerPayload>> = mutableMapOf()
     )
+
+    companion object {
+        private const val TAG = "LiveSessionAgent"
+    }
 }

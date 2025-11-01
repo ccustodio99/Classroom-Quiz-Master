@@ -28,7 +28,7 @@ data class AnswerPayload(
 )
 
 interface LessonAgent {
-    fun start(lessonId: String): String
+    suspend fun start(lessonId: String): String
     fun next(sessionId: String): LessonStep
     fun recordCheck(sessionId: String, answer: String): Boolean
 }
