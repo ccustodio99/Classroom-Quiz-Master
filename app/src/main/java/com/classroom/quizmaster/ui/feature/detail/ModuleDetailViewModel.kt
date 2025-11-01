@@ -29,10 +29,9 @@ class ModuleDetailViewModel(
         }
     }
 
-    fun createLiveSession() {
-        val module = _uiState.value.module ?: return
-        val code = container.liveSessionAgent.createSession(module.id)
-        _uiState.value = _uiState.value.copy(liveSessionCode = code)
+    fun createLiveSession(): String? {
+        val module = _uiState.value.module ?: return null
+        return container.liveSessionAgent.createSession(module.id)
     }
 
     fun assignHomework() {
@@ -64,6 +63,5 @@ class ModuleDetailViewModel(
 }
 
 data class ModuleDetailUiState(
-    val module: Module? = null,
-    val liveSessionCode: String? = null
+    val module: Module? = null
 )
