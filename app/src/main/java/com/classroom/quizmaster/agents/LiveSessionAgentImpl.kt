@@ -21,6 +21,7 @@ class LiveSessionAgentImpl(
     private val lock = ReentrantLock()
 
     override fun createSession(moduleId: String): String = lock.withLock {
+        shutdownLanSessionsLocked()
         var attempts = 0
         var sessionId: String
         do {
@@ -66,11 +67,11 @@ class LiveSessionAgentImpl(
 
     override fun submit(sessionId: String, answer: AnswerPayload): Ack = lock.withLock {
         val state = sessions[sessionId] ?: return Ack(false)
-        val accepted = state.recordAnswer(answer)
-        if (accepted) {
+        val result = state.recordAnswer(answer)
+        if (result.accepted) {
             state.publish()
         }
-        Ack(accepted)
+        Ack(result.accepted)
     }
 
     override fun snapshot(sessionId: String): LiveSnapshot = lock.withLock {
@@ -139,21 +140,22 @@ class LiveSessionAgentImpl(
         return student
     }
 
-    private fun LiveState.recordAnswer(answer: AnswerPayload): Boolean {
-        val targetItem = answer.itemId.ifBlank { activeItemId ?: return false }
-        val list = answers.getOrPut(targetItem) { mutableListOf() }
-        val studentId = answer.studentId
-        if (studentId != null) {
-            val index = list.indexOfFirst { it.studentId == studentId }
-            if (index >= 0) {
-                list[index] = answer.copy(itemId = targetItem)
-            } else {
-                list += answer.copy(itemId = targetItem)
-            }
-        } else {
-            list += answer.copy(itemId = targetItem)
+    private fun LiveState.recordAnswer(answer: AnswerPayload): AnswerAcceptance {
+        val targetItem = answer.itemId.ifBlank {
+            activeItemId ?: return AnswerAcceptance(false, reason = "No active question")
         }
-        return true
+        val list = answers.getOrPut(targetItem) { mutableListOf() }
+        val studentId = answer.studentId ?: return AnswerAcceptance(false, reason = "Missing participant")
+        val participant = participants.firstOrNull { it.id == studentId }
+            ?: return AnswerAcceptance(false, reason = "Unknown participant")
+        val normalized = answer.copy(itemId = targetItem, studentId = participant.id)
+        val index = list.indexOfFirst { it.studentId == participant.id }
+        if (index >= 0) {
+            list[index] = normalized
+        } else {
+            list += normalized
+        }
+        return AnswerAcceptance(true)
     }
 
     private fun handleLanJoin(sessionId: String, nickname: String): LanJoinAck = lock.withLock {
@@ -166,14 +168,29 @@ class LiveSessionAgentImpl(
     private fun handleLanAnswer(sessionId: String, payload: AnswerPayload): LanAnswerAck = lock.withLock {
         val state = sessions[sessionId]
             ?: return LanAnswerAck(false, reason = "Session not found")
-        val accepted = state.recordAnswer(payload)
-        if (accepted) {
+        val result = state.recordAnswer(payload)
+        if (result.accepted) {
             state.publish()
         }
-        LanAnswerAck(accepted, reason = if (accepted) null else "No active question")
+        val reason = when {
+            result.accepted -> null
+            result.reason != null -> result.reason
+            else -> "No active question"
+        }
+        LanAnswerAck(result.accepted, reason = reason)
+    }
+
+    private fun shutdownLanSessionsLocked() {
+        if (sessions.isEmpty()) return
+        sessions.values.forEach { state ->
+            runCatching { state.lanSession?.stop() }
+        }
+        sessions.clear()
     }
 
     companion object {
         private const val TAG = "LiveSessionAgent"
     }
+
+    private data class AnswerAcceptance(val accepted: Boolean, val reason: String? = null)
 }

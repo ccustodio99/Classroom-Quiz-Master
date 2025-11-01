@@ -256,13 +256,15 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             blocks = normalizedBlocks,
             correctOrder = normalizedBlocks
         )
+        val sliderMin = 0
+        val sliderMax = 100
         val slider = SliderActivity(
             id = "slider-${UUID.randomUUID()}",
             title = "Confidence slider",
             prompt = "Gaano ka kahanda na ituro ang $sanitizedTopic?",
-            minValue = 0,
-            maxValue = 100,
-            target = timePerItemSeconds.coerceIn(10, 180)
+            minValue = sliderMin,
+            maxValue = sliderMax,
+            target = timePerItemSeconds.coerceIn(sliderMin, sliderMax)
         )
         val poll = PollActivity(
             id = "poll-${UUID.randomUUID()}",
