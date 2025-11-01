@@ -23,6 +23,7 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.RocketLaunch
+import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
@@ -57,7 +58,8 @@ import kotlin.math.roundToInt
 fun DashboardScreen(
     viewModel: DashboardViewModel,
     onCreateModule: () -> Unit,
-    onOpenModule: (String) -> Unit
+    onOpenModule: (String) -> Unit,
+    onJoinSession: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val modules = state.modules
@@ -89,7 +91,8 @@ fun DashboardScreen(
                     objectiveCount = objectiveCount,
                     trendingTopics = trendingTopics.takeIf { it.isNotBlank() },
                     onCreateModule = onCreateModule,
-                    onQuickModule = viewModel::createQuickModule
+                    onQuickModule = viewModel::createQuickModule,
+                    onJoinSession = onJoinSession
                 )
             }
             item {
@@ -127,7 +130,8 @@ private fun DashboardHeader(
     objectiveCount: Int,
     trendingTopics: String?,
     onCreateModule: () -> Unit,
-    onQuickModule: () -> Unit
+    onQuickModule: () -> Unit,
+    onJoinSession: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
     val gradient = remember(
@@ -217,6 +221,17 @@ private fun DashboardHeader(
                     Icon(imageVector = Icons.Rounded.Bolt, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
                     Text("Drop sample")
+                }
+                FilledTonalButton(
+                    onClick = onJoinSession,
+                    colors = ButtonDefaults.filledTonalButtonColors(
+                        containerColor = Color.White.copy(alpha = 0.18f),
+                        contentColor = Color.White
+                    )
+                ) {
+                    Icon(imageVector = Icons.Rounded.People, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Join session")
                 }
             }
         }

@@ -13,15 +13,25 @@ import androidx.compose.material.icons.rounded.ContentCopy
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.ExposedDropdownMenu
+import androidx.compose.material3.ExposedDropdownMenuBox
+import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.TextButton
+import androidx.compose.material3.TextFieldDefaults
+import androidx.compose.material3.menuAnchor
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalClipboardManager
@@ -34,6 +44,7 @@ import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.TopBarAction
+import com.classroom.quizmaster.ui.feature.livesession.QuestionOption
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -78,6 +89,12 @@ fun LiveSessionScreen(
                     clipboardManager.setText(AnnotatedString(code))
                     Toast.makeText(context, "Session code copied", Toast.LENGTH_SHORT).show()
                 }
+            )
+            ActiveQuestionSection(
+                questions = state.availableQuestions,
+                activePrompt = state.activePrompt,
+                activeObjective = state.activeObjective,
+                onSelect = viewModel::setActiveQuestion
             )
             ParticipantsSection(participants = state.participants, total = state.totalParticipants)
             ResponsesSection(responses = state.responses, totalResponses = state.totalResponses)
@@ -124,6 +141,79 @@ private fun SessionCodeSection(
                 ) {
                     Icon(imageVector = Icons.Rounded.ContentCopy, contentDescription = null)
                     Text("Copy code", modifier = Modifier.padding(start = 8.dp))
+                }
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun ActiveQuestionSection(
+    questions: List<QuestionOption>,
+    activePrompt: String?,
+    activeObjective: String?,
+    onSelect: (String?) -> Unit
+) {
+    SectionCard(
+        title = "Active question",
+        subtitle = activePrompt ?: "No prompt pinned",
+        caption = "Select which item is currently projected so answers sync to the right slot."
+    ) {
+        if (questions.isEmpty()) {
+            Text(
+                text = "Build pre/post items to enable live syncing.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            var expanded by remember { mutableStateOf(false) }
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                ExposedDropdownMenuBox(
+                    expanded = expanded,
+                    onExpandedChange = { expanded = it }
+                ) {
+                    OutlinedTextField(
+                        value = activePrompt ?: "Tap to choose",
+                        onValueChange = {},
+                        readOnly = true,
+                        label = { Text("Pinned prompt") },
+                        trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                        colors = TextFieldDefaults.outlinedTextFieldColors(),
+                        modifier = Modifier.menuAnchor()
+                    )
+                    ExposedDropdownMenu(
+                        expanded = expanded,
+                        onDismissRequest = { expanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("No question pinned") },
+                            onClick = {
+                                expanded = false
+                                onSelect(null)
+                            }
+                        )
+                        questions.forEach { option ->
+                            DropdownMenuItem(
+                                text = {
+                                    Column {
+                                        Text(option.prompt)
+                                        option.objective?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                    }
+                                },
+                                onClick = {
+                                    expanded = false
+                                    onSelect(option.id)
+                                }
+                            )
+                        }
+                    }
+                }
+                if (!activeObjective.isNullOrBlank()) {
+                    InfoPill(text = activeObjective)
+                }
+                TextButton(onClick = { onSelect(null) }) {
+                    Text("Clear active question")
                 }
             }
         }

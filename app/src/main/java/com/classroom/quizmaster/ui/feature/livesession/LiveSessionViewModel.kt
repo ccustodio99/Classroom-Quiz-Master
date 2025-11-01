@@ -23,7 +23,6 @@ class LiveSessionViewModel(
     private var observeJob: Job? = null
     private var sessionId: String? = null
     private var itemLookup: Map<String, ItemMeta> = emptyMap()
-
     init {
         viewModelScope.launch { loadModuleMeta() }
         val initialSession = existingSessionId?.takeIf { it.isNotBlank() }
@@ -39,7 +38,14 @@ class LiveSessionViewModel(
             val lookup = (module.preTest.items + module.postTest.items)
                 .associate { item -> item.id to ItemMeta(prompt = item.prompt, objective = item.objective) }
             itemLookup = lookup
-            _uiState.update { it.copy(moduleTopic = module.topic) }
+            _uiState.update {
+                it.copy(
+                    moduleTopic = module.topic,
+                    availableQuestions = lookup.map { (id, meta) ->
+                        QuestionOption(id = id, prompt = meta.prompt, objective = meta.objective)
+                    }
+                )
+            }
         }
     }
 
@@ -97,7 +103,10 @@ class LiveSessionViewModel(
                 totalParticipants = snapshot.participants.size,
                 totalResponses = snapshot.answers.values.sumOf { it.size },
                 participants = participants,
-                responses = responses
+                responses = responses,
+                activeItemId = snapshot.activeItemId,
+                activePrompt = snapshot.activePrompt ?: snapshot.activeItemId?.let { itemLookup[it]?.prompt },
+                activeObjective = snapshot.activeObjective ?: snapshot.activeItemId?.let { itemLookup[it]?.objective }
             )
         }
     }
@@ -111,10 +120,33 @@ class LiveSessionViewModel(
                 totalParticipants = 0,
                 totalResponses = 0,
                 participants = emptyList(),
-                responses = emptyList()
+                responses = emptyList(),
+                activeItemId = null,
+                activePrompt = null,
+                activeObjective = null
             )
         }
         observeSession(newSession)
+    }
+
+    fun setActiveQuestion(itemId: String?) {
+        val currentSession = sessionId ?: return
+        val meta = itemId?.let { itemLookup[it] }
+        val success = container.liveSessionAgent.setActiveItem(
+            sessionId = currentSession,
+            itemId = itemId,
+            prompt = meta?.prompt,
+            objective = meta?.objective
+        )
+        if (success) {
+            _uiState.update { current ->
+                current.copy(
+                    activeItemId = itemId,
+                    activePrompt = meta?.prompt,
+                    activeObjective = meta?.objective
+                )
+            }
+        }
     }
 }
 
@@ -124,7 +156,11 @@ data class LiveSessionUiState(
     val totalParticipants: Int = 0,
     val totalResponses: Int = 0,
     val participants: List<ParticipantSummary> = emptyList(),
-    val responses: List<ItemResponseSummary> = emptyList()
+    val responses: List<ItemResponseSummary> = emptyList(),
+    val activeItemId: String? = null,
+    val activePrompt: String? = null,
+    val activeObjective: String? = null,
+    val availableQuestions: List<QuestionOption> = emptyList()
 )
 
 data class ParticipantSummary(
@@ -141,6 +177,12 @@ data class ItemResponseSummary(
 )
 
 private data class ItemMeta(
+    val prompt: String,
+    val objective: String?
+)
+
+data class QuestionOption(
+    val id: String,
     val prompt: String,
     val objective: String?
 )

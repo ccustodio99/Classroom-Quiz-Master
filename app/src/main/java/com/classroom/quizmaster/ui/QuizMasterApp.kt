@@ -23,6 +23,8 @@ import com.classroom.quizmaster.ui.feature.delivery.DeliveryScreen
 import com.classroom.quizmaster.ui.feature.delivery.DeliveryViewModel
 import com.classroom.quizmaster.ui.feature.detail.ModuleDetailScreen
 import com.classroom.quizmaster.ui.feature.detail.ModuleDetailViewModel
+import com.classroom.quizmaster.ui.feature.join.JoinSessionScreen
+import com.classroom.quizmaster.ui.feature.join.JoinSessionViewModel
 import com.classroom.quizmaster.ui.feature.livesession.LiveSessionScreen
 import com.classroom.quizmaster.ui.feature.livesession.LiveSessionViewModel
 import com.classroom.quizmaster.ui.feature.reports.ReportsScreen
@@ -47,7 +49,8 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                 DashboardScreen(
                     viewModel = viewModel,
                     onCreateModule = { navController.navigate(Screen.Builder.route) },
-                    onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) }
+                    onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) },
+                    onJoinSession = { navController.navigate(Screen.Join.route) }
                 )
             }
             composable(Screen.Builder.route) {
@@ -117,6 +120,15 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(Screen.Join.route) {
+                val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<JoinSessionViewModel>(
+                    factory = viewModelFactory { JoinSessionViewModel() }
+                )
+                JoinSessionScreen(
+                    viewModel = viewModel,
+                    onBack = { navController.popBackStack() }
+                )
+            }
         }
     }
 }
@@ -139,4 +151,5 @@ sealed class Screen(val route: String) {
     data object Reports : Screen("reports/{moduleId}") {
         fun createRoute(moduleId: String) = "reports/$moduleId"
     }
+    data object Join : Screen("join")
 }
