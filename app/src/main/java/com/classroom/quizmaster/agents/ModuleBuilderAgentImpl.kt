@@ -49,8 +49,7 @@ class ModuleBuilderAgentImpl(
         if (preCount != postCount) {
             issues += Violation("assessments", "Pre and post test must have the same number of items for parallel forms")
         } else {
-            val mirroredItems = module.preTest.items.zip(module.postTest.items)
-                .count { (pre, post) -> areItemsEquivalent(pre, post) }
+            val mirroredItems = countMirroredItems(module.preTest.items, module.postTest.items)
             if (mirroredItems > 0) {
                 issues += Violation(
                     "assessments",
@@ -71,6 +70,20 @@ class ModuleBuilderAgentImpl(
         }
         if (lessonObjectives.isEmpty()) {
             issues += Violation("lesson", "Add at least one slide with a mini check prompt to reinforce objectives")
+        }
+        val uncoveredObjectives = module.objectives
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+            .filterNot { objective ->
+                module.lesson.slides.any { slide ->
+                    slide.miniCheck?.prompt?.contains(objective, ignoreCase = true) == true
+                }
+            }
+        if (uncoveredObjectives.isNotEmpty()) {
+            issues += Violation(
+                "lesson",
+                "Mini checks should reinforce objectives: ${uncoveredObjectives.joinToString()}"
+            )
         }
         val interactive = module.lesson.interactiveActivities
         val requiredInteractive = listOf(
@@ -96,6 +109,19 @@ class ModuleBuilderAgentImpl(
         }
         return issues
     }
+}
+
+private fun countMirroredItems(preItems: List<Item>, postItems: List<Item>): Int {
+    val remaining = postItems.toMutableList()
+    var mirrored = 0
+    preItems.forEach { preItem ->
+        val matchIndex = remaining.indexOfFirst { postItem -> areItemsEquivalent(preItem, postItem) }
+        if (matchIndex >= 0) {
+            mirrored += 1
+            remaining.removeAt(matchIndex)
+        }
+    }
+    return mirrored
 }
 
 private fun areItemsEquivalent(first: Item, second: Item): Boolean {

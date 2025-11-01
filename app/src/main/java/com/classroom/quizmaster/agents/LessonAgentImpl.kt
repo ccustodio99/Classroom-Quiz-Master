@@ -31,6 +31,14 @@ class LessonAgentImpl(
                 }
                 val stale = lessonCache.keys - observed
                 stale.forEach { lessonCache.remove(it) }
+                if (stale.isNotEmpty()) {
+                    lock.withLock {
+                        val staleSessionIds = sessions
+                            .filterValues { it.lesson.id in stale }
+                            .keys
+                        staleSessionIds.forEach { sessions.remove(it) }
+                    }
+                }
             }
         }
     }
