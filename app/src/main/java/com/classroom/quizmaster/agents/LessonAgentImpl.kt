@@ -1,7 +1,11 @@
 package com.classroom.quizmaster.agents
 
 import com.classroom.quizmaster.data.repo.ModuleRepository
+import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Lesson
+import com.classroom.quizmaster.domain.model.LessonSlide
+import com.classroom.quizmaster.domain.model.LessonTopic
+import java.util.Locale
 import java.util.UUID
 import java.util.concurrent.ConcurrentHashMap
 import java.util.concurrent.locks.ReentrantLock
@@ -46,16 +50,15 @@ class LessonAgentImpl(
     override suspend fun start(lessonId: String): String {
         val lesson = loadLesson(lessonId)
         val sessionId = UUID.randomUUID().toString()
-        lock.withLock { sessions[sessionId] = LessonSession(lesson, 0) }
+        val timeline = buildTimeline(lesson)
+        lock.withLock { sessions[sessionId] = LessonSession(lesson, timeline, 0) }
         return sessionId
     }
 
     override fun next(sessionId: String): LessonStep = lock.withLock {
         val session = sessions[sessionId] ?: error("Session not found")
-        val lesson = session.lesson
-        val slideCount = lesson.slides.size
-        val activityCount = lesson.interactiveActivities.size
-        val totalSteps = slideCount + activityCount
+        val timeline = session.timeline
+        val totalSteps = timeline.size
         if (session.index >= totalSteps) {
             sessions.remove(sessionId)
             return@withLock LessonStep(
@@ -63,6 +66,7 @@ class LessonAgentImpl(
                 slideContent = null,
                 miniCheckPrompt = null,
                 activity = null,
+                topic = null,
                 finished = true
             )
         }
@@ -71,33 +75,38 @@ class LessonAgentImpl(
         val nextIndex = currentIndex + 1
         sessions[sessionId] = session.copy(index = nextIndex)
         val finished = nextIndex >= totalSteps
-
-        if (currentIndex < slideCount) {
-            val slide = lesson.slides[currentIndex]
-            LessonStep(
-                slideTitle = slide.title,
-                slideContent = slide.content,
-                miniCheckPrompt = slide.miniCheck?.prompt,
-                activity = null,
-                finished = finished
-            )
-        } else {
-            val activityIndex = currentIndex - slideCount
-            val activity = lesson.interactiveActivities.getOrNull(activityIndex)
-                ?: return@withLock LessonStep(
+        when (val entry = timeline[currentIndex]) {
+            is TimelineEntry.Slide -> {
+                val slide = entry.slide
+                LessonStep(
+                    slideTitle = slide.title,
+                    slideContent = slide.content,
+                    miniCheckPrompt = slide.miniCheck?.prompt,
+                    activity = null,
+                    topic = null,
+                    finished = finished
+                )
+            }
+            is TimelineEntry.Topic -> {
+                LessonStep(
+                    slideTitle = entry.topic.name,
+                    slideContent = buildTopicContent(entry.topic),
+                    miniCheckPrompt = null,
+                    activity = null,
+                    topic = entry.topic,
+                    finished = finished
+                )
+            }
+            is TimelineEntry.Activity -> {
+                LessonStep(
                     slideTitle = null,
                     slideContent = null,
                     miniCheckPrompt = null,
-                    activity = null,
-                    finished = true
+                    activity = entry.activity,
+                    topic = entry.topic,
+                    finished = finished
                 )
-            LessonStep(
-                slideTitle = null,
-                slideContent = null,
-                miniCheckPrompt = null,
-                activity = activity,
-                finished = finished
-            )
+            }
         }
     }
 
@@ -147,5 +156,52 @@ class LessonAgentImpl(
         return lesson
     }
 
-    private data class LessonSession(val lesson: Lesson, val index: Int)
+    private fun buildTimeline(lesson: Lesson): List<TimelineEntry> {
+        val timeline = mutableListOf<TimelineEntry>()
+        timeline += lesson.slides.map { slide -> TimelineEntry.Slide(slide) }
+        lesson.topics.forEach { topic ->
+            timeline += TimelineEntry.Topic(topic)
+            timeline += topic.interactiveAssessments.map { activity ->
+                TimelineEntry.Activity(activity, topic)
+            }
+        }
+        timeline += lesson.interactiveActivities.map { activity -> TimelineEntry.Activity(activity, null) }
+        return timeline
+    }
+
+    private fun buildTopicContent(topic: LessonTopic): String {
+        val sections = mutableListOf<String>()
+        if (topic.details.isNotBlank()) {
+            sections += topic.details.trim()
+        }
+        if (topic.learningObjectives.isNotEmpty()) {
+            val objectives = topic.learningObjectives.joinToString(separator = "\n") { objective ->
+                "• $objective"
+            }
+            sections += "Learning objectives:\n$objectives"
+        }
+        if (topic.materials.isNotEmpty()) {
+            val materials = topic.materials.joinToString(separator = "\n") { material ->
+                val typeLabel = material.type.name.lowercase(Locale.ROOT)
+                    .replaceFirstChar { char ->
+                        if (char.isLowerCase()) char.titlecase(Locale.ROOT) else char.toString()
+                    }
+                "• ${material.title} ($typeLabel)"
+            }
+            sections += "Resources:\n$materials"
+        }
+        return sections.joinToString(separator = "\n\n")
+    }
+
+    private data class LessonSession(
+        val lesson: Lesson,
+        val timeline: List<TimelineEntry>,
+        val index: Int
+    )
+
+    private sealed interface TimelineEntry {
+        data class Slide(val slide: LessonSlide) : TimelineEntry
+        data class Topic(val topic: LessonTopic) : TimelineEntry
+        data class Activity(val activity: InteractiveActivity, val topic: LessonTopic?) : TimelineEntry
+    }
 }

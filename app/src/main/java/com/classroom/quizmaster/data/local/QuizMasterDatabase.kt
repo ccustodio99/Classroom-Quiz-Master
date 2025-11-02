@@ -7,7 +7,7 @@ import androidx.room.RoomDatabase
 
 @Database(
     entities = [ModuleEntity::class, AttemptEntity::class, AssignmentEntity::class],
-    version = 1,
+    version = 2,
     exportSchema = false
 )
 abstract class QuizMasterDatabase : RoomDatabase() {

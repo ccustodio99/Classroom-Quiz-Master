@@ -29,6 +29,9 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.domain.model.InteractiveActivity
+import com.classroom.quizmaster.domain.model.LessonTopic
+import com.classroom.quizmaster.domain.model.LearningMaterial
+import com.classroom.quizmaster.domain.model.LearningMaterialType
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.ui.components.AdaptiveWrapRow
 import com.classroom.quizmaster.ui.components.GenZScaffold
@@ -45,6 +48,7 @@ fun ModuleDetailScreen(
     onStartDelivery: () -> Unit,
     onViewReports: () -> Unit,
     onOpenLiveSession: (String) -> Unit,
+    onEditModule: () -> Unit,
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
@@ -74,14 +78,18 @@ fun ModuleDetailScreen(
         ) {
             module?.let {
                 ModuleSnapshot(module = it)
-                InteractivePackSummary(activities = it.lesson.interactiveActivities)
+                LessonTopicsSection(topics = it.lesson.topics)
+                val combinedInteractive = it.lesson.interactiveActivities +
+                    it.lesson.topics.flatMap { topic -> topic.interactiveAssessments }
+                InteractivePackSummary(activities = combinedInteractive)
                 LiveActions(
                     onHostLiveSession = {
                         viewModel.createLiveSession()?.let(onOpenLiveSession)
                     },
                     onStartDelivery = onStartDelivery,
                     onAssignHomework = viewModel::assignHomework,
-                    onViewReports = onViewReports
+                    onViewReports = onViewReports,
+                    onEditModule = onEditModule
                 )
             } ?: LoadingState()
         }
@@ -93,6 +101,11 @@ private fun ModuleSnapshot(module: Module) {
     val preCount = remember(module) { module.preTest.items.size }
     val postCount = remember(module) { module.postTest.items.size }
     val slideCount = remember(module) { module.lesson.slides.size }
+    val topicCount = remember(module) { module.lesson.topics.size }
+    val interactiveTotal = remember(module) {
+        module.lesson.interactiveActivities.size +
+            module.lesson.topics.sumOf { it.interactiveAssessments.size }
+    }
     SectionCard(
         title = "Module snapshot",
         subtitle = module.subject,
@@ -117,6 +130,8 @@ private fun ModuleSnapshot(module: Module) {
                     backgroundColor = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.16f),
                     contentColor = MaterialTheme.colorScheme.onSurface
                 )
+                InfoPill(text = "$topicCount topics")
+                InfoPill(text = "$interactiveTotal interactive")
                 InfoPill(text = "${module.settings.timePerItemSeconds}s cadence")
             }
             Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -224,7 +239,8 @@ private fun LiveActions(
     onHostLiveSession: () -> Unit,
     onStartDelivery: () -> Unit,
     onAssignHomework: () -> Unit,
-    onViewReports: () -> Unit
+    onViewReports: () -> Unit,
+    onEditModule: () -> Unit
 ) {
     SectionCard(
         title = "Launch & share",
@@ -232,6 +248,12 @@ private fun LiveActions(
         caption = "Open the live lobby for synchronous sessions or push as homework."
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+            OutlinedButton(
+                onClick = onEditModule,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Edit module")
+            }
             FilledTonalButton(
                 onClick = onHostLiveSession,
                 modifier = Modifier.fillMaxWidth(),
@@ -266,6 +288,91 @@ private fun LiveActions(
             }
         }
     }
+}
+
+@Composable
+private fun LessonTopicsSection(topics: List<LessonTopic>) {
+    SectionCard(
+        title = "Topic deep dives",
+        subtitle = "Spotlight objectives, resources, and interactive drills",
+        caption = "Each paksa bundles its own mini assessments and activities."
+    ) {
+        if (topics.isEmpty()) {
+            Text(
+                text = "Walang nakalistang mga paksa sa module na ito.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                topics.forEach { topic ->
+                    TopicSummaryCard(topic)
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun TopicSummaryCard(topic: LessonTopic) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 0.dp
+    ) {
+        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            Text(
+                text = topic.name,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+            topic.details.takeIf { it.isNotBlank() }?.let { details ->
+                Text(
+                    text = details,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+            }
+            if (topic.learningObjectives.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Layunin",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                        topic.learningObjectives.forEach { objective -> InfoPill(text = objective) }
+                    }
+                }
+            }
+            if (topic.materials.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(
+                        text = "Mga Materyales",
+                        style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                    )
+                    AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                        topic.materials.forEach { material -> InfoPill(text = materialLabel(material)) }
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "${topic.preTest.items.size} pre-test")
+                InfoPill(text = "${topic.postTest.items.size} post-test")
+                InfoPill(text = "${topic.interactiveAssessments.size} interactive")
+            }
+        }
+    }
+}
+
+private fun materialLabel(material: LearningMaterial): String {
+    val typeLabel = when (material.type) {
+        LearningMaterialType.Document -> "Document"
+        LearningMaterialType.Presentation -> "Presentation"
+        LearningMaterialType.Spreadsheet -> "Spreadsheet"
+        LearningMaterialType.Media -> "Media"
+        LearningMaterialType.Link -> "Link"
+        LearningMaterialType.Other -> "Other"
+    }
+    return if (material.title.isNotBlank()) "${material.title} ($typeLabel)" else typeLabel
 }
 
 @Composable

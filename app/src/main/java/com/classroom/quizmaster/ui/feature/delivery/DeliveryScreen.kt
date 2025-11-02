@@ -317,57 +317,107 @@ private fun AssessmentStageView(
 }
 
 @Composable
+@OptIn(ExperimentalLayoutApi::class)
 private fun LessonStageView(
     stage: Stage.LessonStage,
     onSubmitCheck: (String) -> Unit,
     onNextSlide: () -> Unit
 ) {
+    val topic = stage.topic
+    val subtitle = topic?.name ?: stage.slideTitle
+    val caption = if (topic != null) {
+        "Pagtuunan ang mga layunin, materyales, at susunod na aktibidad ng paksa."
+    } else {
+        "Keep momentum with quick reveals and interactive prompts."
+    }
     SectionCard(
-        title = "Talakayan ${stage.slideIndex}/${stage.totalSlides}",
-        subtitle = stage.slideTitle,
-        caption = "Keep momentum with quick reveals and interactive prompts."
+        title = if (topic != null) "Paksa ${stage.slideIndex}/${stage.totalSlides}" else "Talakayan ${stage.slideIndex}/${stage.totalSlides}",
+        subtitle = subtitle,
+        caption = caption
     ) {
         Column(
             modifier = Modifier.verticalScroll(rememberScrollState()),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(
-                text = stage.slideContent,
-                style = MaterialTheme.typography.bodyLarge,
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            stage.miniCheckPrompt?.let { prompt ->
-                val answerState = remember(stage.slideIndex) { mutableStateOf(stage.miniCheckAnswer) }
-                LaunchedEffect(stage.miniCheckAnswer, stage.slideIndex) {
-                    answerState.value = stage.miniCheckAnswer
+            if (topic != null) {
+                topic.details.takeIf { it.isNotBlank() }?.let { details ->
+                    Text(
+                        text = details,
+                        style = MaterialTheme.typography.bodyLarge,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
-                Surface(
-                    color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
-                    tonalElevation = 0.dp,
-                    shape = MaterialTheme.shapes.medium
-                ) {
-                    Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Text("Mini Check: $prompt", fontWeight = FontWeight.SemiBold)
-                        OutlinedTextField(
-                            value = answerState.value,
-                            onValueChange = { answerState.value = it },
-                            modifier = Modifier.fillMaxWidth()
+                if (topic.learningObjectives.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Layunin", 
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
-                        Button(onClick = { onSubmitCheck(answerState.value) }) {
-                            Text("I-check")
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            topic.learningObjectives.forEach { objective ->
+                                InfoPill(text = objective)
+                            }
                         }
-                        stage.miniCheckResult?.let { correct ->
-                            Text(
-                                text = if (correct) "Tama!" else "Subukan muli.",
-                                color = if (correct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
-                                style = MaterialTheme.typography.bodyMedium
+                    }
+                }
+                if (topic.materials.isNotEmpty()) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Text(
+                            text = "Mga Materyales",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                        )
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            topic.materials.forEach { material ->
+                                InfoPill(text = material.title)
+                            }
+                        }
+                    }
+                }
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    InfoPill(text = "${topic.preTest.items.size} pre-test")
+                    InfoPill(text = "${topic.postTest.items.size} post-test")
+                    InfoPill(text = "${topic.interactiveAssessments.size} interactive")
+                }
+            } else {
+                Text(
+                    text = stage.slideContent,
+                    style = MaterialTheme.typography.bodyLarge,
+                    color = MaterialTheme.colorScheme.onSurface
+                )
+                stage.miniCheckPrompt?.let { prompt ->
+                    val answerState = remember(stage.slideIndex) { mutableStateOf(stage.miniCheckAnswer) }
+                    LaunchedEffect(stage.miniCheckAnswer, stage.slideIndex) {
+                        answerState.value = stage.miniCheckAnswer
+                    }
+                    Surface(
+                        color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.12f),
+                        tonalElevation = 0.dp,
+                        shape = MaterialTheme.shapes.medium
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text("Mini Check: $prompt", fontWeight = FontWeight.SemiBold)
+                            OutlinedTextField(
+                                value = answerState.value,
+                                onValueChange = { answerState.value = it },
+                                modifier = Modifier.fillMaxWidth()
                             )
+                            Button(onClick = { onSubmitCheck(answerState.value) }) {
+                                Text("I-check")
+                            }
+                            stage.miniCheckResult?.let { correct ->
+                                Text(
+                                    text = if (correct) "Tama!" else "Subukan muli.",
+                                    color = if (correct) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+                                    style = MaterialTheme.typography.bodyMedium
+                                )
+                            }
                         }
                     }
                 }
             }
             Button(onClick = onNextSlide, modifier = Modifier.fillMaxWidth()) {
-                Text(if (stage.finished) "Pumunta sa Post-Test" else "Susunod na Slide")
+                val buttonLabel = if (stage.finished) "Pumunta sa Post-Test" else "Susunod na Hakbang"
+                Text(buttonLabel)
             }
         }
     }
@@ -393,6 +443,7 @@ private fun InteractiveStageView(
                 InfoPill(text = activity.categoryLabel())
                 InfoPill(text = if (activity.isScored) "Scored" else "No points")
                 InfoPill(text = activity.typeLabel())
+                stage.topicName?.let { InfoPill(text = it) }
             }
             Text(
                 text = activity.summaryLabel(),
@@ -614,18 +665,28 @@ private fun Stage.toMeta(): StageMeta = when (this) {
     }
     is Stage.LessonStage -> {
         val ratio = if (totalSlides > 0) slideIndex.toFloat() / totalSlides else 0f
+        val badge = if (topic != null) "Paksa" else "Talakayan"
+        val subtitleText = if (topic != null) {
+            "Paksa $slideIndex / $totalSlides"
+        } else {
+            "Slide $slideIndex / $totalSlides"
+        }
         StageMeta(
-            headline = "Talakayan live",
-            subtitle = "Slide $slideIndex / $totalSlides",
-            badgeLabel = "Talakayan",
+            headline = if (topic != null) "Paksa spotlight" else "Talakayan live",
+            subtitle = topic?.name?.let { "$subtitleText • $it" } ?: subtitleText,
+            badgeLabel = badge,
             progress = (0.46f + ratio * 0.24f).coerceIn(0f, 0.9f)
         )
     }
     is Stage.InteractiveStage -> {
         val ratio = if (totalActivities > 0) activityIndex.toFloat() / totalActivities else 0f
+        val subtitleText = buildString {
+            append("Activity $activityIndex / ${maxOf(totalActivities, 1)}")
+            topicName?.takeIf { it.isNotBlank() }?.let { append(" • $it") }
+        }
         StageMeta(
             headline = activity.categoryLabel(),
-            subtitle = "Activity $activityIndex / ${maxOf(totalActivities, 1)}",
+            subtitle = subtitleText,
             badgeLabel = activity.typeLabel(),
             progress = (0.7f + ratio * 0.15f).coerceIn(0f, 0.96f)
         )

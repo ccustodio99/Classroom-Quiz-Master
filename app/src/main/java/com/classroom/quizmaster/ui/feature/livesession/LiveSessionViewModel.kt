@@ -35,7 +35,10 @@ class LiveSessionViewModel(
     private suspend fun loadModuleMeta() {
         val module = container.moduleRepository.getModule(moduleId)
         if (module != null) {
-            val lookup = (module.preTest.items + module.postTest.items)
+            val topicItems = module.lesson.topics.flatMap { topic ->
+                topic.preTest.items + topic.postTest.items
+            }
+            val lookup = (module.preTest.items + module.postTest.items + topicItems)
                 .associate { item -> item.id to ItemMeta(prompt = item.prompt, objective = item.objective) }
             itemLookup = lookup
             _uiState.update {
@@ -112,6 +115,7 @@ class LiveSessionViewModel(
     }
 
     fun regenerateSession() {
+        endActiveSession()
         val newSession = container.liveSessionAgent.createSession(moduleId)
         sessionId = newSession
         _uiState.update { current ->
@@ -147,6 +151,15 @@ class LiveSessionViewModel(
                 )
             }
         }
+    }
+    private fun endActiveSession() {
+        val active = sessionId ?: return
+        runCatching { container.liveSessionAgent.endSession(active) }
+    }
+
+    override fun onCleared() {
+        endActiveSession()
+        super.onCleared()
     }
 }
 

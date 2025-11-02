@@ -42,9 +42,28 @@ import kotlin.math.max
 import kotlin.math.roundToInt
 import kotlin.random.Random
 
-class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() {
+class ModuleBuilderViewModel(
+    private val container: AppContainer,
+    private val moduleId: String? = null
+) : ViewModel() {
     private val _uiState = MutableStateFlow(ModuleBuilderUiState().withPreview())
     val uiState: StateFlow<ModuleBuilderUiState> = _uiState
+
+    private var identifiers = ModuleIdentifiers()
+    private var editing = false
+
+    init {
+        moduleId?.let { id ->
+            viewModelScope.launch { loadModule(id) }
+        }
+    }
+
+    private suspend fun loadModule(id: String) {
+        val module = container.moduleRepository.getModule(id) ?: return
+        identifiers = ModuleIdentifiers.fromModule(module)
+        editing = true
+        _uiState.value = module.toBuilderState().copy(isEditing = true).withPreview()
+    }
 
     fun onClassroomNameChanged(value: String) = updateState { it.copy(classroomName = value) }
 
@@ -246,7 +265,7 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             val section = state.resolvedSection()
             val classroomName = state.resolvedClassroomName()
             val classroom = ClassroomProfile(
-                id = UUID.randomUUID().toString(),
+                id = identifiers.classroomId,
                 name = classroomName,
                 subject = subject,
                 description = state.resolvedDescription(subject, gradeLevel, section),
@@ -273,24 +292,24 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
                 .filter { it.isNotEmpty() }
                 .distinct()
             val module = Module(
-                id = UUID.randomUUID().toString(),
+                id = identifiers.moduleId,
                 classroom = classroom,
                 subject = subject,
                 topic = topic,
                 objectives = combinedObjectives,
                 preTest = Assessment(
-                    id = UUID.randomUUID().toString(),
+                    id = identifiers.preAssessmentId,
                     items = preItems,
                     timePerItemSec = timePerItemSeconds
                 ),
                 lesson = Lesson(
-                    id = UUID.randomUUID().toString(),
+                    id = identifiers.lessonId,
                     slides = buildLessonSlides(slides, objectives),
                     interactiveActivities = interactiveActivities,
                     topics = lessonTopics
                 ),
                 postTest = Assessment(
-                    id = UUID.randomUUID().toString(),
+                    id = identifiers.postAssessmentId,
                     items = postItems,
                     timePerItemSec = timePerItemSeconds
                 ),
@@ -306,7 +325,10 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             }
             container.moduleBuilderAgent.createOrUpdate(module)
                 .onSuccess {
-                    _uiState.value = ModuleBuilderUiState(message = "Module saved!").withPreview()
+                    identifiers = ModuleIdentifiers.fromModule(module)
+                    val successMessage = if (editing) "Module updated!" else "Module saved!"
+                    editing = true
+                    _uiState.value = ModuleBuilderUiState(message = successMessage, isEditing = true).withPreview()
                     onSuccess()
                 }
                 .onFailure { error ->
@@ -712,7 +734,155 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
         )
     }
 
-    private fun MultipleChoiceDraft.toItem(
+private data class ModuleIdentifiers(
+    val moduleId: String = UUID.randomUUID().toString(),
+    val classroomId: String = UUID.randomUUID().toString(),
+    val preAssessmentId: String = UUID.randomUUID().toString(),
+    val postAssessmentId: String = UUID.randomUUID().toString(),
+    val lessonId: String = UUID.randomUUID().toString()
+) {
+    companion object {
+        fun fromModule(module: Module): ModuleIdentifiers = ModuleIdentifiers(
+            moduleId = module.id,
+            classroomId = module.classroom.id,
+            preAssessmentId = module.preTest.id,
+            postAssessmentId = module.postTest.id,
+            lessonId = module.lesson.id
+        )
+    }
+}
+
+private fun Module.toBuilderState(): ModuleBuilderUiState {
+    val slidesContent = lesson.slides.joinToString(separator = "\n") { it.content }
+    val topicsDraft = if (lesson.topics.isNotEmpty()) {
+        lesson.topics.map { it.toDraft() }
+    } else {
+        listOf(LessonTopicDraft())
+    }
+    return ModuleBuilderUiState(
+        classroomName = classroom.name,
+        subject = subject,
+        gradeLevel = classroom.gradeLevel,
+        section = classroom.section,
+        classroomDescription = classroom.description,
+        topic = topic,
+        objectives = objectives.joinToString(", "),
+        slides = slidesContent,
+        timePerItem = settings.timePerItemSeconds.toString(),
+        topics = topicsDraft,
+        isEditing = true
+    )
+}
+
+private fun LessonTopic.toDraft(): LessonTopicDraft {
+    val materialsDraft = materials.map { it.toDraft() }
+    val preDraft = preTest.items.mapNotNull { it.toMultipleChoiceDraftOrNull() }
+        .ifEmpty { listOf(MultipleChoiceDraft()) }
+    val postDraft = postTest.items.mapNotNull { it.toPostTestDraftOrNull() }
+        .ifEmpty { listOf(PostTestItemDraft.MultipleChoice()) }
+    val interactiveDraft = interactiveAssessments.mapNotNull { it.toInteractiveDraftOrNull() }
+        .ifEmpty { listOf(InteractiveQuizDraft()) }
+    return LessonTopicDraft(
+        id = id,
+        name = name,
+        objectives = learningObjectives.joinToString(", "),
+        details = details,
+        materials = if (materialsDraft.isNotEmpty()) materialsDraft else listOf(LearningMaterialDraft()),
+        preTest = preDraft,
+        postTest = postDraft,
+        interactive = interactiveDraft
+    )
+}
+
+private fun LearningMaterial.toDraft(): LearningMaterialDraft = LearningMaterialDraft(
+    id = id,
+    title = title,
+    type = type,
+    reference = reference
+)
+
+private fun Item.toMultipleChoiceDraftOrNull(): MultipleChoiceDraft? = when (this) {
+    is MultipleChoiceItem -> {
+        val normalizedChoices = normalizeChoices(choices)
+        MultipleChoiceDraft(
+            id = id,
+            prompt = prompt,
+            choices = normalizedChoices,
+            correctIndex = correctIndex,
+            rationale = explanation
+        )
+    }
+    else -> null
+}
+
+private fun Item.toPostTestDraftOrNull(): PostTestItemDraft? = when (this) {
+    is MultipleChoiceItem -> {
+        val normalizedChoices = normalizeChoices(choices)
+        PostTestItemDraft.MultipleChoice(
+            id = id,
+            prompt = prompt,
+            choices = normalizedChoices,
+            correctIndex = correctIndex,
+            rationale = explanation
+        )
+    }
+    is TrueFalseItem -> PostTestItemDraft.TrueFalse(
+        id = id,
+        prompt = prompt,
+        answer = answer,
+        explanation = explanation
+    )
+    is NumericItem -> {
+        val formatter = DecimalFormat("#.###")
+        PostTestItemDraft.Numeric(
+            id = id,
+            prompt = prompt,
+            answer = formatter.format(answer),
+            tolerance = formatter.format(tolerance),
+            explanation = explanation
+        )
+    }
+    else -> null
+}
+
+private fun InteractiveActivity.toInteractiveDraftOrNull(): InteractiveQuizDraft? = when (this) {
+    is QuizActivity -> InteractiveQuizDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        options = normalizeChoices(options),
+        correctAnswers = correctAnswers.toSet(),
+        allowMultiple = allowMultiple
+    )
+    is TrueFalseInteractive -> InteractiveQuizDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        options = listOf("True", "False", "", ""),
+        correctAnswers = if (correctAnswer) setOf(0) else setOf(1),
+        allowMultiple = false
+    )
+    is PollActivity -> InteractiveQuizDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        options = normalizeChoices(options),
+        correctAnswers = setOf(0),
+        allowMultiple = false
+    )
+    else -> null
+}
+
+private fun normalizeChoices(choices: List<String>, size: Int = 4): List<String> {
+    val trimmed = choices.map { it.trim() }
+    return if (trimmed.size >= size) {
+        trimmed.take(size)
+    } else {
+        trimmed + List(size - trimmed.size) { "" }
+    }
+}
+
+private fun MultipleChoiceDraft.toItem(
         objective: String,
         fallbackPromptIndex: Int,
         itemPrefix: String
@@ -818,7 +988,8 @@ data class ModuleBuilderUiState(
     val topics: List<LessonTopicDraft> = listOf(LessonTopicDraft()),
     val interactivePreview: InteractivePreviewSummary = InteractivePreviewSummary(),
     val errors: List<String> = emptyList(),
-    val message: String? = null
+    val message: String? = null,
+    val isEditing: Boolean = false
 )
 
 data class InteractivePreviewSummary(

@@ -49,15 +49,25 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                 )
                 DashboardScreen(
                     viewModel = viewModel,
-                    onCreateModule = { navController.navigate(Screen.Builder.route) },
+                    onCreateModule = { navController.navigate(Screen.Builder.createRoute()) },
                     onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) },
                     onJoinSession = { navController.navigate(Screen.Join.route) },
                     onOpenHelp = { navController.navigate(Screen.Help.route) }
                 )
             }
-            composable(Screen.Builder.route) {
+            composable(
+                route = Screen.Builder.route,
+                arguments = listOf(
+                    navArgument("moduleId") {
+                        type = NavType.StringType
+                        nullable = true
+                        defaultValue = null
+                    }
+                )
+            ) { backStackEntry ->
+                val moduleId = backStackEntry.arguments?.getString("moduleId")
                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<ModuleBuilderViewModel>(
-                    factory = viewModelFactory { ModuleBuilderViewModel(container) }
+                    factory = viewModelFactory { ModuleBuilderViewModel(container, moduleId) }
                 )
                 ModuleBuilderScreen(
                     viewModel = viewModel,
@@ -76,6 +86,7 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     onOpenLiveSession = { sessionId ->
                         navController.navigate(Screen.LiveSession.createRoute(moduleId, sessionId))
                     },
+                    onEditModule = { navController.navigate(Screen.Builder.createRoute(moduleId)) },
                     onBack = { navController.popBackStack() }
                 )
             }
@@ -142,7 +153,12 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
 
 sealed class Screen(val route: String) {
     data object Dashboard : Screen("dashboard")
-    data object Builder : Screen("builder")
+    data object Builder : Screen("builder?moduleId={moduleId}") {
+        fun createRoute(moduleId: String? = null): String {
+            val encoded = moduleId?.let { Uri.encode(it) } ?: ""
+            return "builder?moduleId=$encoded"
+        }
+    }
     data object ModuleDetail : Screen("module/{moduleId}") {
         fun createRoute(moduleId: String) = "module/$moduleId"
     }

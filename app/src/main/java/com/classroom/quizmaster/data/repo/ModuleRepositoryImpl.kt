@@ -24,22 +24,28 @@ class ModuleRepositoryImpl(
     }
 
     override suspend fun findModuleByAssessment(assessmentId: String): Module? {
-        return dao.getAll().firstNotNullOfOrNull { entity ->
-            val module = entity.toDomainOrNull(json) ?: return@firstNotNullOfOrNull null
-            if (module.preTest.id == assessmentId || module.postTest.id == assessmentId) module else null
-        }
+        val entity = dao.getByAssessmentId(assessmentId) ?: return null
+        val module = entity.toDomainOrNull(json) ?: return null
+        return if (module.preTest.id == assessmentId || module.postTest.id == assessmentId) module else null
     }
 
     override suspend fun findLesson(lessonId: String): Lesson? {
-        return dao.getAll().firstNotNullOfOrNull { entity ->
-            val module = entity.toDomainOrNull(json) ?: return@firstNotNullOfOrNull null
-            module.lesson.takeIf { it.id == lessonId }
-        }
+        val entity = dao.getByLessonId(lessonId) ?: return null
+        val module = entity.toDomainOrNull(json) ?: return null
+        return module.lesson.takeIf { it.id == lessonId }
     }
 
     override suspend fun upsert(module: Module) {
         val jsonValue = json.encodeToString(Module.serializer(), module)
-        dao.insert(ModuleEntity(id = module.id, moduleJson = jsonValue))
+        dao.insert(
+            ModuleEntity(
+                id = module.id,
+                moduleJson = jsonValue,
+                preAssessmentId = module.preTest.id,
+                postAssessmentId = module.postTest.id,
+                lessonId = module.lesson.id
+            )
+        )
     }
 }
 
