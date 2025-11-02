@@ -12,7 +12,10 @@ data class Module(
     val preTest: Assessment,
     val lesson: Lesson,
     val postTest: Assessment,
-    val settings: ModuleSettings
+    val settings: ModuleSettings,
+    val archived: Boolean = false,
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L
 )
 
 @Serializable
@@ -22,8 +25,16 @@ data class ClassroomProfile(
     val subject: String = "G11 General Mathematics",
     val description: String = "",
     val gradeLevel: String = "Grade 11",
-    val section: String = ""
+    val section: String = "",
+    val ownerId: String? = null,
+    val status: ClassroomStatus = ClassroomStatus.Active,
+    val createdAt: Long = 0L,
+    val updatedAt: Long = 0L,
+    val archivedAt: Long? = null
 )
+
+@Serializable
+enum class ClassroomStatus { Active, Archived }
 
 @Serializable
 data class ModuleSettings(
@@ -49,7 +60,8 @@ data class LessonTopic(
     val materials: List<LearningMaterial> = emptyList(),
     val preTest: Assessment,
     val postTest: Assessment,
-    val interactiveAssessments: List<InteractiveActivity> = emptyList()
+    val interactiveAssessments: List<InteractiveActivity> = emptyList(),
+    val archived: Boolean = false
 )
 
 @Serializable

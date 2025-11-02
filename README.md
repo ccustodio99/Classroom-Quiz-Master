@@ -7,12 +7,19 @@ A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General
 ---
 
 ## 🎓 How Classroom Quiz Master Works
-Classroom Quiz Master brings interactive assessments, structured lessons, and actionable reporting together so teachers can measure learning in real time—online or offline.
+Classroom Quiz Master brings interactive assessments, structured lessons, and actionable reporting together so teachers can measure learning in real time-online or offline.
+
+## 🔐 Accounts & Access Control
+- **Default Admin:** On first launch the app seeds `admin@classroom.local` / `admin123`. Use this account to approve new teachers and students.
+- **Teacher & Student Signup:** Tap **Sign up** on the login screen to request access. Teachers can immediately browse the classroom manager once approved; students go straight to the join screen.
+- **Admin Approval:** Pending accounts appear under the **Pending approvals** list. Approving an account promotes it to active status and unlocks the appropriate home screen.
+- **Local-First Storage:** Credentials, classes, modules, and reports are stored locally via Room. Optional sync hooks remain disabled until future cloud support is added.
+- **Session Awareness:** The app remembers the current account while running. Logging out returns to the authentication screen without deleting any data.
 
 ### 🧑‍🏫 Teacher Experience
-1. **Create or Import a Lesson Module** – Define objectives, attach slides/media, and configure timers, randomization, and optional leaderboards across the pre/lesson/post segments.
-2. **Launch a Live Session** – Tap **Start Live Delivery** to generate a short-lived class code (e.g., `845 209`). Mirror your device to a projector, TV, or screen-share so everyone sees prompts and leaderboards.
-3. **Monitor and Report** – Scores, participation, and learning gains are stored locally. Export PDF or CSV reports to highlight objective mastery and commonly missed concepts.
+1. **Create or Import a Lesson Module** - Define objectives, attach slides/media, and configure timers, randomization, and optional leaderboards across the pre/lesson/post segments.
+2. **Launch a Live Session** - Tap **Start Live Delivery** to generate a short-lived class code (e.g., `845 209`). Mirror your device to a projector, TV, or screen-share so everyone sees prompts and leaderboards.
+3. **Monitor and Report** - Scores, participation, and learning gains are stored locally. Export PDF or CSV reports to highlight objective mastery and commonly missed concepts.
 
 ### 👩‍🎓 Student Experience
 1. **Join the Session** – Open the join screen on any phone, tablet, or laptop connected to the same Wi‑Fi or the teacher’s offline hotspot. Enter the class code and nickname or ID.

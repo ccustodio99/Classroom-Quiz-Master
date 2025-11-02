@@ -1,4 +1,4 @@
-package com.classroom.quizmaster.ui.feature.builder
+﻿package com.classroom.quizmaster.ui.feature.builder
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
@@ -44,13 +44,15 @@ import kotlin.random.Random
 
 class ModuleBuilderViewModel(
     private val container: AppContainer,
-    private val moduleId: String? = null
+    private val moduleId: String? = null,
+    private val teacherId: String? = null
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ModuleBuilderUiState().withPreview())
     val uiState: StateFlow<ModuleBuilderUiState> = _uiState
 
     private var identifiers = ModuleIdentifiers()
     private var editing = false
+    private val classroomAgent = container.classroomAgent
 
     init {
         moduleId?.let { id ->
@@ -270,7 +272,8 @@ class ModuleBuilderViewModel(
                 subject = subject,
                 description = state.resolvedDescription(subject, gradeLevel, section),
                 gradeLevel = gradeLevel,
-                section = section
+                section = section,
+                ownerId = teacherId
             )
             val interactiveActivities = generateInteractiveActivities(
                 topic = topic,
@@ -291,9 +294,10 @@ class ModuleBuilderViewModel(
                 .map { it.trim() }
                 .filter { it.isNotEmpty() }
                 .distinct()
+            val managedClassroom = classroom.copy(ownerId = classroom.ownerId ?: teacherId)
             val module = Module(
                 id = identifiers.moduleId,
-                classroom = classroom,
+                classroom = managedClassroom,
                 subject = subject,
                 topic = topic,
                 objectives = combinedObjectives,
@@ -315,6 +319,16 @@ class ModuleBuilderViewModel(
                 ),
                 settings = ModuleSettings(timePerItemSeconds = timePerItemSeconds)
             )
+            val classroomResult = classroomAgent.createOrUpdate(managedClassroom)
+            if (classroomResult.isFailure) {
+                _uiState.value = state.copy(
+                    errors = listOf(
+                        classroomResult.exceptionOrNull()?.message ?: "Hindi naisave ang classroom."
+                    ),
+                    message = null
+                ).withPreview()
+                return@launch
+            }
             val violations = container.moduleBuilderAgent.validate(module)
             if (violations.isNotEmpty()) {
                 _uiState.value = state.copy(
@@ -1542,3 +1556,4 @@ private fun formatNumberLike(original: String, value: Double): String {
     }
     return formatter.format(value)
 }
+

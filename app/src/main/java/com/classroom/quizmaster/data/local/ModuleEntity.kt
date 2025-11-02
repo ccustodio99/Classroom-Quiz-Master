@@ -10,5 +10,9 @@ data class ModuleEntity(
     @ColumnInfo(name = "module_json") val moduleJson: String,
     @ColumnInfo(name = "pre_assessment_id", index = true) val preAssessmentId: String,
     @ColumnInfo(name = "post_assessment_id", index = true) val postAssessmentId: String,
-    @ColumnInfo(name = "lesson_id", index = true) val lessonId: String
+    @ColumnInfo(name = "lesson_id", index = true) val lessonId: String,
+    @ColumnInfo(name = "classroom_id", index = true) val classroomId: String?,
+    @ColumnInfo(name = "archived") val archived: Boolean,
+    @ColumnInfo(name = "created_at") val createdAt: Long,
+    @ColumnInfo(name = "updated_at") val updatedAt: Long
 )

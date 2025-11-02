@@ -3,6 +3,7 @@ package com.classroom.quizmaster.agents
 import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.Badge
 import com.classroom.quizmaster.domain.model.ClassReport
+import com.classroom.quizmaster.domain.model.ClassroomProfile
 import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Module
@@ -10,12 +11,30 @@ import com.classroom.quizmaster.domain.model.LessonTopic
 import com.classroom.quizmaster.domain.model.Scorecard
 import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.StudentReport
+import com.classroom.quizmaster.domain.model.UserAccount
+import com.classroom.quizmaster.domain.model.UserRole
 import kotlinx.coroutines.flow.Flow
 import kotlinx.serialization.Serializable
 
 interface ModuleBuilderAgent {
     suspend fun createOrUpdate(module: Module): Result<Unit>
     fun validate(module: Module): List<Violation>
+}
+
+interface AuthAgent {
+    fun observeCurrentAccount(): Flow<UserAccount?>
+    fun observePendingAccounts(): Flow<List<UserAccount>>
+    suspend fun register(email: String, password: String, displayName: String, role: UserRole): Result<UserAccount>
+    suspend fun login(email: String, password: String): Result<UserAccount>
+    suspend fun approve(adminId: String, accountId: String): Result<UserAccount>
+    suspend fun logout()
+}
+
+interface ClassroomAgent {
+    fun observeClassrooms(includeArchived: Boolean = false): Flow<List<ClassroomProfile>>
+    suspend fun fetchClassroom(id: String): ClassroomProfile?
+    suspend fun createOrUpdate(profile: ClassroomProfile): Result<ClassroomProfile>
+    suspend fun setArchived(classroomId: String, archived: Boolean): Result<Unit>
 }
 
 @Serializable

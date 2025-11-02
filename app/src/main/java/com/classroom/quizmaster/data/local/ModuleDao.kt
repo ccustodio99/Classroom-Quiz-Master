@@ -9,11 +9,26 @@ import kotlinx.coroutines.flow.Flow
 
 @Dao
 interface ModuleDao {
-    @Query("SELECT * FROM modules")
-    fun observeModules(): Flow<List<ModuleEntity>>
+    @Query("SELECT * FROM modules WHERE archived = 0 ORDER BY created_at DESC")
+    fun observeActiveModules(): Flow<List<ModuleEntity>>
+
+    @Query("SELECT * FROM modules ORDER BY created_at DESC")
+    fun observeAllModules(): Flow<List<ModuleEntity>>
+
+    @Query(
+        "SELECT * FROM modules WHERE classroom_id = :classroomId AND (:includeArchived OR archived = 0) " +
+            "ORDER BY created_at DESC"
+    )
+    fun observeByClassroom(classroomId: String, includeArchived: Boolean): Flow<List<ModuleEntity>>
+
+    @Query("SELECT * FROM modules WHERE archived = 0")
+    suspend fun getActive(): List<ModuleEntity>
 
     @Query("SELECT * FROM modules")
     suspend fun getAll(): List<ModuleEntity>
+
+    @Query("SELECT * FROM modules WHERE classroom_id = :classroomId AND (:includeArchived OR archived = 0)")
+    suspend fun getByClassroom(classroomId: String, includeArchived: Boolean): List<ModuleEntity>
 
     @Query("SELECT * FROM modules WHERE id = :id")
     suspend fun getModule(id: String): ModuleEntity?
@@ -31,4 +46,7 @@ interface ModuleDao {
 
     @Update
     suspend fun update(entity: ModuleEntity)
+
+    @Query("UPDATE modules SET archived = :archived, updated_at = :updatedAt WHERE id = :id")
+    suspend fun setArchived(id: String, archived: Boolean, updatedAt: Long)
 }

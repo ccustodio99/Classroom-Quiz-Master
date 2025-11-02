@@ -21,16 +21,16 @@ import androidx.compose.material.icons.rounded.AutoAwesome
 import androidx.compose.material.icons.rounded.Bolt
 import androidx.compose.material.icons.rounded.Explore
 import androidx.compose.material.icons.rounded.Info
-import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.People
+import androidx.compose.material.icons.rounded.RocketLaunch
 import androidx.compose.material.icons.rounded.Star
 import androidx.compose.material3.Button
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
@@ -56,12 +56,13 @@ fun DashboardScreen(
     onCreateModule: () -> Unit,
     onOpenModule: (String) -> Unit,
     onJoinSession: () -> Unit,
-    onOpenHelp: () -> Unit
+    onOpenHelp: () -> Unit,
+    onManageClasses: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
     val modules = state.modules
     val objectiveCount = remember(modules) { modules.flatMap { it.objectives }.toSet().size }
-    val trendingTopics = remember(modules) { modules.take(3).joinToString(" • ") { it.topic } }
+    val trendingTopics = remember(modules) { modules.take(3).joinToString(separator = " | ") { it.topic } }
 
     GenZScaffold(
         title = "QuizMaster Control",
@@ -71,6 +72,11 @@ fun DashboardScreen(
                 icon = Icons.Rounded.Info,
                 contentDescription = "Open help & guide",
                 onClick = onOpenHelp
+            ),
+            TopBarAction(
+                icon = Icons.Rounded.Explore,
+                contentDescription = "Manage classrooms",
+                onClick = onManageClasses
             ),
             TopBarAction(
                 icon = Icons.Rounded.AutoAwesome,
@@ -94,6 +100,7 @@ fun DashboardScreen(
                     trendingTopics = trendingTopics.takeIf { it.isNotBlank() },
                     onCreateModule = onCreateModule,
                     onQuickModule = viewModel::createQuickModule,
+                    onManageClasses = onManageClasses,
                     onJoinSession = onJoinSession
                 )
             }
@@ -104,9 +111,7 @@ fun DashboardScreen(
                 )
             }
             if (modules.isEmpty()) {
-                item {
-                    EmptyState(onCreateModule = onCreateModule)
-                }
+                item { EmptyState(onCreateModule = onCreateModule) }
             } else {
                 item {
                     Text(
@@ -116,10 +121,7 @@ fun DashboardScreen(
                     )
                 }
                 items(modules, key = { it.id }) { module ->
-                    ModuleCard(
-                        module = module,
-                        onOpen = { onOpenModule(module.id) }
-                    )
+                    ModuleCard(module = module, onOpen = { onOpenModule(module.id) })
                 }
             }
         }
@@ -133,6 +135,7 @@ private fun DashboardHeader(
     trendingTopics: String?,
     onCreateModule: () -> Unit,
     onQuickModule: () -> Unit,
+    onManageClasses: () -> Unit,
     onJoinSession: () -> Unit
 ) {
     val colorScheme = MaterialTheme.colorScheme
@@ -203,6 +206,18 @@ private fun DashboardHeader(
                     Text("Design new flow")
                 }
                 OutlinedButton(
+                    onClick = onManageClasses,
+                    colors = ButtonDefaults.outlinedButtonColors(contentColor = colorScheme.onPrimary),
+                    border = BorderStroke(
+                        width = 1.2.dp,
+                        color = colorScheme.onPrimary.copy(alpha = 0.5f)
+                    )
+                ) {
+                    Icon(imageVector = Icons.Rounded.Explore, contentDescription = null)
+                    Spacer(modifier = Modifier.width(8.dp))
+                    Text("Manage classes")
+                }
+                OutlinedButton(
                     onClick = onQuickModule,
                     colors = ButtonDefaults.outlinedButtonColors(contentColor = colorScheme.onPrimary),
                     border = BorderStroke(
@@ -255,26 +270,29 @@ private fun HeaderPill(text: String) {
 }
 
 @Composable
-private fun HighlightRow(
-    moduleCount: Int,
-    objectiveCount: Int
-) {
+private fun HighlightRow(moduleCount: Int, objectiveCount: Int) {
     Row(
-        modifier = Modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.spacedBy(16.dp)
+        modifier = Modifier
+            .fillMaxWidth()
+            .horizontalScroll(rememberScrollState()),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
     ) {
         HighlightCard(
-            modifier = Modifier.weight(1f),
             icon = Icons.Rounded.RocketLaunch,
-            title = "Active modules",
-            value = if (moduleCount > 0) moduleCount.toString() else "Start",
-            caption = if (moduleCount > 0) "Ready to launch sessions" else "Drop your first pack"
+            title = "Modules ready",
+            value = moduleCount.toString(),
+            caption = "Build once, reuse often"
         )
         HighlightCard(
-            modifier = Modifier.weight(1f),
+            icon = Icons.Rounded.People,
+            title = "Live delivery",
+            value = "Realtime",
+            caption = "LAN + assignments"
+        )
+        HighlightCard(
             icon = Icons.Rounded.Explore,
             title = "Objectives mapped",
-            value = if (objectiveCount > 0) objectiveCount.toString() else "—",
+            value = objectiveCount.toString(),
             caption = if (objectiveCount > 0) "Learning goals covered" else "Add mastery targets"
         )
     }
@@ -282,46 +300,32 @@ private fun HighlightRow(
 
 @Composable
 private fun HighlightCard(
-    modifier: Modifier = Modifier,
     icon: ImageVector,
     title: String,
     value: String,
-    caption: String
+    caption: String,
+    modifier: Modifier = Modifier
 ) {
-    Card(
+    Surface(
         modifier = modifier,
         shape = RoundedCornerShape(24.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        tonalElevation = 0.dp
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier
+                .width(200.dp)
+                .padding(18.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
         ) {
-            Surface(
-                color = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(16.dp),
-                tonalElevation = 0.dp
-            ) {
-                Icon(
-                    imageVector = icon,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.tertiary,
-                    modifier = Modifier.padding(10.dp)
-                )
-            }
+            Icon(icon, contentDescription = null, tint = MaterialTheme.colorScheme.primary)
+            Text(title, style = MaterialTheme.typography.titleSmall)
             Text(
-                text = title,
-                style = MaterialTheme.typography.labelMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+                value,
+                style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
             )
             Text(
-                text = value,
-                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.Bold),
-                color = MaterialTheme.colorScheme.onSurface
-            )
-            Text(
-                text = caption,
+                caption,
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -337,47 +341,28 @@ private fun ModuleCard(
     Card(
         modifier = Modifier.fillMaxWidth(),
         shape = RoundedCornerShape(28.dp),
-        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface),
-        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surface)
     ) {
         Column(
-            modifier = Modifier.padding(20.dp),
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(24.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
-                Text(
-                    text = module.topic,
-                    style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
-                    color = MaterialTheme.colorScheme.onSurface
-                )
-                Text(
-                    text = "Learning goals",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
+            Text(
+                text = module.topic,
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
             if (module.objectives.isNotEmpty()) {
-                val scrollState = rememberScrollState()
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .horizontalScroll(scrollState),
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    module.objectives.forEach { objective ->
-                        ObjectivePill(objective = objective)
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    module.objectives.take(3).forEach { objective ->
+                        ObjectivePill(objective)
                     }
                 }
             }
-            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.7f))
-            ModuleMetaRow(module = module)
-            FilledTonalButton(
-                onClick = onOpen,
-                modifier = Modifier.fillMaxWidth()
-            ) {
-                Text("Buksan ang Flow")
-            }
+            ModuleMetaRow(module)
+            OutlinedButton(onClick = onOpen) { Text("Open module") }
         }
     }
 }
@@ -402,7 +387,7 @@ private fun ObjectivePill(objective: String) {
 @Composable
 private fun ModuleMetaRow(module: ModuleSummary) {
     val status = when {
-        (module.attempts ?: 0) > 0 && module.postAverage != null && module.preAverage != null && module.postAverage > module.preAverage -> "📈 Gains"
+        (module.attempts ?: 0) > 0 && module.postAverage != null && module.preAverage != null && module.postAverage > module.preAverage -> "Strong gains"
         (module.attempts ?: 0) > 0 -> "Live in class"
         else -> "Ready to launch"
     }
@@ -418,8 +403,8 @@ private fun ModuleMetaRow(module: ModuleSummary) {
         )
         MetaItem(
             modifier = Modifier.weight(1f),
-            label = "Pre → Post",
-            value = "${formatPercent(module.preAverage)} → ${formatPercent(module.postAverage)}"
+            label = "Pre -> Post",
+            value = "${formatPercent(module.preAverage)} -> ${formatPercent(module.postAverage)}"
         )
         MetaItem(
             modifier = Modifier.weight(1f),
@@ -461,8 +446,7 @@ private fun EmptyState(onCreateModule: () -> Unit) {
         elevation = CardDefaults.cardElevation(defaultElevation = 0.dp)
     ) {
         Column(
-            modifier = Modifier
-                .padding(28.dp),
+            modifier = Modifier.padding(28.dp),
             verticalArrangement = Arrangement.spacedBy(16.dp),
             horizontalAlignment = Alignment.Start
         ) {
@@ -485,7 +469,7 @@ private fun EmptyState(onCreateModule: () -> Unit) {
                     color = MaterialTheme.colorScheme.onSurface
                 )
                 Text(
-                    text = "Create a module with pre/post diagnostics, interactive slides, and exports—everything in one smooth flow.",
+                    text = "Create a module with pre/post diagnostics, interactive slides, and exports -- everything in one smooth flow.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -503,4 +487,4 @@ private fun EmptyState(onCreateModule: () -> Unit) {
 }
 
 private fun formatPercent(value: Double?): String =
-    value?.let { "${it.roundToInt()}%" } ?: "—"
+    value?.let { "${it.roundToInt()}%" } ?: "0%"

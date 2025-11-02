@@ -17,7 +17,6 @@ import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.FilterChip
@@ -41,7 +40,7 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.input.KeyboardOptions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.ui.components.AdaptiveWrapRow
@@ -576,7 +575,7 @@ private fun LearningMaterialRow(
                     .menuAnchor()
                     .fillMaxWidth()
             )
-            ExposedDropdownMenu(
+            DropdownMenu(
                 expanded = expanded,
                 onDismissRequest = { expanded = false }
             ) {
@@ -1890,77 +1889,6 @@ private fun NumericItemCard(
 }
 
 @Composable
-private fun InteractiveQuizCard(
-    title: String,
-    quiz: InteractiveQuizDraft,
-    allowRemove: Boolean,
-    onTitleChange: (String) -> Unit,
-    onPromptChange: (String) -> Unit,
-    onChoiceChange: (Int, String) -> Unit,
-    onToggleAnswer: (Int) -> Unit,
-    onAllowMultipleChanged: (Boolean) -> Unit,
-    onRemove: () -> Unit
-) {
-    Surface(
-        shape = MaterialTheme.shapes.medium,
-        color = MaterialTheme.colorScheme.surface,
-        tonalElevation = 1.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Text(
-                    text = title,
-                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
-                )
-                Spacer(modifier = Modifier.weight(1f))
-                if (allowRemove) {
-                    IconButton(onClick = onRemove) {
-                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove interactive quiz")
-                    }
-                }
-            }
-            OutlinedTextField(
-                value = quiz.title,
-                onValueChange = onTitleChange,
-                label = { Text("Quiz title") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            OutlinedTextField(
-                value = quiz.prompt,
-                onValueChange = onPromptChange,
-                label = { Text("Prompt or question") },
-                modifier = Modifier.fillMaxWidth()
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Text(
-                    text = if (quiz.allowMultiple) "Multiple answers allowed" else "Single answer",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                Switch(
-                    checked = quiz.allowMultiple,
-                    onCheckedChange = onAllowMultipleChanged
-                )
-            }
-            MultipleChoiceOptionsEditor(
-                choices = quiz.options,
-                selectedIndices = quiz.correctAnswers,
-                onChoiceChange = onChoiceChange,
-                onSelectionChange = onToggleAnswer
-            )
-        }
-    }
-}
-
-@Composable
 private fun MultipleChoiceOptionsEditor(
     choices: List<String>,
     selectedIndices: Set<Int>,
@@ -2024,7 +1952,7 @@ private fun GradeLevelPicker(
             singleLine = true,
             keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
         )
-        ExposedDropdownMenu(
+        DropdownMenu(
             expanded = expanded,
             onDismissRequest = { expanded = false }
         ) {

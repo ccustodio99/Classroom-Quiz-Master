@@ -1,4 +1,4 @@
-package com.classroom.quizmaster.ui
+﻿package com.classroom.quizmaster.ui
 
 import android.net.Uri
 import androidx.compose.foundation.layout.padding
@@ -6,6 +6,9 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
+import androidx.compose.runtime.collectAsState
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
 import androidx.navigation.NavHostController
@@ -15,8 +18,13 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.classroom.quizmaster.LocalAppContainer
+import com.classroom.quizmaster.domain.model.UserRole
+import com.classroom.quizmaster.ui.feature.admin.AdminApprovalScreen
+import com.classroom.quizmaster.ui.feature.auth.AuthScreen
 import com.classroom.quizmaster.ui.feature.builder.ModuleBuilderScreen
 import com.classroom.quizmaster.ui.feature.builder.ModuleBuilderViewModel
+import com.classroom.quizmaster.ui.feature.classroom.ClassroomScreen
+import com.classroom.quizmaster.ui.feature.classroom.ClassroomViewModel
 import com.classroom.quizmaster.ui.feature.dashboard.DashboardScreen
 import com.classroom.quizmaster.ui.feature.dashboard.DashboardViewModel
 import com.classroom.quizmaster.ui.feature.delivery.DeliveryScreen
@@ -30,29 +38,88 @@ import com.classroom.quizmaster.ui.feature.livesession.LiveSessionScreen
 import com.classroom.quizmaster.ui.feature.livesession.LiveSessionViewModel
 import com.classroom.quizmaster.ui.feature.reports.ReportsScreen
 import com.classroom.quizmaster.ui.feature.reports.ReportsViewModel
+import com.classroom.quizmaster.ui.viewModelFactory
 
 @Composable
 fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
     val container = LocalAppContainer.current
     val snackbarHostState = remember { SnackbarHostState() }
-    Scaffold(
-        snackbarHost = { SnackbarHost(snackbarHostState) }
-    ) { innerPadding ->
+    val sessionViewModel = androidx.lifecycle.viewmodel.compose.viewModel<SessionViewModel>(
+        factory = viewModelFactory { SessionViewModel(container) }
+    )
+    val sessionState by sessionViewModel.uiState.collectAsState()
+
+    LaunchedEffect(sessionState.currentUser) {
+        val user = sessionState.currentUser
+        val currentRoute = navController.currentDestination?.route
+        if (user == null) {
+            if (currentRoute != Screen.Auth.route) {
+                navController.navigate(Screen.Auth.route) {
+                    popUpTo(navController.graph.startDestinationId) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        } else {
+            val target = when (user.role) {
+                UserRole.Admin -> Screen.Admin.route
+                UserRole.Teacher -> Screen.Dashboard.route
+                UserRole.Student -> Screen.Join.route
+            }
+            if (currentRoute != target) {
+                navController.navigate(target) {
+                    popUpTo(Screen.Auth.route) { inclusive = true }
+                    launchSingleTop = true
+                }
+            }
+        }
+    }
+
+    Scaffold(snackbarHost = { SnackbarHost(snackbarHostState) }) { innerPadding ->
         NavHost(
             navController = navController,
-            startDestination = Screen.Dashboard.route,
+            startDestination = Screen.Auth.route,
             modifier = Modifier.padding(innerPadding)
         ) {
+            composable(Screen.Auth.route) {
+                AuthScreen(
+                    sessionViewModel = sessionViewModel,
+                    onAuthenticated = {}
+                )
+            }
+            composable(Screen.Admin.route) {
+                AdminApprovalScreen(
+                    sessionViewModel = sessionViewModel,
+                    onBack = { sessionViewModel.logout() }
+                )
+            }
+            composable(Screen.Classrooms.route) {
+                val teacherId = sessionState.currentUser?.takeIf { it.role == UserRole.Teacher }?.id
+                if (teacherId == null) {
+                    HelpGuideScreen(onBack = { navController.popBackStack() })
+                } else {
+                    val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<ClassroomViewModel>(
+                        factory = viewModelFactory { ClassroomViewModel(container, teacherId) }
+                    )
+                    ClassroomScreen(
+                        viewModel = viewModel,
+                        snackbarHostState = snackbarHostState,
+                        onBack = { navController.popBackStack() },
+                        onManageModules = { navController.navigate(Screen.Dashboard.route) }
+                    )
+                }
+            }
             composable(Screen.Dashboard.route) {
+                val teacherId = sessionState.currentUser?.takeIf { it.role == UserRole.Teacher }?.id
                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<DashboardViewModel>(
-                    factory = viewModelFactory { DashboardViewModel(container, snackbarHostState) }
+                    factory = viewModelFactory { DashboardViewModel(container, snackbarHostState, teacherId) }
                 )
                 DashboardScreen(
                     viewModel = viewModel,
                     onCreateModule = { navController.navigate(Screen.Builder.createRoute()) },
                     onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) },
                     onJoinSession = { navController.navigate(Screen.Join.route) },
-                    onOpenHelp = { navController.navigate(Screen.Help.route) }
+                    onOpenHelp = { navController.navigate(Screen.Help.route) },
+                    onManageClasses = { navController.navigate(Screen.Classrooms.route) }
                 )
             }
             composable(
@@ -66,8 +133,9 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                 )
             ) { backStackEntry ->
                 val moduleId = backStackEntry.arguments?.getString("moduleId")
+                val teacherId = sessionState.currentUser?.takeIf { it.role == UserRole.Teacher }?.id
                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<ModuleBuilderViewModel>(
-                    factory = viewModelFactory { ModuleBuilderViewModel(container, moduleId) }
+                    factory = viewModelFactory { ModuleBuilderViewModel(container, moduleId, teacherId) }
                 )
                 ModuleBuilderScreen(
                     viewModel = viewModel,
@@ -113,8 +181,7 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                 )
             ) { backStackEntry ->
                 val moduleId = backStackEntry.arguments?.getString("moduleId") ?: return@composable
-                val sessionId = backStackEntry.arguments?.getString("sessionId")
-                    ?.takeIf { it.isNotBlank() }
+                val sessionId = backStackEntry.arguments?.getString("sessionId")?.takeIf { it.isNotBlank() }
                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<LiveSessionViewModel>(
                     factory = viewModelFactory { LiveSessionViewModel(container, moduleId, sessionId) }
                 )
@@ -143,15 +210,16 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                 )
             }
             composable(Screen.Help.route) {
-                HelpGuideScreen(
-                    onBack = { navController.popBackStack() }
-                )
+                HelpGuideScreen(onBack = { navController.popBackStack() })
             }
         }
     }
 }
 
 sealed class Screen(val route: String) {
+    data object Auth : Screen("auth")
+    data object Admin : Screen("admin")
+    data object Classrooms : Screen("classrooms")
     data object Dashboard : Screen("dashboard")
     data object Builder : Screen("builder?moduleId={moduleId}") {
         fun createRoute(moduleId: String? = null): String {
@@ -177,3 +245,7 @@ sealed class Screen(val route: String) {
     data object Join : Screen("join")
     data object Help : Screen("help")
 }
+
+
+
+

@@ -5,6 +5,10 @@ import com.classroom.quizmaster.agents.AssessmentAgent
 import com.classroom.quizmaster.agents.AssessmentAgentImpl
 import com.classroom.quizmaster.agents.AssignmentAgent
 import com.classroom.quizmaster.agents.AssignmentAgentImpl
+import com.classroom.quizmaster.agents.AuthAgent
+import com.classroom.quizmaster.agents.AuthAgentImpl
+import com.classroom.quizmaster.agents.ClassroomAgent
+import com.classroom.quizmaster.agents.ClassroomAgentImpl
 import com.classroom.quizmaster.agents.GamificationAgent
 import com.classroom.quizmaster.agents.GamificationAgentImpl
 import com.classroom.quizmaster.agents.ItemBankAgent
@@ -26,10 +30,20 @@ import com.classroom.quizmaster.data.repo.AssignmentRepository
 import com.classroom.quizmaster.data.repo.AssignmentRepositoryImpl
 import com.classroom.quizmaster.data.repo.AttemptRepository
 import com.classroom.quizmaster.data.repo.AttemptRepositoryImpl
+import com.classroom.quizmaster.data.repo.AccountRepository
+import com.classroom.quizmaster.data.repo.AccountRepositoryImpl
+import com.classroom.quizmaster.data.repo.ClassroomRepository
+import com.classroom.quizmaster.data.repo.ClassroomRepositoryImpl
 import com.classroom.quizmaster.data.repo.ModuleRepository
 import com.classroom.quizmaster.data.repo.ModuleRepositoryImpl
+import com.classroom.quizmaster.data.util.PasswordHasher
+import com.classroom.quizmaster.domain.model.AccountStatus
+import com.classroom.quizmaster.domain.model.UserAccount
+import com.classroom.quizmaster.domain.model.UserRole
 import com.classroom.quizmaster.lan.LiveSessionLanFactory
 import kotlinx.serialization.json.Json
+import kotlinx.coroutines.runBlocking
+import java.util.UUID
 
 class AppContainer(context: Context) {
     val appContext: Context = context.applicationContext
@@ -46,6 +60,8 @@ class AppContainer(context: Context) {
     val moduleRepository: ModuleRepository = ModuleRepositoryImpl(database.moduleDao(), json)
     val attemptRepository: AttemptRepository = AttemptRepositoryImpl(database.attemptDao(), json)
     val assignmentRepository: AssignmentRepository = AssignmentRepositoryImpl(database.assignmentDao(), json)
+    val accountRepository: AccountRepository = AccountRepositoryImpl(database.accountDao())
+    val classroomRepository: ClassroomRepository = ClassroomRepositoryImpl(database.classroomDao(), json)
 
     val moduleBuilderAgent: ModuleBuilderAgent = ModuleBuilderAgentImpl(moduleRepository)
     val assessmentAgent: AssessmentAgent = AssessmentAgentImpl(moduleRepository, attemptRepository)
@@ -57,4 +73,34 @@ class AppContainer(context: Context) {
     val itemBankAgent: ItemBankAgent = ItemBankAgentImpl()
     val gamificationAgent: GamificationAgent = GamificationAgentImpl()
     val syncAgent: SyncAgent = SyncAgentImpl()
+    val authAgent: AuthAgent = AuthAgentImpl(accountRepository)
+    val classroomAgent: ClassroomAgent = ClassroomAgentImpl(classroomRepository, moduleRepository)
+
+    init {
+        ensureDefaultAdmin()
+    }
+
+    private fun ensureDefaultAdmin() = runBlocking {
+        val existing = accountRepository.findByEmail(DEFAULT_ADMIN_EMAIL)
+        if (existing == null) {
+            val now = System.currentTimeMillis()
+            val account = UserAccount(
+                id = UUID.randomUUID().toString(),
+                email = DEFAULT_ADMIN_EMAIL,
+                displayName = "Administrator",
+                role = UserRole.Admin,
+                status = AccountStatus.Active,
+                hashedPassword = PasswordHasher.hash("admin123"),
+                createdAt = now,
+                approvedAt = now,
+                approvedBy = DEFAULT_ADMIN_EMAIL,
+                lastLoginAt = null
+            )
+            accountRepository.create(account)
+        }
+    }
+
+    companion object {
+        private const val DEFAULT_ADMIN_EMAIL = "admin@classroom.local"
+    }
 }
