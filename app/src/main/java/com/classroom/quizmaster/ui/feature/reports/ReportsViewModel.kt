@@ -6,6 +6,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.AppContainer
 import com.classroom.quizmaster.agents.CsvRow
 import com.classroom.quizmaster.domain.model.ClassReport
+import java.util.Locale
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
@@ -70,8 +71,8 @@ class ReportsViewModel(
             CsvRow(
                 listOf(
                     attempt.student.displayName,
-                    attempt.prePercent?.let { String.format("%.1f", it) } ?: "",
-                    attempt.postPercent?.let { String.format("%.1f", it) } ?: ""
+                    attempt.prePercent?.let { String.format(Locale.US, "%.1f", it) } ?: "",
+                    attempt.postPercent?.let { String.format(Locale.US, "%.1f", it) } ?: ""
                 )
             )
         }

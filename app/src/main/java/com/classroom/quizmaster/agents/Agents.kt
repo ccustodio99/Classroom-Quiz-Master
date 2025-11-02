@@ -6,6 +6,7 @@ import com.classroom.quizmaster.domain.model.ClassReport
 import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Module
+import com.classroom.quizmaster.domain.model.LessonTopic
 import com.classroom.quizmaster.domain.model.Scorecard
 import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.StudentReport
@@ -43,6 +44,7 @@ data class LessonStep(
     val slideContent: String?,
     val miniCheckPrompt: String?,
     val activity: InteractiveActivity?,
+    val topic: LessonTopic? = null,
     val finished: Boolean
 )
 
@@ -58,6 +60,7 @@ interface LiveSessionAgent {
         prompt: String? = null,
         objective: String? = null
     ): Boolean
+    fun endSession(sessionId: String)
 }
 
 @Serializable

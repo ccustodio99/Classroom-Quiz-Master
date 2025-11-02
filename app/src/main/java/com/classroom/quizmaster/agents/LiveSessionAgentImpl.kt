@@ -23,7 +23,7 @@ class LiveSessionAgentImpl(
     override fun createSession(moduleId: String): String = lock.withLock {
         cleanupStaleSessionsLocked()
         val existing = sessions.entries.firstOrNull { (_, state) ->
-            state.moduleId == moduleId && state.isActive()
+            state.moduleId == moduleId && state.isActive(System.currentTimeMillis())
         }
         if (existing != null) {
             existing.value.publish()
@@ -83,11 +83,13 @@ class LiveSessionAgentImpl(
 
     override fun snapshot(sessionId: String): LiveSnapshot = lock.withLock {
         val state = sessions[sessionId] ?: throw IllegalArgumentException("Session not found")
+        state.touch()
         state.toSnapshot()
     }
 
     override fun observe(sessionId: String): Flow<LiveSnapshot> = lock.withLock {
         val state = sessions[sessionId] ?: throw IllegalArgumentException("Session not found")
+        state.touch()
         state.updates.asStateFlow()
     }
 
@@ -101,8 +103,13 @@ class LiveSessionAgentImpl(
         state.activeItemId = itemId
         state.activePrompt = prompt
         state.activeObjective = objective
+        state.touch()
         state.publish()
         true
+    }
+
+    override fun endSession(sessionId: String) {
+        lock.withLock { endSessionLocked(sessionId) }
     }
 
     private fun generateCode(): String = ThreadLocalRandom.current()
@@ -117,10 +124,12 @@ class LiveSessionAgentImpl(
         var activeItemId: String? = null,
         var activePrompt: String? = null,
         var activeObjective: String? = null,
-        var lanSession: LiveSessionLanHost? = null
+        var lanSession: LiveSessionLanHost? = null,
+        var lastActivityAt: Long = System.currentTimeMillis()
     )
 
     private fun LiveState.publish() {
+        touch()
         val snapshot = toSnapshot()
         updates.value = snapshot
         lanSession?.broadcast(snapshot)
@@ -139,11 +148,13 @@ class LiveSessionAgentImpl(
     private fun LiveState.registerParticipant(nickname: String): Student {
         val existing = participants.firstOrNull { it.displayName.equals(nickname, ignoreCase = true) }
         if (existing != null) {
+            touch()
             return existing
         }
         val student = Student(id = UUID.randomUUID().toString(), displayName = nickname)
         participants += student
         lanSession?.notifyJoin(student)
+        touch()
         return student
     }
 
@@ -162,6 +173,7 @@ class LiveSessionAgentImpl(
         } else {
             list += normalized
         }
+        touch()
         return AnswerAcceptance(true)
     }
 
@@ -189,9 +201,14 @@ class LiveSessionAgentImpl(
 
     private fun cleanupStaleSessionsLocked() {
         if (sessions.isEmpty()) return
-        val staleIds = sessions.filterValues { state -> !state.isActive() }.keys
-        staleIds.forEach { id ->
-            sessions.remove(id)?.lanSession?.let { lan ->
+        val now = System.currentTimeMillis()
+        val staleIds = sessions.filterValues { state -> !state.isActive(now) }.keys
+        staleIds.forEach { id -> endSessionLocked(id) }
+    }
+
+    private fun endSessionLocked(sessionId: String) {
+        sessions.remove(sessionId)?.let { state ->
+            state.lanSession?.let { lan ->
                 runCatching { lan.stop() }
             }
         }
@@ -199,9 +216,18 @@ class LiveSessionAgentImpl(
 
     companion object {
         private const val TAG = "LiveSessionAgent"
+        private const val SESSION_IDLE_TIMEOUT_MS = 15 * 60 * 1000L
     }
 
     private data class AnswerAcceptance(val accepted: Boolean, val reason: String? = null)
 
-    private fun LiveState.isActive(): Boolean = lanSession?.isRunning() == true
+    private fun LiveState.touch() {
+        lastActivityAt = System.currentTimeMillis()
+    }
+
+    private fun LiveState.isActive(now: Long): Boolean {
+        val running = lanSession?.isRunning() == true
+        if (!running) return false
+        return now - lastActivityAt <= SESSION_IDLE_TIMEOUT_MS
+    }
 }

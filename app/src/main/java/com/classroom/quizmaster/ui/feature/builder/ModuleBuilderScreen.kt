@@ -77,9 +77,15 @@ fun ModuleBuilderScreen(
         }
     }
 
+    val title = if (state.isEditing) "Update module flow" else "Design module flow"
+    val subtitle = if (state.isEditing) {
+        "Refresh objectives, slides, and reports before relaunching"
+    } else {
+        "Clarity • Consistency • Control for every learner"
+    }
     GenZScaffold(
-        title = "Design module flow",
-        subtitle = "Clarity • Consistency • Control for every learner",
+        title = title,
+        subtitle = subtitle,
         onBack = onBack
     ) { innerPadding ->
         LazyColumn(
@@ -338,11 +344,12 @@ fun ModuleBuilderScreen(
                     ) {
                         Text("Cancel")
                     }
+                    val primaryLabel = if (state.isEditing) "I-update ang Module" else "I-save ang Module"
                     Button(
                         onClick = { viewModel.save(onBack) },
                         modifier = Modifier.weight(1f)
                     ) {
-                        Text("I-save ang Module")
+                        Text(primaryLabel)
                     }
                 }
             }

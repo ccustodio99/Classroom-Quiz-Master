@@ -8,6 +8,7 @@ import com.classroom.quizmaster.domain.model.Badge
 import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item
 import com.classroom.quizmaster.domain.model.Module
+import com.classroom.quizmaster.domain.model.LessonTopic
 import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.StudentReport
 import java.util.UUID
@@ -34,8 +35,10 @@ class DeliveryViewModel(
     init {
         viewModelScope.launch {
             module = container.moduleRepository.getModule(moduleId)?.also {
-                lessonSlides = it.lesson.slides.size
-                interactiveCount = it.lesson.interactiveActivities.size
+                val topicCount = it.lesson.topics.size
+                lessonSlides = it.lesson.slides.size + topicCount
+                interactiveCount = it.lesson.interactiveActivities.size +
+                    it.lesson.topics.sumOf { topic -> topic.interactiveAssessments.size }
             }
             _uiState.value = DeliveryUiState(stage = Stage.CaptureStudent)
         }
@@ -125,34 +128,36 @@ class DeliveryViewModel(
             startPostTest()
             return
         }
-        when {
-            step.activity != null -> {
-                interactiveIndex += 1
-                _uiState.value = _uiState.value.copy(
-                    stage = Stage.InteractiveStage(
-                        sessionId = sessionId,
-                        activityIndex = interactiveIndex,
-                        totalActivities = interactiveCount,
-                        activity = step.activity,
-                        finished = step.finished
+            when {
+                step.activity != null -> {
+                    interactiveIndex += 1
+                    _uiState.value = _uiState.value.copy(
+                        stage = Stage.InteractiveStage(
+                            sessionId = sessionId,
+                            activityIndex = interactiveIndex,
+                            totalActivities = interactiveCount,
+                            activity = step.activity,
+                            topicName = step.topic?.name,
+                            finished = step.finished
+                        )
                     )
-                )
-            }
-            step.slideTitle != null -> {
-                lessonIndex += 1
-                _uiState.value = _uiState.value.copy(
-                    stage = Stage.LessonStage(
-                        sessionId = sessionId,
-                        slideIndex = lessonIndex,
-                        totalSlides = lessonSlides,
-                        slideTitle = step.slideTitle,
-                        slideContent = step.slideContent.orEmpty(),
-                        miniCheckPrompt = step.miniCheckPrompt,
-                        finished = step.finished && interactiveCount == 0
+                }
+                step.slideTitle != null -> {
+                    lessonIndex += 1
+                    _uiState.value = _uiState.value.copy(
+                        stage = Stage.LessonStage(
+                            sessionId = sessionId,
+                            slideIndex = lessonIndex,
+                            totalSlides = lessonSlides,
+                            slideTitle = step.slideTitle,
+                            slideContent = step.slideContent.orEmpty(),
+                            miniCheckPrompt = step.miniCheckPrompt,
+                            topic = step.topic,
+                            finished = step.finished && interactiveCount == 0
+                        )
                     )
-                )
+                }
             }
-        }
     }
 
     fun submitMiniCheck(answer: String) {
@@ -232,6 +237,7 @@ sealed class Stage {
         val miniCheckPrompt: String?,
         val miniCheckAnswer: String = "",
         val miniCheckResult: Boolean? = null,
+        val topic: LessonTopic? = null,
         val finished: Boolean = false
     ) : Stage()
     data class InteractiveStage(
@@ -239,6 +245,7 @@ sealed class Stage {
         val activityIndex: Int,
         val totalActivities: Int,
         val activity: InteractiveActivity,
+        val topicName: String?,
         val finished: Boolean
     ) : Stage()
     data class Summary(
