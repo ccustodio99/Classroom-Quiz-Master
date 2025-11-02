@@ -122,11 +122,9 @@ fun ModuleBuilderScreen(
                             label = { Text("Subject / Strand") },
                             modifier = Modifier.fillMaxWidth()
                         )
-                        OutlinedTextField(
+                        GradeLevelPicker(
                             value = state.gradeLevel,
-                            onValueChange = viewModel::onGradeLevelChanged,
-                            label = { Text("Grade level") },
-                            modifier = Modifier.fillMaxWidth()
+                            onValueChange = viewModel::onGradeLevelChanged
                         )
                         OutlinedTextField(
                             value = state.section,
@@ -1111,6 +1109,66 @@ private fun MultipleChoiceOptionsEditor(
         }
     }
 }
+
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+private fun GradeLevelPicker(
+    value: String,
+    onValueChange: (String) -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    ExposedDropdownMenuBox(
+        expanded = expanded,
+        onExpandedChange = { expanded = !expanded }
+    ) {
+        OutlinedTextField(
+            value = value,
+            onValueChange = onValueChange,
+            label = { Text("Grade level") },
+            placeholder = { Text("e.g. Grade 11 or 2") },
+            supportingText = { Text("Choose a level or type a custom value") },
+            modifier = Modifier
+                .menuAnchor()
+                .fillMaxWidth(),
+            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+            singleLine = true,
+            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
+        )
+        ExposedDropdownMenu(
+            expanded = expanded,
+            onDismissRequest = { expanded = false }
+        ) {
+            gradeLevelOptions.forEach { option ->
+                DropdownMenuItem(
+                    text = { Text(option) },
+                    onClick = {
+                        onValueChange(option)
+                        expanded = false
+                    }
+                )
+            }
+        }
+    }
+}
+
+private val gradeLevelOptions = listOf(
+    "Kindergarten",
+    "Grade 1",
+    "Grade 2",
+    "Grade 3",
+    "Grade 4",
+    "Grade 5",
+    "Grade 6",
+    "Grade 7",
+    "Grade 8",
+    "Grade 9",
+    "Grade 10",
+    "Grade 11",
+    "Grade 12",
+    "Senior High",
+    "College / University",
+    "TVL / TESDA"
+)
 
 private fun LearningMaterialType.displayName(): String = when (this) {
     LearningMaterialType.Document -> "Document / PDF"
