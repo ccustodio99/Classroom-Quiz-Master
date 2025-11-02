@@ -27,6 +27,7 @@ import com.classroom.quizmaster.ui.components.AdaptiveWrapRow
 import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
+import kotlin.collections.buildList
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -60,14 +61,19 @@ fun ModuleBuilderScreen(
                     subtitle = "Frame the space before crafting the flow",
                     caption = "Subject + classroom notes power reporting labels and live session codes.",
                     trailingContent = {
-                        InfoPill(text = if (state.subject.isBlank()) "No subject" else state.subject)
+                        val summary = buildList {
+                            if (state.subject.isNotBlank()) add(state.subject)
+                            if (state.gradeLevel.isNotBlank()) add(state.gradeLevel)
+                            if (state.section.isNotBlank()) add("Section ${state.section}")
+                        }.joinToString(separator = " • ")
+                        InfoPill(text = summary.ifBlank { "Set class profile" })
                     }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
                         OutlinedTextField(
                             value = state.classroomName,
                             onValueChange = viewModel::onClassroomNameChanged,
-                            label = { Text("Classroom / Section") },
+                            label = { Text("Classroom or Subject name") },
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
@@ -77,9 +83,21 @@ fun ModuleBuilderScreen(
                             modifier = Modifier.fillMaxWidth()
                         )
                         OutlinedTextField(
+                            value = state.gradeLevel,
+                            onValueChange = viewModel::onGradeLevelChanged,
+                            label = { Text("Grade level") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
+                            value = state.section,
+                            onValueChange = viewModel::onSectionChanged,
+                            label = { Text("Section (optional)") },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                        OutlinedTextField(
                             value = state.classroomDescription,
                             onValueChange = viewModel::onClassroomDescriptionChanged,
-                            label = { Text("Notes (room vibe, reminders, etc.)") },
+                            label = { Text("Details / reminders") },
                             modifier = Modifier
                                 .fillMaxWidth()
                                 .heightIn(min = 80.dp)

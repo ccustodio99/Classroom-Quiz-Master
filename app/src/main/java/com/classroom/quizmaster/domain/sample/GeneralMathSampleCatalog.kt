@@ -113,7 +113,9 @@ object GeneralMathSampleCatalog {
                 id = "classroom-stem-bayanihan",
                 name = "STEM 11 Bayanihan",
                 subject = "G11 General Mathematics",
-                description = "Financial literacy sprint cohort"
+                description = "Financial literacy sprint cohort",
+                gradeLevel = "Grade 11",
+                section = "Bayanihan"
             ),
             subject = "G11 General Mathematics",
             topic = "Compound Interest Glow-Up",
@@ -259,7 +261,9 @@ object GeneralMathSampleCatalog {
                 id = "classroom-abm-trendsetters",
                 name = "ABM 11 Trendsetters",
                 subject = "G11 General Mathematics",
-                description = "Market math and consumer price labs"
+                description = "Market math and consumer price labs",
+                gradeLevel = "Grade 11",
+                section = "Trendsetters"
             ),
             subject = "G11 General Mathematics",
             topic = "Inflation Pulse Check",
@@ -405,7 +409,9 @@ object GeneralMathSampleCatalog {
                 id = "classroom-humss-visionaries",
                 name = "HUMSS 11 Visionaries",
                 subject = "G11 General Mathematics",
-                description = "Data storytelling on population growth"
+                description = "Data storytelling on population growth",
+                gradeLevel = "Grade 11",
+                section = "Visionaries"
             ),
             subject = "G11 General Mathematics",
             topic = "Population Trend Tracker",
