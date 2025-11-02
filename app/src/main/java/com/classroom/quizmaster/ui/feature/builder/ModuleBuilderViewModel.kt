@@ -47,6 +47,10 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
 
     fun onSubjectChanged(value: String) = updateState { it.copy(subject = value) }
 
+    fun onGradeLevelChanged(value: String) = updateState { it.copy(gradeLevel = value) }
+
+    fun onSectionChanged(value: String) = updateState { it.copy(section = value) }
+
     fun onClassroomDescriptionChanged(value: String) = updateState { it.copy(classroomDescription = value) }
 
     fun onTopicChanged(value: String) = updateState { it.copy(topic = value) }
@@ -109,13 +113,17 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             val preItems = generatedPre.take(formSize)
             val postItems = generatedPost.take(formSize)
             val topic = state.topic.ifBlank { "G11 Math Module" }
-            val classroomName = state.classroomName.ifBlank { "${state.subject.ifBlank { "General Mathematics" }} Circle" }
-            val subject = state.subject.ifBlank { "G11 General Mathematics" }
+            val subject = state.resolvedSubject()
+            val gradeLevel = state.resolvedGradeLevel()
+            val section = state.resolvedSection()
+            val classroomName = state.resolvedClassroomName()
             val classroom = ClassroomProfile(
                 id = UUID.randomUUID().toString(),
                 name = classroomName,
                 subject = subject,
-                description = state.classroomDescription.ifBlank { "Learning circle for $subject" }
+                description = state.resolvedDescription(subject, gradeLevel, section),
+                gradeLevel = gradeLevel,
+                section = section
             )
             val interactiveActivities = generateInteractiveActivities(
                 topic = topic,
@@ -180,11 +188,52 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             objectives = objectives,
             slides = slides,
             timePerItemSeconds = timePerItem.toIntOrNull() ?: 60,
-            classroomName = classroomName.ifBlank { "${subject.ifBlank { "General Mathematics" }} Circle" }
+            classroomName = resolvedClassroomName()
         )
         val knowledge = activities.filter { it.isScored }.map { it.summaryLabel() }
         val opinions = activities.filterNot { it.isScored }.map { it.summaryLabel() }
         return copy(interactivePreview = InteractivePreviewSummary(knowledge, opinions))
+    }
+
+    private fun ModuleBuilderUiState.resolvedSubject(): String {
+        return subject.ifBlank { "G11 General Mathematics" }
+    }
+
+    private fun ModuleBuilderUiState.resolvedGradeLevel(): String {
+        return gradeLevel.ifBlank { "Grade 11" }
+    }
+
+    private fun ModuleBuilderUiState.resolvedSection(): String {
+        return section.trim()
+    }
+
+    private fun ModuleBuilderUiState.resolvedClassroomName(): String {
+        val subject = resolvedSubject()
+        val gradeLevel = resolvedGradeLevel()
+        val section = resolvedSection()
+        val fallback = buildString {
+            append(gradeLevel)
+            if (section.isNotEmpty()) {
+                append(' ')
+                append(section)
+            }
+        }.ifBlank { subject }
+        val defaultName = if (fallback.isNotBlank()) fallback else "$subject Circle"
+        return classroomName.ifBlank { defaultName }
+    }
+
+    private fun ModuleBuilderUiState.resolvedDescription(
+        subject: String,
+        gradeLevel: String,
+        section: String
+    ): String {
+        if (classroomDescription.isNotBlank()) return classroomDescription
+        val base = "Learning circle for $gradeLevel $subject".replace(Regex("\\s+"), " ").trim()
+        return if (section.isNotEmpty()) {
+            "$base - Section $section"
+        } else {
+            base
+        }
     }
 
     private fun buildLessonSlides(slides: List<String>, objectives: List<String>): List<LessonSlide> {
@@ -343,6 +392,8 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
 data class ModuleBuilderUiState(
     val classroomName: String = "",
     val subject: String = "G11 General Mathematics",
+    val gradeLevel: String = "Grade 11",
+    val section: String = "",
     val classroomDescription: String = "",
     val topic: String = "",
     val objectives: String = "LO1, LO2, LO3",
