@@ -168,26 +168,26 @@ class ModuleBuilderViewModel(
         topic.copy(postTest = topic.postTest.filterNot { it.id == itemId })
     }
 
-    fun addInteractiveQuiz(topicId: String) = updateTopic(topicId) { topic ->
-        topic.copy(interactive = topic.interactive + InteractiveQuizDraft())
+    fun addInteractiveActivity(topicId: String, type: InteractiveDraftType) = updateTopic(topicId) { topic ->
+        topic.copy(interactive = topic.interactive + type.defaultDraft())
     }
 
-    fun updateInteractiveQuiz(
+    fun updateInteractiveActivity(
         topicId: String,
-        quizId: String,
-        transform: (InteractiveQuizDraft) -> InteractiveQuizDraft
+        activityId: String,
+        transform: (InteractiveDraft) -> InteractiveDraft
     ) {
         updateTopic(topicId) { topic ->
             topic.copy(
-                interactive = topic.interactive.map { quiz ->
-                    if (quiz.id == quizId) transform(quiz) else quiz
+                interactive = topic.interactive.map { activity ->
+                    if (activity.id == activityId) transform(activity) else activity
                 }
             )
         }
     }
 
-    fun removeInteractiveQuiz(topicId: String, quizId: String) = updateTopic(topicId) { topic ->
-        topic.copy(interactive = topic.interactive.filterNot { it.id == quizId })
+    fun removeInteractiveActivity(topicId: String, activityId: String) = updateTopic(topicId) { topic ->
+        topic.copy(interactive = topic.interactive.filterNot { it.id == activityId })
     }
 
     private fun updateTopic(id: String, transform: (LessonTopicDraft) -> LessonTopicDraft) {
@@ -392,10 +392,10 @@ class ModuleBuilderViewModel(
                 errors += validatePostTestItem(item, "$topicLabel post-test ${qIndex + 1}")
             }
             if (topic.interactive.isEmpty()) {
-                errors += "$topicLabel: Magdagdag ng interactive quiz para sa learners."
+                errors += "$topicLabel: Magdagdag ng interactive activity para sa learners."
             }
-            topic.interactive.forEachIndexed { qIndex, quiz ->
-                errors += validateInteractiveQuiz(quiz, "$topicLabel interactive ${qIndex + 1}")
+            topic.interactive.forEachIndexed { qIndex, activity ->
+                errors += validateInteractiveActivity(activity, "$topicLabel interactive ${qIndex + 1}")
             }
         }
         return errors
@@ -443,48 +443,118 @@ class ModuleBuilderViewModel(
         }
     }
 
-    private fun validateInteractiveQuiz(quiz: InteractiveQuizDraft, label: String): List<String> {
-        val errors = mutableListOf<String>()
-        if (quiz.prompt.isBlank()) {
-            errors += "$label: Ilagay ang prompt."
+    private fun validateInteractiveActivity(activity: InteractiveDraft, label: String): List<String> = when (activity) {
+        is QuizInteractiveDraft -> {
+            val errors = mutableListOf<String>()
+            if (activity.prompt.isBlank()) {
+                errors += "$label: Ilagay ang prompt."
+            }
+            val filled = activity.options.mapIndexed { index, option -> index to option.trim() }
+            if (filled.count { it.second.isNotEmpty() } < 2) {
+                errors += "$label: Magdagdag ng hindi bababa sa dalawang opsyon."
+            }
+            if (activity.correctAnswers.isEmpty()) {
+                errors += "$label: Tukuyin ang tamang sagot."
+            } else {
+                val invalidIndex = activity.correctAnswers.firstOrNull { it !in activity.options.indices }
+                if (invalidIndex != null) {
+                    errors += "$label: May tamang sagot na wala sa mga pagpipilian."
+                }
+                val blankCorrect = activity.correctAnswers.firstOrNull { index ->
+                    index in activity.options.indices && activity.options[index].isBlank()
+                }
+                if (blankCorrect != null) {
+                    errors += "$label: Punan ang tamang opsyon bago piliin."
+                }
+                if (!activity.allowMultiple && activity.correctAnswers.size > 1) {
+                    errors += "$label: Isang tamang sagot lang ang pinapayagan sa single answer mode."
+                }
+            }
+            errors
         }
-        val filled = quiz.options.mapIndexed { index, option -> index to option.trim() }
-        if (filled.count { it.second.isNotEmpty() } < 2) {
-            errors += "$label: Magdagdag ng hindi bababa sa dalawang opsyon."
+        is TrueFalseInteractiveDraft -> buildList {
+            if (activity.prompt.isBlank()) add("$label: Ilagay ang prompt para sa True/False.")
         }
-        if (quiz.correctAnswers.isEmpty()) {
-            errors += "$label: Tukuyin ang tamang sagot."
-        } else {
-            val invalidIndex = quiz.correctAnswers.firstOrNull { it !in quiz.options.indices }
-            if (invalidIndex != null) {
-                errors += "$label: May tamang sagot na wala sa mga pagpipilian."
-            }
-            val blankCorrect = quiz.correctAnswers.firstOrNull { index ->
-                index in quiz.options.indices && quiz.options[index].isBlank()
-            }
-            if (blankCorrect != null) {
-                errors += "$label: Punan ang tamang opsyon bago piliin."
-            }
-            if (!quiz.allowMultiple && quiz.correctAnswers.size > 1) {
-                errors += "$label: Isang tamang sagot lang ang pinapayagan sa single answer mode."
+        is TypeAnswerInteractiveDraft -> buildList {
+            if (activity.prompt.isBlank()) add("$label: Ilagay ang prompt para sa type answer.")
+            if (activity.answer.isBlank()) add("$label: Magbigay ng tamang sagot.")
+            val max = activity.maxCharacters.toIntOrNull()
+            if (max == null || max <= 0) add("$label: Ayusin ang maximum characters (gumamit ng positibong numero).")
+        }
+        is PuzzleInteractiveDraft -> {
+            val filled = activity.blocks.map { it.trim() }.filter { it.isNotEmpty() }
+            if (activity.prompt.isBlank()) {
+                listOf("$label: Ilagay ang puzzle prompt.")
+            } else if (filled.size < 2) {
+                listOf("$label: Maglagay ng hindi bababa sa dalawang bloke para sa puzzle.")
+            } else {
+                emptyList()
             }
         }
-        return errors
+        is SliderInteractiveDraft -> buildList {
+            if (activity.prompt.isBlank()) add("$label: Ilagay ang prompt para sa slider.")
+            val min = activity.minValue.toIntOrNull()
+            val max = activity.maxValue.toIntOrNull()
+            val target = activity.targetValue.toIntOrNull()
+            if (min == null) add("$label: Ilagay ang minimum value (numero).")
+            if (max == null) add("$label: Ilagay ang maximum value (numero).")
+            if (target == null) add("$label: Ilagay ang target value (numero).")
+            if (min != null && max != null && min >= max) {
+                add("$label: Siguraduhing mas mababa ang minimum kaysa maximum.")
+            }
+            if (min != null && max != null && target != null && (target < min || target > max)) {
+                add("$label: Dapat nasa pagitan ng minimum at maximum ang target.")
+            }
+        }
+        is PollInteractiveDraft -> buildList {
+            if (activity.prompt.isBlank()) add("$label: Ilagay ang poll prompt.")
+            val filled = activity.options.map { it.trim() }.filter { it.isNotEmpty() }
+            if (filled.size < 2) add("$label: Magbigay ng hindi bababa sa dalawang pagpipilian para sa poll.")
+        }
+        is WordCloudInteractiveDraft -> buildList {
+            if (activity.prompt.isBlank()) add("$label: Ilagay ang word cloud prompt.")
+            val maxWords = activity.maxWords.toIntOrNull()
+            val maxChars = activity.maxCharacters.toIntOrNull()
+            if (maxWords == null || maxWords <= 0) add("$label: Ayusin ang max words (positibong numero).")
+            if (maxChars == null || maxChars <= 0) add("$label: Ayusin ang max characters (positibong numero).")
+        }
+        is OpenEndedInteractiveDraft -> buildList {
+            if (activity.prompt.isBlank()) add("$label: Ilagay ang open-ended prompt.")
+            val maxChars = activity.maxCharacters.toIntOrNull()
+            if (maxChars == null || maxChars <= 0) add("$label: Ayusin ang max characters (positibong numero).")
+        }
+        is BrainstormInteractiveDraft -> buildList {
+            if (activity.prompt.isBlank()) add("$label: Ilagay ang brainstorm prompt.")
+            val categories = activity.categories.map { it.trim() }.filter { it.isNotEmpty() }
+            if (categories.size < 2) add("$label: Magbigay ng hindi bababa sa dalawang kategorya para sa brainstorm.")
+            val voteLimit = activity.voteLimit.toIntOrNull()
+            if (voteLimit == null || voteLimit <= 0) add("$label: Ayusin ang bilang ng boto (positibong numero).")
+        }
     }
 
     private fun ModuleBuilderUiState.withPreview(): ModuleBuilderUiState {
         val objectives = parseObjectives(objectives)
         val slides = parseSlides(slides)
-        val activities = generateInteractiveActivities(
+        val autoActivities = generateInteractiveActivities(
             topic = topic.ifBlank { "G11 Math Module" },
             objectives = objectives,
             slides = slides,
             timePerItemSeconds = timePerItem.toIntOrNull() ?: 60,
             classroomName = resolvedClassroomName()
         )
+        val topicActivities = topics.flatMap { topicDraft ->
+            topicDraft.interactive.mapIndexed { index, draft ->
+                draft.toActivity(
+                    topicId = topicDraft.id,
+                    sequence = index,
+                    fallbackTitle = topicDraft.name.ifBlank { "Topic" }
+                )
+            }
+        }
+        val activities = autoActivities + topicActivities
         val knowledge = activities.filter { it.isScored }.map { it.summaryLabel() }
         val opinions = activities.filterNot { it.isScored }.map { it.summaryLabel() }
-        val topicInteractiveCount = topics.sumOf { it.interactive.size }
+        val topicInteractiveCount = topicActivities.size
         return copy(interactivePreview = InteractivePreviewSummary(knowledge, opinions, topicInteractiveCount))
     }
 
@@ -704,8 +774,8 @@ class ModuleBuilderViewModel(
                 itemPrefix = "$topicId-post"
             )
         }
-        val interactiveActivities = interactive.mapIndexed { sequence, quiz ->
-            quiz.toActivity(
+        val interactiveActivities = interactive.mapIndexed { sequence, activity ->
+            activity.toActivity(
                 topicId = topicId,
                 sequence = sequence,
                 fallbackTitle = name.ifBlank { "Topic ${index + 1}" }
@@ -781,7 +851,7 @@ private fun LessonTopic.toDraft(): LessonTopicDraft {
     val postDraft = postTest.items.mapNotNull { it.toPostTestDraftOrNull() }
         .ifEmpty { listOf(PostTestItemDraft.MultipleChoice()) }
     val interactiveDraft = interactiveAssessments.mapNotNull { it.toInteractiveDraftOrNull() }
-        .ifEmpty { listOf(InteractiveQuizDraft()) }
+        .ifEmpty { listOf(InteractiveDraftType.QUIZ.defaultDraft()) }
     return LessonTopicDraft(
         id = id,
         name = name,
@@ -845,8 +915,8 @@ private fun Item.toPostTestDraftOrNull(): PostTestItemDraft? = when (this) {
     else -> null
 }
 
-private fun InteractiveActivity.toInteractiveDraftOrNull(): InteractiveQuizDraft? = when (this) {
-    is QuizActivity -> InteractiveQuizDraft(
+private fun InteractiveActivity.toInteractiveDraftOrNull(): InteractiveDraft? = when (this) {
+    is QuizActivity -> QuizInteractiveDraft(
         id = id,
         title = title,
         prompt = prompt,
@@ -854,23 +924,59 @@ private fun InteractiveActivity.toInteractiveDraftOrNull(): InteractiveQuizDraft
         correctAnswers = correctAnswers.toSet(),
         allowMultiple = allowMultiple
     )
-    is TrueFalseInteractive -> InteractiveQuizDraft(
+    is TrueFalseInteractive -> TrueFalseInteractiveDraft(
         id = id,
         title = title,
         prompt = prompt,
-        options = listOf("True", "False", "", ""),
-        correctAnswers = if (correctAnswer) setOf(0) else setOf(1),
-        allowMultiple = false
+        correctAnswer = correctAnswer
     )
-    is PollActivity -> InteractiveQuizDraft(
+    is TypeAnswerActivity -> TypeAnswerInteractiveDraft(
         id = id,
         title = title,
         prompt = prompt,
-        options = normalizeChoices(options),
-        correctAnswers = setOf(0),
-        allowMultiple = false
+        answer = correctAnswer,
+        maxCharacters = maxCharacters.toString()
     )
-    else -> null
+    is PuzzleActivity -> PuzzleInteractiveDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        blocks = correctOrder
+    )
+    is SliderActivity -> SliderInteractiveDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        minValue = minValue.toString(),
+        maxValue = maxValue.toString(),
+        targetValue = target.toString()
+    )
+    is PollActivity -> PollInteractiveDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        options = normalizeChoices(options)
+    )
+    is WordCloudActivity -> WordCloudInteractiveDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        maxWords = maxWords.toString(),
+        maxCharacters = maxCharacters.toString()
+    )
+    is OpenEndedActivity -> OpenEndedInteractiveDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        maxCharacters = maxCharacters.toString()
+    )
+    is BrainstormActivity -> BrainstormInteractiveDraft(
+        id = id,
+        title = title,
+        prompt = prompt,
+        categories = categories,
+        voteLimit = voteLimit.toString()
+    )
 }
 
 private fun normalizeChoices(choices: List<String>, size: Int = 4): List<String> {
@@ -946,32 +1052,103 @@ private fun MultipleChoiceDraft.toItem(
         )
     }
 
-    private fun InteractiveQuizDraft.toActivity(
+    private fun InteractiveDraft.toActivity(
         topicId: String,
         sequence: Int,
         fallbackTitle: String
     ): InteractiveActivity {
         val normalizedId = id.ifBlank { UUID.randomUUID().toString() }
-        val trimmedOptions = options.map { it.trim() }
-        val padded = if (trimmedOptions.size >= 4) trimmedOptions else trimmedOptions + List(4 - trimmedOptions.size) { "" }
-        val resolvedOptions = padded.mapIndexed { index, option ->
-            if (option.isNotEmpty()) option else "Opsyon ${index + 1}"
+        return when (this) {
+            is QuizInteractiveDraft -> {
+                val trimmedOptions = options.map { it.trim() }
+                val padded = if (trimmedOptions.size >= 4) trimmedOptions else trimmedOptions + List(4 - trimmedOptions.size) { "" }
+                val resolvedOptions = padded.mapIndexed { index, option ->
+                    if (option.isNotEmpty()) option else "Opsyon ${index + 1}"
+                }
+                val normalizedAnswers = if (allowMultiple) {
+                    if (correctAnswers.isEmpty()) setOf(0) else correctAnswers
+                } else {
+                    setOf(correctAnswers.firstOrNull() ?: 0)
+                }
+                val clampedAnswers = normalizedAnswers.map { it.coerceIn(0, resolvedOptions.lastIndex) }
+                QuizActivity(
+                    id = "quiz-$topicId-$normalizedId",
+                    title = title.ifBlank { "$fallbackTitle Quiz" },
+                    prompt = prompt.ifBlank { "Sagutan ang tanong ${sequence + 1}." },
+                    options = resolvedOptions,
+                    correctAnswers = clampedAnswers,
+                    allowMultiple = allowMultiple,
+                    isScored = true
+                )
+            }
+            is TrueFalseInteractiveDraft -> TrueFalseInteractive(
+                id = "tf-$topicId-$normalizedId",
+                title = title.ifBlank { "$fallbackTitle True/False" },
+                prompt = prompt.ifBlank { "Tama o Mali?" },
+                correctAnswer = correctAnswer,
+                isScored = true
+            )
+            is TypeAnswerInteractiveDraft -> TypeAnswerActivity(
+                id = "type-$topicId-$normalizedId",
+                title = title.ifBlank { "$fallbackTitle Type Answer" },
+                prompt = prompt.ifBlank { "Sagutan sa maikling salita." },
+                correctAnswer = answer.ifBlank { "" },
+                maxCharacters = maxCharacters.toIntOrNull()?.coerceAtLeast(1) ?: 20,
+                isScored = true
+            )
+            is PuzzleInteractiveDraft -> {
+                val blocks = blocks.map { it.trim() }.filter { it.isNotEmpty() }
+                val seed = topicId.hashCode() * 31 + sequence
+                val shuffled = if (blocks.isNotEmpty()) blocks.shuffled(Random(seed)) else blocks
+                PuzzleActivity(
+                    id = "puzzle-$topicId-$normalizedId",
+                    title = title.ifBlank { "$fallbackTitle Puzzle" },
+                    prompt = prompt.ifBlank { "Ayusin ang tamang pagkakasunod-sunod." },
+                    blocks = shuffled,
+                    correctOrder = blocks.ifEmpty { listOf("Hakbang 1", "Hakbang 2") },
+                    isScored = true
+                )
+            }
+            is SliderInteractiveDraft -> SliderActivity(
+                id = "slider-$topicId-$normalizedId",
+                title = title.ifBlank { "$fallbackTitle Slider" },
+                prompt = prompt.ifBlank { "Ilagay ang tamang bilang." },
+                minValue = minValue.toIntOrNull() ?: 0,
+                maxValue = maxValue.toIntOrNull() ?: 100,
+                target = targetValue.toIntOrNull() ?: 50,
+                isScored = true
+            )
+            is PollInteractiveDraft -> PollActivity(
+                id = "poll-$topicId-$normalizedId",
+                title = title.ifBlank { "$fallbackTitle Poll" },
+                prompt = prompt.ifBlank { "Ano ang palagay mo?" },
+                options = options.mapIndexed { index, option -> option.ifBlank { "Opsyon ${index + 1}" } },
+                isScored = false
+            )
+            is WordCloudInteractiveDraft -> WordCloudActivity(
+                id = "word-$topicId-$normalizedId",
+                title = title.ifBlank { "$fallbackTitle Word Cloud" },
+                prompt = prompt.ifBlank { "Ilagay ang iyong salita." },
+                maxWords = maxWords.toIntOrNull()?.coerceAtLeast(1) ?: 1,
+                maxCharacters = maxCharacters.toIntOrNull()?.coerceAtLeast(1) ?: 16,
+                isScored = false
+            )
+            is OpenEndedInteractiveDraft -> OpenEndedActivity(
+                id = "open-$topicId-$normalizedId",
+                title = title.ifBlank { "$fallbackTitle Open Response" },
+                prompt = prompt.ifBlank { "Ibahagi ang iyong sagot." },
+                maxCharacters = maxCharacters.toIntOrNull()?.coerceAtLeast(50) ?: 240,
+                isScored = false
+            )
+            is BrainstormInteractiveDraft -> BrainstormActivity(
+                id = "brain-$topicId-$normalizedId",
+                title = title.ifBlank { "$fallbackTitle Brainstorm" },
+                prompt = prompt.ifBlank { "Mag-ambag ng ideya." },
+                categories = categories.map { it.ifBlank { "Idea" } }.ifEmpty { listOf("Idea 1", "Idea 2") },
+                voteLimit = voteLimit.toIntOrNull()?.coerceAtLeast(1) ?: 2,
+                isScored = false
+            )
         }
-        val normalizedAnswers = if (allowMultiple) {
-            if (correctAnswers.isEmpty()) setOf(0) else correctAnswers
-        } else {
-            setOf(correctAnswers.firstOrNull() ?: 0)
-        }
-        val clampedAnswers = normalizedAnswers.map { it.coerceIn(0, resolvedOptions.lastIndex) }
-        return QuizActivity(
-            id = "quiz-$topicId-$normalizedId",
-            title = title.ifBlank { "$fallbackTitle Quiz" },
-            prompt = prompt.ifBlank { "Sagutan ang tanong ${sequence + 1}." },
-            options = resolvedOptions,
-            correctAnswers = clampedAnswers,
-            allowMultiple = allowMultiple,
-            isScored = true
-        )
     }
 }
 
@@ -1011,7 +1188,7 @@ data class LessonTopicDraft(
     val materials: List<LearningMaterialDraft> = listOf(LearningMaterialDraft()),
     val preTest: List<MultipleChoiceDraft> = listOf(MultipleChoiceDraft()),
     val postTest: List<PostTestItemDraft> = listOf(PostTestItemDraft.MultipleChoice()),
-    val interactive: List<InteractiveQuizDraft> = listOf(InteractiveQuizDraft())
+    val interactive: List<InteractiveDraft> = listOf(InteractiveDraftType.QUIZ.defaultDraft())
 )
 
 data class LearningMaterialDraft(
@@ -1056,14 +1233,124 @@ sealed interface PostTestItemDraft {
     ) : PostTestItemDraft
 }
 
-data class InteractiveQuizDraft(
-    val id: String = UUID.randomUUID().toString(),
-    val title: String = "",
-    val prompt: String = "",
+sealed interface InteractiveDraft {
+    val id: String
+    val title: String
+    val prompt: String
+    val isScored: Boolean
+}
+
+enum class InteractiveDraftType(val displayName: String) {
+    QUIZ("Quiz"),
+    TRUE_FALSE("True or False"),
+    TYPE_ANSWER("Type Answer"),
+    PUZZLE("Puzzle"),
+    SLIDER("Slider"),
+    POLL("Poll"),
+    WORD_CLOUD("Word Cloud"),
+    OPEN_ENDED("Open-Ended"),
+    BRAINSTORM("Brainstorm")
+}
+
+data class QuizInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
     val options: List<String> = List(4) { "" },
     val correctAnswers: Set<Int> = setOf(0),
     val allowMultiple: Boolean = false
-)
+) : InteractiveDraft {
+    override val isScored: Boolean = true
+}
+
+data class TrueFalseInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val correctAnswer: Boolean = true
+) : InteractiveDraft {
+    override val isScored: Boolean = true
+}
+
+data class TypeAnswerInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val answer: String = "",
+    val maxCharacters: String = "20"
+) : InteractiveDraft {
+    override val isScored: Boolean = true
+}
+
+data class PuzzleInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val blocks: List<String> = listOf("Step 1", "Step 2", "Step 3", "Step 4")
+) : InteractiveDraft {
+    override val isScored: Boolean = true
+}
+
+data class SliderInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val minValue: String = "0",
+    val maxValue: String = "100",
+    val targetValue: String = "50"
+) : InteractiveDraft {
+    override val isScored: Boolean = true
+}
+
+data class PollInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val options: List<String> = List(4) { "" }
+) : InteractiveDraft {
+    override val isScored: Boolean = false
+}
+
+data class WordCloudInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val maxWords: String = "1",
+    val maxCharacters: String = "16"
+) : InteractiveDraft {
+    override val isScored: Boolean = false
+}
+
+data class OpenEndedInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val maxCharacters: String = "240"
+) : InteractiveDraft {
+    override val isScored: Boolean = false
+}
+
+data class BrainstormInteractiveDraft(
+    override val id: String = UUID.randomUUID().toString(),
+    override val title: String = "",
+    override val prompt: String = "",
+    val categories: List<String> = listOf("Idea 1", "Idea 2", "Idea 3"),
+    val voteLimit: String = "2"
+) : InteractiveDraft {
+    override val isScored: Boolean = false
+}
+
+fun InteractiveDraftType.defaultDraft(): InteractiveDraft = when (this) {
+    InteractiveDraftType.QUIZ -> QuizInteractiveDraft()
+    InteractiveDraftType.TRUE_FALSE -> TrueFalseInteractiveDraft()
+    InteractiveDraftType.TYPE_ANSWER -> TypeAnswerInteractiveDraft()
+    InteractiveDraftType.PUZZLE -> PuzzleInteractiveDraft()
+    InteractiveDraftType.SLIDER -> SliderInteractiveDraft()
+    InteractiveDraftType.POLL -> PollInteractiveDraft()
+    InteractiveDraftType.WORD_CLOUD -> WordCloudInteractiveDraft()
+    InteractiveDraftType.OPEN_ENDED -> OpenEndedInteractiveDraft()
+    InteractiveDraftType.BRAINSTORM -> BrainstormInteractiveDraft()
+}
 
 
 private fun buildParallelForms(items: List<Item>): Pair<List<Item>, List<Item>> {

@@ -24,19 +24,44 @@ fun HelpGuideScreen(
     onBack: () -> Unit
 ) {
     val knowledgeTypes = listOf(
-        QuestionType("Multiple Choice", "Standard 2–4 options, one or more correct answers."),
-        QuestionType("True / False", "Quick factual checks."),
-        QuestionType("Numeric Entry", "Students type numeric answers with tolerance settings."),
-        QuestionType("Matching", "Pair related terms, formulas, or definitions."),
-        QuestionType("Type Answer", "Type a short response (≤20 chars)."),
-        QuestionType("Puzzle", "Arrange steps or ideas in correct order."),
-        QuestionType("Slider", "Indicate a numeric value or confidence level.")
+        QuestionType(
+            name = "Quiz",
+            description = "Classic 2–4 option multiple-choice items. Enable one or multiple correct answers."
+        ),
+        QuestionType(
+            name = "True / False",
+            description = "Fast checks for factual understanding with two possible answers."
+        ),
+        QuestionType(
+            name = "Type Answer",
+            description = "Learners type a short response (≤20 characters) instead of picking from options."
+        ),
+        QuestionType(
+            name = "Puzzle",
+            description = "Drag and drop blocks into the correct order to build a sequence or process."
+        ),
+        QuestionType(
+            name = "Slider",
+            description = "Move a pin to the exact number on a scale (e.g., year founded or value on a number line)."
+        )
     )
     val opinionTypes = listOf(
-        QuestionType("Poll", "Quick check of opinions or understanding."),
-        QuestionType("Word Cloud", "Players submit one word to summarize learning."),
-        QuestionType("Open-Ended", "Longer text input for reflections."),
-        QuestionType("Brainstorm", "Collaborative idea generation and voting.")
+        QuestionType(
+            name = "Poll",
+            description = "Gauge opinions quickly with multiple-choice options — no points awarded."
+        ),
+        QuestionType(
+            name = "Word Cloud",
+            description = "Players submit short words; the most popular answers appear larger on-screen."
+        ),
+        QuestionType(
+            name = "Open-Ended",
+            description = "Collect longer reflections or feedback with paragraph-style responses."
+        ),
+        QuestionType(
+            name = "Brainstorm",
+            description = "Gather ideas collaboratively, then vote on favorites to surface top contributions."
+        )
     )
 
     GenZScaffold(
@@ -54,54 +79,79 @@ fun HelpGuideScreen(
         ) {
             item {
                 SectionCard(
-                    title = "How Classroom Quiz Master Works",
-                    subtitle = "Plan, deliver, and measure lessons in one flow"
+                    title = "Classroom & Module Builder",
+                    subtitle = "Capture everything a teacher needs before delivery"
                 ) {
-                    GuideParagraph("Classroom Quiz Master is a teacher-friendly Kotlin Android app that keeps assessments and reports on-device. Use it to deliver structured modules — even offline — while tracking learning gains and participation in real time.")
-                    GuideParagraph("Each module follows a Pre-Test → Lesson Activities → Post-Test cycle so you can benchmark learning gains and export results for parents or school leaders.")
+                    GuideParagraph("Create a classroom or subject profile with:")
+                    GuideBulletList(
+                        listOf(
+                            "Classroom or subject name",
+                            "Details or reminders for the group",
+                            "Grade level (pick from presets or type a custom number)",
+                            "Section (optional label for strands, tracks, or advisory groups)"
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    GuideParagraph("Inside each module, add topics or lessons that include:")
+                    GuideBulletList(
+                        listOf(
+                            "Topic name, learning objectives, and detailed notes",
+                            "Learning materials — upload links to documents, presentations, spreadsheets, media files, or other resources",
+                            "Pre-tests with multiple-choice questions and answer keys",
+                            "Post-tests that support multiple-choice, true/false, numeric, and other formats",
+                            "Interactive assessments that mirror Kahoot-style live quizzes"
+                        )
+                    )
                 }
             }
             item {
                 SectionCard(
-                    title = "Teacher Role",
-                    subtitle = "Host or create modules with confidence"
+                    title = "The Host's Role",
+                    subtitle = "Step-by-step guide for teachers or presenters"
                 ) {
                     GuideStep(
                         number = 1,
-                        title = "Create or import a lesson module",
-                        description = "Define objectives, attach slides or media, and configure timers, randomization, and optional leaderboards."
+                        title = "Create or find a kahoot",
+                        description = "Build your own quiz on Classroom Quiz Master or reuse a shared public module from the item bank."
                     )
                     GuideStep(
                         number = 2,
-                        title = "Launch a live session",
-                        description = "Tap Start Live Delivery to generate a short-lived class code (e.g., 845 209) and mirror your screen to a projector, TV, or screen-share."
+                        title = "Launch the live game",
+                        description = "Start a live session to generate a unique Game PIN (e.g., 123 4567). Share it on the projector, TV, or video call screen."
                     )
                     GuideStep(
                         number = 3,
-                        title = "Monitor and report",
-                        description = "Scores, participation, and pre/post gains are stored locally. Export PDF or CSV reports to highlight objective mastery and commonly missed items."
+                        title = "Share the main screen",
+                        description = "Display questions, answer choices, and the evolving leaderboard so everyone follows the same pacing."
                     )
                 }
             }
             item {
                 SectionCard(
-                    title = "Student Role",
-                    subtitle = "Join with any device — no accounts required"
+                    title = "The Players' Role",
+                    subtitle = "How students join and participate"
                 ) {
                     GuideStep(
                         number = 1,
-                        title = "Join the session",
-                        description = "Open the join screen, connect to the same Wi-Fi or teacher hotspot, and enter the class code with a nickname or student ID."
+                        title = "Join the game",
+                        description = "No account needed. Open kahoot.it or the Classroom Quiz Master join screen on any device."
                     )
                     GuideStep(
                         number = 2,
-                        title = "Play and engage",
-                        description = "Watch the shared display for questions and submit answers on personal devices. Scoring balances accuracy and fairness, without speed bonuses during diagnostics."
+                        title = "Enter the PIN and nickname",
+                        description = "Type the Game PIN from the host’s display, choose a nickname, and wait for the quiz to start."
                     )
                     GuideStep(
                         number = 3,
-                        title = "Privacy and reliability",
-                        description = "No mandatory accounts or cloud sync. Data stays on the teacher’s device so classes keep running even without internet."
+                        title = "Play the game",
+                        description = "Questions appear on the shared screen. Personal devices show colored answer shapes — tap the matching shape as fast and accurately as possible."
+                    )
+                    GuideBulletList(
+                        listOf(
+                            "Points reward correctness and speed (no speed bonuses during diagnostics).",
+                            "Leaderboards update after each question, highlighting the top five players.",
+                            "A final podium celebrates the top three performers."
+                        )
                     )
                 }
             }
@@ -115,17 +165,6 @@ fun HelpGuideScreen(
                     Spacer(modifier = Modifier.height(12.dp))
                     GuideCategoryHeader("To Gather Opinions")
                     QuestionTypeList(opinionTypes)
-                }
-            }
-            item {
-                SectionCard(
-                    title = "Live Quiz Flow",
-                    subtitle = "Local-first delivery keeps sessions resilient"
-                ) {
-                    GuideParagraph("1. Teacher hosts the session – run the module locally; timing, scoring, and media stay on the teacher device.")
-                    GuideParagraph("2. Students join via local network – devices discover the session over LAN or the teacher hotspot, without needing internet.")
-                    GuideParagraph("3. Play, score, reflect – leaderboards update live while responses feed instant analytics comparing pre vs post performance.")
-                    GuideParagraph("Why local-first matters: sessions stay stable even when the internet drops, student data remains private, and bandwidth needs stay low.")
                 }
             }
             item {
@@ -173,6 +212,30 @@ private fun GuideStep(
         )
         GuideParagraph(description)
         Spacer(modifier = Modifier.height(8.dp))
+    }
+}
+
+@Composable
+private fun GuideBulletList(items: List<String>) {
+    Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        items.forEach { text ->
+            GuideBullet(text)
+        }
+    }
+}
+
+@Composable
+private fun GuideBullet(text: String) {
+    Row(
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        verticalAlignment = Alignment.Top
+    ) {
+        Bullet()
+        Text(
+            text = text,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
     }
 }
 
