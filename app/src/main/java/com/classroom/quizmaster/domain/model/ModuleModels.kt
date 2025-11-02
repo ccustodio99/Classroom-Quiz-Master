@@ -36,7 +36,38 @@ data class ModuleSettings(
 data class Lesson(
     val id: String,
     val slides: List<LessonSlide>,
-    val interactiveActivities: List<InteractiveActivity> = emptyList()
+    val interactiveActivities: List<InteractiveActivity> = emptyList(),
+    val topics: List<LessonTopic> = emptyList()
+)
+
+@Serializable
+data class LessonTopic(
+    val id: String,
+    val name: String,
+    val learningObjectives: List<String>,
+    val details: String,
+    val materials: List<LearningMaterial> = emptyList(),
+    val preTest: Assessment,
+    val postTest: Assessment,
+    val interactiveAssessments: List<InteractiveActivity> = emptyList()
+)
+
+@Serializable
+enum class LearningMaterialType {
+    Document,
+    Presentation,
+    Spreadsheet,
+    Media,
+    Link,
+    Other
+}
+
+@Serializable
+data class LearningMaterial(
+    val id: String,
+    val title: String,
+    val type: LearningMaterialType,
+    val reference: String
 )
 
 @Serializable

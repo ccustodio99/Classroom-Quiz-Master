@@ -13,6 +13,9 @@ import com.classroom.quizmaster.domain.model.LessonSlide
 import com.classroom.quizmaster.domain.model.MiniCheck
 import com.classroom.quizmaster.domain.model.Module
 import com.classroom.quizmaster.domain.model.ModuleSettings
+import com.classroom.quizmaster.domain.model.LearningMaterial
+import com.classroom.quizmaster.domain.model.LearningMaterialType
+import com.classroom.quizmaster.domain.model.LessonTopic
 import com.classroom.quizmaster.domain.model.MatchingItem
 import com.classroom.quizmaster.domain.model.MultipleChoiceItem
 import com.classroom.quizmaster.domain.model.NumericItem
@@ -61,6 +64,123 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
 
     fun onTimePerItemChanged(value: String) = updateState { it.copy(timePerItem = value) }
 
+    fun addTopic() = updateState { state ->
+        state.copy(topics = state.topics + LessonTopicDraft())
+    }
+
+    fun removeTopic(id: String) = updateState { state ->
+        val remaining = state.topics.filterNot { it.id == id }
+        state.copy(topics = remaining.ifEmpty { listOf(LessonTopicDraft()) })
+    }
+
+    fun updateTopicName(id: String, value: String) = updateTopic(id) { it.copy(name = value) }
+
+    fun updateTopicObjectives(id: String, value: String) = updateTopic(id) { it.copy(objectives = value) }
+
+    fun updateTopicDetails(id: String, value: String) = updateTopic(id) { it.copy(details = value) }
+
+    fun addLearningMaterial(topicId: String) = updateTopic(topicId) { topic ->
+        topic.copy(materials = topic.materials + LearningMaterialDraft())
+    }
+
+    fun removeLearningMaterial(topicId: String, materialId: String) = updateTopic(topicId) { topic ->
+        topic.copy(materials = topic.materials.filterNot { it.id == materialId })
+    }
+
+    fun updateLearningMaterial(topicId: String, materialId: String, transform: (LearningMaterialDraft) -> LearningMaterialDraft) {
+        updateTopic(topicId) { topic ->
+            topic.copy(
+                materials = topic.materials.map { material ->
+                    if (material.id == materialId) transform(material) else material
+                }
+            )
+        }
+    }
+
+    fun addPreTestQuestion(topicId: String) = updateTopic(topicId) { topic ->
+        topic.copy(preTest = topic.preTest + MultipleChoiceDraft())
+    }
+
+    fun updatePreTestQuestion(
+        topicId: String,
+        questionId: String,
+        transform: (MultipleChoiceDraft) -> MultipleChoiceDraft
+    ) {
+        updateTopic(topicId) { topic ->
+            topic.copy(
+                preTest = topic.preTest.map { question ->
+                    if (question.id == questionId) transform(question) else question
+                }
+            )
+        }
+    }
+
+    fun removePreTestQuestion(topicId: String, questionId: String) = updateTopic(topicId) { topic ->
+        topic.copy(preTest = topic.preTest.filterNot { it.id == questionId })
+    }
+
+    fun addPostTestMultipleChoice(topicId: String) = updateTopic(topicId) { topic ->
+        topic.copy(postTest = topic.postTest + PostTestItemDraft.MultipleChoice())
+    }
+
+    fun addPostTestTrueFalse(topicId: String) = updateTopic(topicId) { topic ->
+        topic.copy(postTest = topic.postTest + PostTestItemDraft.TrueFalse())
+    }
+
+    fun addPostTestNumeric(topicId: String) = updateTopic(topicId) { topic ->
+        topic.copy(postTest = topic.postTest + PostTestItemDraft.Numeric())
+    }
+
+    fun updatePostTestItem(
+        topicId: String,
+        itemId: String,
+        transform: (PostTestItemDraft) -> PostTestItemDraft
+    ) {
+        updateTopic(topicId) { topic ->
+            topic.copy(
+                postTest = topic.postTest.map { item ->
+                    if (item.id == itemId) transform(item) else item
+                }
+            )
+        }
+    }
+
+    fun removePostTestItem(topicId: String, itemId: String) = updateTopic(topicId) { topic ->
+        topic.copy(postTest = topic.postTest.filterNot { it.id == itemId })
+    }
+
+    fun addInteractiveQuiz(topicId: String) = updateTopic(topicId) { topic ->
+        topic.copy(interactive = topic.interactive + InteractiveQuizDraft())
+    }
+
+    fun updateInteractiveQuiz(
+        topicId: String,
+        quizId: String,
+        transform: (InteractiveQuizDraft) -> InteractiveQuizDraft
+    ) {
+        updateTopic(topicId) { topic ->
+            topic.copy(
+                interactive = topic.interactive.map { quiz ->
+                    if (quiz.id == quizId) transform(quiz) else quiz
+                }
+            )
+        }
+    }
+
+    fun removeInteractiveQuiz(topicId: String, quizId: String) = updateTopic(topicId) { topic ->
+        topic.copy(interactive = topic.interactive.filterNot { it.id == quizId })
+    }
+
+    private fun updateTopic(id: String, transform: (LessonTopicDraft) -> LessonTopicDraft) {
+        updateState { state ->
+            state.copy(
+                topics = state.topics.map { topic ->
+                    if (topic.id == id) transform(topic) else topic
+                }
+            )
+        }
+    }
+
     private fun updateState(transform: (ModuleBuilderUiState) -> ModuleBuilderUiState) {
         val updated = transform(_uiState.value).copy(errors = emptyList(), message = null)
         _uiState.value = updated.withPreview()
@@ -81,6 +201,14 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             if (slides.isEmpty()) {
                 _uiState.value = state.copy(
                     errors = listOf("Magdagdag ng kahit isang lesson slide."),
+                    message = null
+                ).withPreview()
+                return@launch
+            }
+            val topicErrors = validateTopics(state.topics)
+            if (topicErrors.isNotEmpty()) {
+                _uiState.value = state.copy(
+                    errors = topicErrors,
                     message = null
                 ).withPreview()
                 return@launch
@@ -132,19 +260,40 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
                 timePerItemSeconds = timePerItemSeconds,
                 classroomName = classroomName
             )
+            val defaultObjective = objectives.firstOrNull() ?: topic
+            val lessonTopics = state.topics.mapIndexed { index, draft ->
+                draft.toLessonTopic(
+                    index = index,
+                    timePerItemSeconds = timePerItemSeconds,
+                    defaultObjective = defaultObjective
+                )
+            }
+            val combinedObjectives = (objectives + lessonTopics.flatMap { it.learningObjectives })
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
             val module = Module(
                 id = UUID.randomUUID().toString(),
                 classroom = classroom,
                 subject = subject,
                 topic = topic,
-                objectives = objectives,
-                preTest = Assessment(id = UUID.randomUUID().toString(), items = preItems),
+                objectives = combinedObjectives,
+                preTest = Assessment(
+                    id = UUID.randomUUID().toString(),
+                    items = preItems,
+                    timePerItemSec = timePerItemSeconds
+                ),
                 lesson = Lesson(
                     id = UUID.randomUUID().toString(),
                     slides = buildLessonSlides(slides, objectives),
-                    interactiveActivities = interactiveActivities
+                    interactiveActivities = interactiveActivities,
+                    topics = lessonTopics
                 ),
-                postTest = Assessment(id = UUID.randomUUID().toString(), items = postItems),
+                postTest = Assessment(
+                    id = UUID.randomUUID().toString(),
+                    items = postItems,
+                    timePerItemSec = timePerItemSeconds
+                ),
                 settings = ModuleSettings(timePerItemSeconds = timePerItemSeconds)
             )
             val violations = container.moduleBuilderAgent.validate(module)
@@ -170,7 +319,9 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
     }
 
     private fun parseObjectives(raw: String): List<String> {
-        return raw.split(',').mapNotNull { it.trim().takeIf(String::isNotEmpty) }
+        return raw.split(',', '\n')
+            .mapNotNull { it.trim().takeIf(String::isNotEmpty) }
+            .distinct()
     }
 
     private fun parseSlides(raw: String): List<String> {
@@ -178,6 +329,125 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
             .map { it.trim() }
             .filter { it.isNotEmpty() }
             .toList()
+    }
+
+    private fun parseTopicObjectives(raw: String): List<String> {
+        return raw.split(',', '\n')
+            .mapNotNull { it.trim().takeIf(String::isNotEmpty) }
+            .distinct()
+    }
+
+    private fun validateTopics(topics: List<LessonTopicDraft>): List<String> {
+        if (topics.isEmpty()) {
+            return listOf("Magdagdag ng hindi bababa sa isang lesson topic.")
+        }
+        val errors = mutableListOf<String>()
+        topics.forEachIndexed { index, topic ->
+            val topicLabel = "Paksa ${index + 1}"
+            if (topic.name.isBlank()) {
+                errors += "$topicLabel: Magbigay ng pangalan ng paksa."
+            }
+            if (topic.details.isBlank()) {
+                errors += "$topicLabel: Magdagdag ng lesson details."
+            }
+            val objectives = parseTopicObjectives(topic.objectives)
+            if (objectives.isEmpty()) {
+                errors += "$topicLabel: Magdagdag ng learning objective."
+            }
+            topic.materials.forEach { material ->
+                errors += validateLearningMaterial(material, topicLabel)
+            }
+            if (topic.preTest.isEmpty()) {
+                errors += "$topicLabel: Magdagdag ng kahit isang pre-test question."
+            }
+            topic.preTest.forEachIndexed { qIndex, question ->
+                errors += validateMultipleChoice(question, "$topicLabel pre-test ${qIndex + 1}")
+            }
+            if (topic.postTest.isEmpty()) {
+                errors += "$topicLabel: Magdagdag ng kahit isang post-test item."
+            }
+            topic.postTest.forEachIndexed { qIndex, item ->
+                errors += validatePostTestItem(item, "$topicLabel post-test ${qIndex + 1}")
+            }
+            if (topic.interactive.isEmpty()) {
+                errors += "$topicLabel: Magdagdag ng interactive quiz para sa learners."
+            }
+            topic.interactive.forEachIndexed { qIndex, quiz ->
+                errors += validateInteractiveQuiz(quiz, "$topicLabel interactive ${qIndex + 1}")
+            }
+        }
+        return errors
+    }
+
+    private fun validateLearningMaterial(material: LearningMaterialDraft, topicLabel: String): List<String> {
+        if (material.title.isBlank() && material.reference.isBlank()) {
+            return emptyList()
+        }
+        val errors = mutableListOf<String>()
+        if (material.title.isBlank()) {
+            errors += "$topicLabel: Lagyan ng pamagat ang learning material."
+        }
+        if (material.reference.isBlank()) {
+            errors += "$topicLabel: Magbigay ng link o file reference para sa ${material.title.ifBlank { "learning material" }}."
+        }
+        return errors
+    }
+
+    private fun validateMultipleChoice(question: MultipleChoiceDraft, label: String): List<String> {
+        val errors = mutableListOf<String>()
+        if (question.prompt.isBlank()) {
+            errors += "$label: Ilagay ang tanong."
+        }
+        val filledChoices = question.choices.mapIndexed { index, choice -> index to choice.trim() }
+        if (filledChoices.count { it.second.isNotEmpty() } < 2) {
+            errors += "$label: Magdagdag ng hindi bababa sa dalawang pagpipilian."
+        }
+        if (question.correctIndex !in question.choices.indices) {
+            errors += "$label: Piliin kung alin ang tamang sagot."
+        } else if (question.choices[question.correctIndex].isBlank()) {
+            errors += "$label: Punan ang tamang sagot."
+        }
+        return errors
+    }
+
+    private fun validatePostTestItem(item: PostTestItemDraft, label: String): List<String> = when (item) {
+        is PostTestItemDraft.MultipleChoice -> validateMultipleChoice(item.asMultipleChoiceDraft(), label)
+        is PostTestItemDraft.TrueFalse -> buildList {
+            if (item.prompt.isBlank()) add("$label: Ilagay ang tanong para sa True/False.")
+        }
+        is PostTestItemDraft.Numeric -> buildList {
+            if (item.prompt.isBlank()) add("$label: Ilagay ang problem statement.")
+            if (item.answer.toDoubleOrNull() == null) add("$label: Ibigay ang tamang numerong sagot.")
+        }
+    }
+
+    private fun validateInteractiveQuiz(quiz: InteractiveQuizDraft, label: String): List<String> {
+        val errors = mutableListOf<String>()
+        if (quiz.prompt.isBlank()) {
+            errors += "$label: Ilagay ang prompt."
+        }
+        val filled = quiz.options.mapIndexed { index, option -> index to option.trim() }
+        if (filled.count { it.second.isNotEmpty() } < 2) {
+            errors += "$label: Magdagdag ng hindi bababa sa dalawang opsyon."
+        }
+        if (quiz.correctAnswers.isEmpty()) {
+            errors += "$label: Tukuyin ang tamang sagot."
+        } else {
+            val invalidIndex = quiz.correctAnswers.firstOrNull { it !in quiz.options.indices }
+            if (invalidIndex != null) {
+                errors += "$label: May tamang sagot na wala sa mga pagpipilian."
+            }
+            val blankCorrect = quiz.correctAnswers.firstOrNull { index ->
+                index in quiz.options.indices && quiz.options[index].isBlank()
+            }
+            if (blankCorrect != null) {
+                errors += "$label: Punan ang tamang opsyon bago piliin."
+            }
+            if (!quiz.allowMultiple && quiz.correctAnswers.size > 1) {
+                errors += "$label: Isang tamang sagot lang ang pinapayagan sa single answer mode."
+            }
+        }
+        return errors
     }
 
     private fun ModuleBuilderUiState.withPreview(): ModuleBuilderUiState {
@@ -192,7 +462,8 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
         )
         val knowledge = activities.filter { it.isScored }.map { it.summaryLabel() }
         val opinions = activities.filterNot { it.isScored }.map { it.summaryLabel() }
-        return copy(interactivePreview = InteractivePreviewSummary(knowledge, opinions))
+        val topicInteractiveCount = topics.sumOf { it.interactive.size }
+        return copy(interactivePreview = InteractivePreviewSummary(knowledge, opinions, topicInteractiveCount))
     }
 
     private fun ModuleBuilderUiState.resolvedSubject(): String {
@@ -388,7 +659,152 @@ class ModuleBuilderViewModel(private val container: AppContainer) : ViewModel() 
         )
     }
 
+    private fun LessonTopicDraft.toLessonTopic(
+        index: Int,
+        timePerItemSeconds: Int,
+        defaultObjective: String
+    ): LessonTopic {
+        val topicId = id.ifBlank { UUID.randomUUID().toString() }
+        val parsedObjectives = parseTopicObjectives(objectives).ifEmpty { listOf(defaultObjective) }
+        val focusObjective = parsedObjectives.firstOrNull() ?: defaultObjective
+        val materialsDomain = materials.mapNotNull { it.toLearningMaterialOrNull(topicId) }
+        val preItems = preTest.mapIndexed { itemIndex, question ->
+            question.toItem(
+                objective = focusObjective,
+                fallbackPromptIndex = itemIndex,
+                itemPrefix = "$topicId-pre"
+            )
+        }
+        val postItems = postTest.mapIndexed { itemIndex, draft ->
+            draft.toItem(
+                objective = focusObjective,
+                fallbackPromptIndex = itemIndex,
+                itemPrefix = "$topicId-post"
+            )
+        }
+        val interactiveActivities = interactive.mapIndexed { sequence, quiz ->
+            quiz.toActivity(
+                topicId = topicId,
+                sequence = sequence,
+                fallbackTitle = name.ifBlank { "Topic ${index + 1}" }
+            )
+        }
+        return LessonTopic(
+            id = topicId,
+            name = name.ifBlank { "Topic ${index + 1}" },
+            learningObjectives = parsedObjectives,
+            details = details.trim(),
+            materials = materialsDomain,
+            preTest = Assessment(id = "$topicId-pre", items = preItems, timePerItemSec = timePerItemSeconds),
+            postTest = Assessment(id = "$topicId-post", items = postItems, timePerItemSec = timePerItemSeconds),
+            interactiveAssessments = interactiveActivities
+        )
+    }
+
+    private fun LearningMaterialDraft.toLearningMaterialOrNull(topicId: String): LearningMaterial? {
+        if (title.isBlank() && reference.isBlank()) return null
+        val normalizedId = id.ifBlank { UUID.randomUUID().toString() }
+        return LearningMaterial(
+            id = "$topicId-material-$normalizedId",
+            title = title.ifBlank { reference.ifBlank { "Learning material" } },
+            type = type,
+            reference = reference.trim()
+        )
+    }
+
+    private fun MultipleChoiceDraft.toItem(
+        objective: String,
+        fallbackPromptIndex: Int,
+        itemPrefix: String
+    ): MultipleChoiceItem {
+        val normalizedId = id.ifBlank { UUID.randomUUID().toString() }
+        val baseChoices = choices.map { it.trim() }
+        val padded = if (baseChoices.size >= 4) baseChoices else baseChoices + List(4 - baseChoices.size) { "" }
+        val resolvedChoices = padded.mapIndexed { index, choice ->
+            if (choice.isNotEmpty()) choice else "Opsyon ${index + 1}"
+        }
+        val safeCorrectIndex = correctIndex.coerceIn(0, resolvedChoices.lastIndex)
+        return MultipleChoiceItem(
+            id = "$itemPrefix-$normalizedId",
+            objective = objective,
+            prompt = prompt.ifBlank { "Tanong ${fallbackPromptIndex + 1}" },
+            choices = resolvedChoices,
+            correctIndex = safeCorrectIndex,
+            explanation = rationale.ifBlank { "Teacher-authored item." }
+        )
+    }
+
+    private fun PostTestItemDraft.toItem(
+        objective: String,
+        fallbackPromptIndex: Int,
+        itemPrefix: String
+    ): Item = when (this) {
+        is PostTestItemDraft.MultipleChoice ->
+            this.asMultipleChoiceDraft().toItem(objective, fallbackPromptIndex, itemPrefix)
+        is PostTestItemDraft.TrueFalse -> {
+            val normalizedId = id.ifBlank { UUID.randomUUID().toString() }
+            TrueFalseItem(
+                id = "$itemPrefix-$normalizedId",
+                objective = objective,
+                prompt = prompt.ifBlank { "True or False ${fallbackPromptIndex + 1}" },
+                answer = answer,
+                explanation = explanation.ifBlank { "Teacher-authored true/false item." }
+            )
+        }
+        is PostTestItemDraft.Numeric -> {
+            val normalizedId = id.ifBlank { UUID.randomUUID().toString() }
+            val parsedAnswer = answer.toDoubleOrNull() ?: 0.0
+            val parsedTolerance = tolerance.toDoubleOrNull()?.takeIf { it >= 0 } ?: 0.01
+            NumericItem(
+                id = "$itemPrefix-$normalizedId",
+                objective = objective,
+                prompt = prompt.ifBlank { "Problem ${fallbackPromptIndex + 1}" },
+                answer = parsedAnswer,
+                tolerance = parsedTolerance,
+                explanation = explanation.ifBlank { "Teacher-authored numeric item." }
+            )
+        }
+    }
+
+    private fun PostTestItemDraft.MultipleChoice.asMultipleChoiceDraft(): MultipleChoiceDraft {
+        return MultipleChoiceDraft(
+            id = id,
+            prompt = prompt,
+            choices = choices,
+            correctIndex = correctIndex,
+            rationale = rationale
+        )
+    }
+
+    private fun InteractiveQuizDraft.toActivity(
+        topicId: String,
+        sequence: Int,
+        fallbackTitle: String
+    ): InteractiveActivity {
+        val normalizedId = id.ifBlank { UUID.randomUUID().toString() }
+        val trimmedOptions = options.map { it.trim() }
+        val padded = if (trimmedOptions.size >= 4) trimmedOptions else trimmedOptions + List(4 - trimmedOptions.size) { "" }
+        val resolvedOptions = padded.mapIndexed { index, option ->
+            if (option.isNotEmpty()) option else "Opsyon ${index + 1}"
+        }
+        val normalizedAnswers = if (allowMultiple) {
+            if (correctAnswers.isEmpty()) setOf(0) else correctAnswers
+        } else {
+            setOf(correctAnswers.firstOrNull() ?: 0)
+        }
+        val clampedAnswers = normalizedAnswers.map { it.coerceIn(0, resolvedOptions.lastIndex) }
+        return QuizActivity(
+            id = "quiz-$topicId-$normalizedId",
+            title = title.ifBlank { "$fallbackTitle Quiz" },
+            prompt = prompt.ifBlank { "Sagutan ang tanong ${sequence + 1}." },
+            options = resolvedOptions,
+            correctAnswers = clampedAnswers,
+            allowMultiple = allowMultiple,
+            isScored = true
+        )
+    }
 }
+
 data class ModuleBuilderUiState(
     val classroomName: String = "",
     val subject: String = "G11 General Mathematics",
@@ -399,6 +815,7 @@ data class ModuleBuilderUiState(
     val objectives: String = "LO1, LO2, LO3",
     val slides: String = "Panimula sa simple interest\nPagkuwenta ng compound interest",
     val timePerItem: String = "60",
+    val topics: List<LessonTopicDraft> = listOf(LessonTopicDraft()),
     val interactivePreview: InteractivePreviewSummary = InteractivePreviewSummary(),
     val errors: List<String> = emptyList(),
     val message: String? = null
@@ -406,13 +823,77 @@ data class ModuleBuilderUiState(
 
 data class InteractivePreviewSummary(
     val knowledgeChecks: List<String> = emptyList(),
-    val opinionPulse: List<String> = emptyList()
+    val opinionPulse: List<String> = emptyList(),
+    val topicInteractiveCount: Int = 0
 ) {
     val total: Int get() = knowledgeChecks.size + opinionPulse.size
     val knowledgeCount: Int get() = knowledgeChecks.size
     val opinionCount: Int get() = opinionPulse.size
     fun isEmpty(): Boolean = total == 0
 }
+
+data class LessonTopicDraft(
+    val id: String = UUID.randomUUID().toString(),
+    val name: String = "",
+    val objectives: String = "",
+    val details: String = "",
+    val materials: List<LearningMaterialDraft> = listOf(LearningMaterialDraft()),
+    val preTest: List<MultipleChoiceDraft> = listOf(MultipleChoiceDraft()),
+    val postTest: List<PostTestItemDraft> = listOf(PostTestItemDraft.MultipleChoice()),
+    val interactive: List<InteractiveQuizDraft> = listOf(InteractiveQuizDraft())
+)
+
+data class LearningMaterialDraft(
+    val id: String = UUID.randomUUID().toString(),
+    val title: String = "",
+    val type: LearningMaterialType = LearningMaterialType.Document,
+    val reference: String = ""
+)
+
+data class MultipleChoiceDraft(
+    val id: String = UUID.randomUUID().toString(),
+    val prompt: String = "",
+    val choices: List<String> = List(4) { "" },
+    val correctIndex: Int = 0,
+    val rationale: String = ""
+)
+
+sealed interface PostTestItemDraft {
+    val id: String
+
+    data class MultipleChoice(
+        override val id: String = UUID.randomUUID().toString(),
+        val prompt: String = "",
+        val choices: List<String> = List(4) { "" },
+        val correctIndex: Int = 0,
+        val rationale: String = ""
+    ) : PostTestItemDraft
+
+    data class TrueFalse(
+        override val id: String = UUID.randomUUID().toString(),
+        val prompt: String = "",
+        val answer: Boolean = true,
+        val explanation: String = ""
+    ) : PostTestItemDraft
+
+    data class Numeric(
+        override val id: String = UUID.randomUUID().toString(),
+        val prompt: String = "",
+        val answer: String = "",
+        val tolerance: String = "0.5",
+        val explanation: String = ""
+    ) : PostTestItemDraft
+}
+
+data class InteractiveQuizDraft(
+    val id: String = UUID.randomUUID().toString(),
+    val title: String = "",
+    val prompt: String = "",
+    val options: List<String> = List(4) { "" },
+    val correctAnswers: Set<Int> = setOf(0),
+    val allowMultiple: Boolean = false
+)
+
 
 private fun buildParallelForms(items: List<Item>): Pair<List<Item>, List<Item>> {
     if (items.isEmpty()) return emptyList<Item>() to emptyList()
