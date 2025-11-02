@@ -20,7 +20,9 @@ data class ClassroomProfile(
     val id: String = "classroom-default",
     val name: String = "Advisory Class",
     val subject: String = "G11 General Mathematics",
-    val description: String = ""
+    val description: String = "",
+    val gradeLevel: String = "Grade 11",
+    val section: String = ""
 )
 
 @Serializable
