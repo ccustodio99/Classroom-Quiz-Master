@@ -1,6 +1,7 @@
 package com.classroom.quizmaster.ui.feature.builder
 
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -15,6 +16,7 @@ import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
@@ -47,12 +49,22 @@ import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.domain.model.LearningMaterialType
-import com.classroom.quizmaster.ui.feature.builder.InteractiveQuizDraft
+import com.classroom.quizmaster.ui.feature.builder.BrainstormInteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.InteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.InteractiveDraftType
 import com.classroom.quizmaster.ui.feature.builder.LearningMaterialDraft
 import com.classroom.quizmaster.ui.feature.builder.LessonTopicDraft
+import com.classroom.quizmaster.ui.feature.builder.OpenEndedInteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.PollInteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.PuzzleInteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.QuizInteractiveDraft
 import kotlin.collections.buildList
 import com.classroom.quizmaster.ui.feature.builder.MultipleChoiceDraft
 import com.classroom.quizmaster.ui.feature.builder.PostTestItemDraft
+import com.classroom.quizmaster.ui.feature.builder.SliderInteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.TrueFalseInteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.TypeAnswerInteractiveDraft
+import com.classroom.quizmaster.ui.feature.builder.WordCloudInteractiveDraft
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -482,7 +494,11 @@ private fun LessonTopicCard(
             Divider()
             PostTestSection(topicId = topic.id, items = topic.postTest, viewModel = viewModel)
             Divider()
-            InteractiveQuizSection(topicId = topic.id, quizzes = topic.interactive, viewModel = viewModel)
+            InteractiveActivitiesSection(
+                topicId = topic.id,
+                activities = topic.interactive,
+                viewModel = viewModel
+            )
         }
     }
 }
@@ -754,66 +770,931 @@ private fun PostTestSection(
 }
 
 @Composable
-private fun InteractiveQuizSection(
+private fun InteractiveActivitiesSection(
     topicId: String,
-    quizzes: List<InteractiveQuizDraft>,
+    activities: List<InteractiveDraft>,
     viewModel: ModuleBuilderViewModel
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
-            text = "Interactive quiz (Kahoot-style)",
+            text = "Interactive assessments (Kahoot-style)",
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurface
         )
-        quizzes.forEachIndexed { index, quiz ->
-            InteractiveQuizCard(
-                title = "Interactive ${index + 1}",
-                quiz = quiz,
-                allowRemove = quizzes.size > 1,
-                onTitleChange = { value ->
-                    viewModel.updateInteractiveQuiz(topicId, quiz.id) { it.copy(title = value) }
-                },
-                onPromptChange = { value ->
-                    viewModel.updateInteractiveQuiz(topicId, quiz.id) { it.copy(prompt = value) }
-                },
-                onChoiceChange = { optionIndex, value ->
-                    viewModel.updateInteractiveQuiz(topicId, quiz.id) {
-                        val updated = it.options.toMutableList().apply { set(optionIndex, value) }
-                        it.copy(options = updated)
-                    }
-                },
-                onToggleAnswer = { answerIndex ->
-                    viewModel.updateInteractiveQuiz(topicId, quiz.id) { current ->
-                        val next = if (current.allowMultiple) {
-                            val toggled = if (answerIndex in current.correctAnswers) {
-                                current.correctAnswers - answerIndex
+        activities.forEachIndexed { index, activity ->
+            val allowRemove = activities.size > 1
+            when (activity) {
+                is QuizInteractiveDraft -> InteractiveQuizCard(
+                    title = "Quiz ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as QuizInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as QuizInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onChoiceChange = { optionIndex, value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            val updated = (it as QuizInteractiveDraft).options.toMutableList().apply { set(optionIndex, value) }
+                            it.copy(options = updated)
+                        }
+                    },
+                    onToggleAnswer = { answerIndex ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            val current = it as QuizInteractiveDraft
+                            val next = if (current.allowMultiple) {
+                                val toggled = if (answerIndex in current.correctAnswers) {
+                                    current.correctAnswers - answerIndex
+                                } else {
+                                    current.correctAnswers + answerIndex
+                                }
+                                if (toggled.isEmpty()) setOf(answerIndex) else toggled
                             } else {
-                                current.correctAnswers + answerIndex
+                                setOf(answerIndex)
                             }
-                            if (toggled.isEmpty()) setOf(answerIndex) else toggled
-                        } else {
-                            setOf(answerIndex)
+                            current.copy(correctAnswers = next)
                         }
-                        current.copy(correctAnswers = next)
-                    }
-                },
-                onAllowMultipleChanged = { allowMultiple ->
-                    viewModel.updateInteractiveQuiz(topicId, quiz.id) { current ->
-                        val normalized = if (allowMultiple) {
-                            current.correctAnswers
-                        } else {
-                            setOf(current.correctAnswers.firstOrNull() ?: 0)
+                    },
+                    onAllowMultipleChanged = { allowMultiple ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            val current = it as QuizInteractiveDraft
+                            val normalized = if (allowMultiple) {
+                                current.correctAnswers
+                            } else {
+                                setOf(current.correctAnswers.firstOrNull() ?: 0)
+                            }
+                            current.copy(allowMultiple = allowMultiple, correctAnswers = normalized)
                         }
-                        current.copy(allowMultiple = allowMultiple, correctAnswers = normalized)
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is TrueFalseInteractiveDraft -> InteractiveTrueFalseCard(
+                    title = "True/False ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as TrueFalseInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as TrueFalseInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onAnswerChange = { isTrue ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as TrueFalseInteractiveDraft).copy(correctAnswer = isTrue)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is TypeAnswerInteractiveDraft -> InteractiveTypeAnswerCard(
+                    title = "Type Answer ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as TypeAnswerInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as TypeAnswerInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onAnswerChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as TypeAnswerInteractiveDraft).copy(answer = value)
+                        }
+                    },
+                    onMaxCharactersChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as TypeAnswerInteractiveDraft).copy(maxCharacters = value)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is PuzzleInteractiveDraft -> InteractivePuzzleCard(
+                    title = "Puzzle ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as PuzzleInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as PuzzleInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onUpdateBlocks = { blocks ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as PuzzleInteractiveDraft).copy(blocks = blocks)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is SliderInteractiveDraft -> InteractiveSliderCard(
+                    title = "Slider ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as SliderInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as SliderInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onMinChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as SliderInteractiveDraft).copy(minValue = value)
+                        }
+                    },
+                    onMaxChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as SliderInteractiveDraft).copy(maxValue = value)
+                        }
+                    },
+                    onTargetChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as SliderInteractiveDraft).copy(targetValue = value)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is PollInteractiveDraft -> InteractivePollCard(
+                    title = "Poll ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as PollInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as PollInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onChoiceChange = { optionIndex, value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            val updated = (it as PollInteractiveDraft).options.toMutableList().apply { set(optionIndex, value) }
+                            it.copy(options = updated)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is WordCloudInteractiveDraft -> InteractiveWordCloudCard(
+                    title = "Word Cloud ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as WordCloudInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as WordCloudInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onMaxWordsChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as WordCloudInteractiveDraft).copy(maxWords = value)
+                        }
+                    },
+                    onMaxCharactersChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as WordCloudInteractiveDraft).copy(maxCharacters = value)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is OpenEndedInteractiveDraft -> InteractiveOpenEndedCard(
+                    title = "Open Response ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as OpenEndedInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as OpenEndedInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onMaxCharactersChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as OpenEndedInteractiveDraft).copy(maxCharacters = value)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+                is BrainstormInteractiveDraft -> InteractiveBrainstormCard(
+                    title = "Brainstorm ${index + 1}",
+                    draft = activity,
+                    allowRemove = allowRemove,
+                    onTitleChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as BrainstormInteractiveDraft).copy(title = value)
+                        }
+                    },
+                    onPromptChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as BrainstormInteractiveDraft).copy(prompt = value)
+                        }
+                    },
+                    onUpdateCategories = { categories ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as BrainstormInteractiveDraft).copy(categories = categories)
+                        }
+                    },
+                    onVoteLimitChange = { value ->
+                        viewModel.updateInteractiveActivity(topicId, activity.id) {
+                            (it as BrainstormInteractiveDraft).copy(voteLimit = value)
+                        }
+                    },
+                    onRemove = { viewModel.removeInteractiveActivity(topicId, activity.id) }
+                )
+            }
+        }
+        AddInteractiveActivityButton(topicId = topicId, viewModel = viewModel)
+    }
+}
+
+@Composable
+private fun AddInteractiveActivityButton(
+    topicId: String,
+    viewModel: ModuleBuilderViewModel
+) {
+    var expanded by remember { mutableStateOf(false) }
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(
+            text = "Add more interactive formats",
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        Box {
+            OutlinedButton(
+                onClick = { expanded = true },
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Add interactive activity")
+            }
+            DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
+                InteractiveDraftType.values().forEach { type ->
+                    DropdownMenuItem(
+                        text = { Text(type.displayName) },
+                        onClick = {
+                            expanded = false
+                            viewModel.addInteractiveActivity(topicId, type)
+                        }
+                    )
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractiveQuizCard(
+    title: String,
+    draft: QuizInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onChoiceChange: (Int, String) -> Unit,
+    onToggleAnswer: (Int) -> Unit,
+    onAllowMultipleChanged: (Boolean) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(
+                    text = title,
+                    style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+                )
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove interactive quiz")
                     }
-                },
-                onRemove = { viewModel.removeInteractiveQuiz(topicId, quiz.id) }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Quiz")
+                InfoPill(text = "Scored")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt or question") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Text(
+                    text = if (draft.allowMultiple) "Multiple answers allowed" else "Single answer",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Switch(checked = draft.allowMultiple, onCheckedChange = onAllowMultipleChanged)
+            }
+            MultipleChoiceOptionsEditor(
+                choices = draft.options,
+                selectedIndices = draft.correctAnswers,
+                onChoiceChange = onChoiceChange,
+                onSelectionChange = onToggleAnswer
             )
         }
-        TextButton(onClick = { viewModel.addInteractiveQuiz(topicId) }) {
-            Icon(imageVector = Icons.Filled.Add, contentDescription = null)
-            Spacer(modifier = Modifier.width(6.dp))
-            Text("Add interactive quiz")
+    }
+}
+
+@Composable
+private fun InteractiveTrueFalseCard(
+    title: String,
+    draft: TrueFalseInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onAnswerChange: (Boolean) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove true/false")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "True/False")
+                InfoPill(text = "Scored")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                FilterChip(
+                    selected = draft.correctAnswer,
+                    onClick = { onAnswerChange(true) },
+                    label = { Text("TRUE") }
+                )
+                FilterChip(
+                    selected = !draft.correctAnswer,
+                    onClick = { onAnswerChange(false) },
+                    label = { Text("FALSE") }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractiveTypeAnswerCard(
+    title: String,
+    draft: TypeAnswerInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onAnswerChange: (String) -> Unit,
+    onMaxCharactersChange: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove type answer")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Type Answer")
+                InfoPill(text = "Scored")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.answer,
+                onValueChange = onAnswerChange,
+                label = { Text("Correct answer") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.maxCharacters,
+                onValueChange = onMaxCharactersChange,
+                label = { Text("Max characters") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+        }
+    }
+}
+
+@Composable
+private fun InteractivePuzzleCard(
+    title: String,
+    draft: PuzzleInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onUpdateBlocks: (List<String>) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove puzzle")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Puzzle")
+                InfoPill(text = "Scored")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Correct order of blocks",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            draft.blocks.forEachIndexed { index, block ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = block,
+                        onValueChange = { value ->
+                            val updated = draft.blocks.toMutableList().apply { set(index, value) }
+                            onUpdateBlocks(updated)
+                        },
+                        label = { Text("Block ${index + 1}") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (draft.blocks.size > 2) {
+                        IconButton(onClick = {
+                            val updated = draft.blocks.toMutableList().apply { removeAt(index) }
+                            onUpdateBlocks(updated)
+                        }) {
+                            Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove block")
+                        }
+                    }
+                }
+            }
+            TextButton(onClick = {
+                val nextIndex = draft.blocks.size + 1
+                onUpdateBlocks(draft.blocks + "Step $nextIndex")
+            }) {
+                Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Add block")
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractiveSliderCard(
+    title: String,
+    draft: SliderInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onMinChange: (String) -> Unit,
+    onMaxChange: (String) -> Unit,
+    onTargetChange: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove slider")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Slider")
+                InfoPill(text = "Scored")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = draft.minValue,
+                    onValueChange = onMinChange,
+                    label = { Text("Min") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                OutlinedTextField(
+                    value = draft.maxValue,
+                    onValueChange = onMaxChange,
+                    label = { Text("Max") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                OutlinedTextField(
+                    value = draft.targetValue,
+                    onValueChange = onTargetChange,
+                    label = { Text("Target") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractivePollCard(
+    title: String,
+    draft: PollInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onChoiceChange: (Int, String) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove poll")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Poll")
+                InfoPill(text = "No points")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            MultipleChoiceOptionsEditor(
+                choices = draft.options,
+                selectedIndices = emptySet(),
+                onChoiceChange = onChoiceChange,
+                onSelectionChange = {},
+                showSelection = false
+            )
+        }
+    }
+}
+
+@Composable
+private fun InteractiveWordCloudCard(
+    title: String,
+    draft: WordCloudInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onMaxWordsChange: (String) -> Unit,
+    onMaxCharactersChange: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove word cloud")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Word Cloud")
+                InfoPill(text = "No points")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = draft.maxWords,
+                    onValueChange = onMaxWordsChange,
+                    label = { Text("Max words") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+                OutlinedTextField(
+                    value = draft.maxCharacters,
+                    onValueChange = onMaxCharactersChange,
+                    label = { Text("Max characters") },
+                    modifier = Modifier.weight(1f),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun InteractiveOpenEndedCard(
+    title: String,
+    draft: OpenEndedInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onMaxCharactersChange: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove open response")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Open Response")
+                InfoPill(text = "No points")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.maxCharacters,
+                onValueChange = onMaxCharactersChange,
+                label = { Text("Max characters") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
+        }
+    }
+}
+
+@Composable
+private fun InteractiveBrainstormCard(
+    title: String,
+    draft: BrainstormInteractiveDraft,
+    allowRemove: Boolean,
+    onTitleChange: (String) -> Unit,
+    onPromptChange: (String) -> Unit,
+    onUpdateCategories: (List<String>) -> Unit,
+    onVoteLimitChange: (String) -> Unit,
+    onRemove: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.medium,
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 1.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Text(title, style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
+                Spacer(modifier = Modifier.weight(1f))
+                if (allowRemove) {
+                    IconButton(onClick = onRemove) {
+                        Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove brainstorm")
+                    }
+                }
+            }
+            AdaptiveWrapRow(horizontalSpacing = 8.dp, verticalSpacing = 8.dp) {
+                InfoPill(text = "Brainstorm")
+                InfoPill(text = "No points")
+            }
+            OutlinedTextField(
+                value = draft.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            OutlinedTextField(
+                value = draft.prompt,
+                onValueChange = onPromptChange,
+                label = { Text("Prompt") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = "Idea buckets",
+                style = MaterialTheme.typography.labelLarge,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            draft.categories.forEachIndexed { index, category ->
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    OutlinedTextField(
+                        value = category,
+                        onValueChange = { value ->
+                            val updated = draft.categories.toMutableList().apply { set(index, value) }
+                            onUpdateCategories(updated)
+                        },
+                        label = { Text("Category ${index + 1}") },
+                        modifier = Modifier.weight(1f)
+                    )
+                    if (draft.categories.size > 2) {
+                        IconButton(onClick = {
+                            val updated = draft.categories.toMutableList().apply { removeAt(index) }
+                            onUpdateCategories(updated)
+                        }) {
+                            Icon(imageVector = Icons.Filled.Delete, contentDescription = "Remove category")
+                        }
+                    }
+                }
+            }
+            TextButton(onClick = {
+                val nextIndex = draft.categories.size + 1
+                onUpdateCategories(draft.categories + "Idea $nextIndex")
+            }) {
+                Icon(imageVector = Icons.Filled.Add, contentDescription = null)
+                Spacer(modifier = Modifier.width(6.dp))
+                Text("Add category")
+            }
+            OutlinedTextField(
+                value = draft.voteLimit,
+                onValueChange = onVoteLimitChange,
+                label = { Text("Votes per player") },
+                modifier = Modifier.fillMaxWidth(),
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number)
+            )
         }
     }
 }
@@ -1084,7 +1965,8 @@ private fun MultipleChoiceOptionsEditor(
     choices: List<String>,
     selectedIndices: Set<Int>,
     onChoiceChange: (Int, String) -> Unit,
-    onSelectionChange: (Int) -> Unit
+    onSelectionChange: (Int) -> Unit,
+    showSelection: Boolean = true
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         choices.forEachIndexed { index, choice ->
@@ -1092,12 +1974,20 @@ private fun MultipleChoiceOptionsEditor(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
-                val selected = index in selectedIndices
-                FilterChip(
-                    selected = selected,
-                    onClick = { onSelectionChange(index) },
-                    label = { Text(optionLabel(index)) }
-                )
+                if (showSelection) {
+                    val selected = index in selectedIndices
+                    FilterChip(
+                        selected = selected,
+                        onClick = { onSelectionChange(index) },
+                        label = { Text(optionLabel(index)) }
+                    )
+                } else {
+                    Text(
+                        text = optionLabel(index),
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
                 OutlinedTextField(
                     value = choice,
                     onValueChange = { onChoiceChange(index, it) },
