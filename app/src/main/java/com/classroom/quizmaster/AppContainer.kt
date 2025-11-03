@@ -9,6 +9,7 @@ import com.classroom.quizmaster.agents.AuthAgent
 import com.classroom.quizmaster.agents.AuthAgentImpl
 import com.classroom.quizmaster.agents.ClassroomAgent
 import com.classroom.quizmaster.agents.ClassroomAgentImpl
+import com.classroom.quizmaster.agents.FirebaseSyncAgent
 import com.classroom.quizmaster.agents.GamificationAgent
 import com.classroom.quizmaster.agents.GamificationAgentImpl
 import com.classroom.quizmaster.agents.ItemBankAgent
@@ -24,7 +25,6 @@ import com.classroom.quizmaster.agents.ReportExportAgentImpl
 import com.classroom.quizmaster.agents.ScoringAnalyticsAgent
 import com.classroom.quizmaster.agents.ScoringAnalyticsAgentImpl
 import com.classroom.quizmaster.agents.SyncAgent
-import com.classroom.quizmaster.agents.SyncAgentImpl
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.repo.AssignmentRepository
 import com.classroom.quizmaster.data.repo.AssignmentRepositoryImpl
@@ -41,6 +41,7 @@ import com.classroom.quizmaster.domain.model.AccountStatus
 import com.classroom.quizmaster.domain.model.UserAccount
 import com.classroom.quizmaster.domain.model.UserRole
 import com.classroom.quizmaster.lan.LiveSessionLanFactory
+import com.google.firebase.FirebaseApp
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
@@ -72,11 +73,14 @@ class AppContainer(context: Context) {
     val reportExportAgent: ReportExportAgent = ReportExportAgentImpl(appContext)
     val itemBankAgent: ItemBankAgent = ItemBankAgentImpl()
     val gamificationAgent: GamificationAgent = GamificationAgentImpl()
-    val syncAgent: SyncAgent = SyncAgentImpl()
+    val syncAgent: SyncAgent = FirebaseSyncAgent(moduleRepository, json)
     val authAgent: AuthAgent = AuthAgentImpl(accountRepository)
     val classroomAgent: ClassroomAgent = ClassroomAgentImpl(classroomRepository, moduleRepository)
 
     init {
+        if (FirebaseApp.getApps(appContext).isEmpty()) {
+            FirebaseApp.initializeApp(appContext)
+        }
         ensureDefaultAdmin()
     }
 

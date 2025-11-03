@@ -3,6 +3,7 @@ plugins {
     kotlin("android")
     kotlin("kapt")
     kotlin("plugin.serialization")
+    id("com.google.gms.google-services")
 }
 
 android {
@@ -73,6 +74,7 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.6.3")
 
     implementation("androidx.room:room-runtime:2.6.1")
@@ -88,4 +90,8 @@ dependencies {
 
     debugImplementation("androidx.compose.ui:ui-tooling")
     debugImplementation("androidx.compose.ui:ui-test-manifest")
+
+    val firebaseBom = platform("com.google.firebase:firebase-bom:33.1.2")
+    implementation(firebaseBom)
+    implementation("com.google.firebase:firebase-firestore-ktx")
 }

@@ -295,7 +295,7 @@ class ModuleBuilderViewModel(
                 .filter { it.isNotEmpty() }
                 .distinct()
             val managedClassroom = classroom.copy(ownerId = classroom.ownerId ?: teacherId)
-            val module = Module(
+            val baseModule = Module(
                 id = identifiers.moduleId,
                 classroom = managedClassroom,
                 subject = subject,
@@ -318,6 +318,11 @@ class ModuleBuilderViewModel(
                     timePerItemSec = timePerItemSeconds
                 ),
                 settings = ModuleSettings(timePerItemSeconds = timePerItemSeconds)
+            )
+            val now = System.currentTimeMillis()
+            val module = baseModule.copy(
+                createdAt = baseModule.createdAt.takeIf { it > 0L } ?: now,
+                updatedAt = now
             )
             val classroomResult = classroomAgent.createOrUpdate(managedClassroom)
             if (classroomResult.isFailure) {

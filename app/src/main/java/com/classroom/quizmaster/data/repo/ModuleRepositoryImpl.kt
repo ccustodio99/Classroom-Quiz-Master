@@ -65,10 +65,11 @@ class ModuleRepositoryImpl(
             existing != null -> existing.createdAt
             else -> now
         }
+        val normalizedUpdatedAt = if (module.updatedAt > 0L) module.updatedAt else now
         val updatedModule = module.copy(
             archived = module.archived,
             createdAt = createdAt,
-            updatedAt = now
+            updatedAt = normalizedUpdatedAt
         )
         val jsonValue = json.encodeToString(Module.serializer(), updatedModule)
         dao.insert(

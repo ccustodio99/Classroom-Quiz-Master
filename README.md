@@ -13,8 +13,14 @@ Classroom Quiz Master brings interactive assessments, structured lessons, and ac
 - **Default Admin:** On first launch the app seeds `admin@classroom.local` / `admin123`. Use this account to approve new teachers and students.
 - **Teacher & Student Signup:** Tap **Sign up** on the login screen to request access. Teachers can immediately browse the classroom manager once approved; students go straight to the join screen.
 - **Admin Approval:** Pending accounts appear under the **Pending approvals** list. Approving an account promotes it to active status and unlocks the appropriate home screen.
-- **Local-First Storage:** Credentials, classes, modules, and reports are stored locally via Room. Optional sync hooks remain disabled until future cloud support is added.
+- **Local-First Storage + Firebase Mirror:** Credentials, classes, and modules are cached offline via Room, then mirrored to Firestore when sync runs.
 - **Session Awareness:** The app remembers the current account while running. Logging out returns to the authentication screen without deleting any data.
+
+### 🌩️ Cloud Sync (Firebase + Room)
+- **Structured Data:** Modules are serialized and pushed to Firestore. The `updatedAt` timestamp protects against concurrent edits (newer copies win).
+- **Offline First:** Every change lands in Room immediately; Firestore sync is best-effort and safe to run even without connectivity.
+- **Conflict Feedback:** If Firestore has a newer version, pushes fail fast so teachers can pull updates before overwriting a peer.
+- **Learning Materials:** Binary assets (slides, docs, media) are still local by default. Point the `SyncAgent` to WebDAV/Synology to offload them if desired.
 
 ### 🧑‍🏫 Teacher Experience
 1. **Create or Import a Lesson Module** - Define objectives, attach slides/media, and configure timers, randomization, and optional leaderboards across the pre/lesson/post segments.
