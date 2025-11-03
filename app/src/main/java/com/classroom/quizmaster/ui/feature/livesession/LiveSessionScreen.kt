@@ -117,7 +117,7 @@ private fun SessionCodeSection(
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (sessionCode == null) {
                 Text(
-                    text = "Preparing your live session..."
+                    text = "Preparing your live session...",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

@@ -95,7 +95,6 @@ fun ModuleBuilderScreen(
     } else {
         UiLabels.MODULE_FLOW_TAGLINE
     }
-    }
     GenZScaffold(
         title = title,
         subtitle = subtitle,
