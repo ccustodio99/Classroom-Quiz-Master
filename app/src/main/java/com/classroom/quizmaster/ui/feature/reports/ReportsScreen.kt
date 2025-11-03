@@ -102,7 +102,7 @@ private fun LoadingCard() {
 private fun ErrorCard(message: String, onRetry: () -> Unit) {
     SectionCard(
         title = "Something went wrong",
-        subtitle = "We could not load the analytics"
+        subtitle = "We could not load the analytics",
         caption = message,
         trailingContent = {
             InfoPill(
