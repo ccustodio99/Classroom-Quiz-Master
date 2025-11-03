@@ -38,6 +38,7 @@ import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.TopBarAction
+import com.classroom.quizmaster.ui.strings.UiLabels
 import com.classroom.quizmaster.ui.util.summaryLabel
 import com.classroom.quizmaster.ui.util.typeLabel
 
@@ -54,7 +55,7 @@ fun ModuleDetailScreen(
     val state by viewModel.uiState.collectAsState()
     val module = state.module
     val subtitle = remember(module) {
-        module?.objectives?.take(3)?.joinToString(" • ") ?: "Module overview"
+        module?.objectives?.take(3)?.joinToString(" - ") ?: "Module overview"
     }
 
     GenZScaffold(
@@ -109,7 +110,7 @@ private fun ModuleSnapshot(module: Module) {
     SectionCard(
         title = "Module snapshot",
         subtitle = module.subject,
-        caption = "Pre-test → Talakayan → Post-test bundled for quick launch.",
+        caption = "${UiLabels.PRE_TEST_SHORT} -> ${UiLabels.LESSON_SHORT} -> ${UiLabels.POST_TEST_SHORT} bundled for quick launch.",
         trailingContent = {
             InfoPill(text = "${preCount + postCount} assessment items")
         }
@@ -119,9 +120,9 @@ private fun ModuleSnapshot(module: Module) {
                 horizontalSpacing = 8.dp,
                 verticalSpacing = 8.dp
             ) {
-                InfoPill(text = "$preCount pre-test")
+                InfoPill(text = "$preCount ${UiLabels.PRE_TEST_PILL}")
                 InfoPill(
-                    text = "$postCount post-test",
+                    text = "$postCount ${UiLabels.POST_TEST_PILL}",
                     backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f),
                     contentColor = MaterialTheme.colorScheme.tertiary
                 )
@@ -271,7 +272,7 @@ private fun LiveActions(
                 colors = ButtonDefaults.buttonColors(containerColor = MaterialTheme.colorScheme.primary)
             ) {
                 Icon(imageVector = Icons.Rounded.PlayArrow, contentDescription = null)
-                Text("Simulan: Pre → Aralin → Post", modifier = Modifier.padding(start = 8.dp))
+                Text("Simulan: ${UiLabels.PRE_TEST_PILL} -> ${UiLabels.LESSON_PILL} -> ${UiLabels.POST_TEST_PILL}", modifier = Modifier.padding(start = 8.dp))
             }
             OutlinedButton(
                 onClick = onAssignHomework,
@@ -382,6 +383,6 @@ private fun LoadingState() {
         subtitle = "Fetching the latest details",
         caption = "Please wait while we retrieve objectives and assessments."
     ) {
-        Text("Loading…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+                Text("Loading...", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }

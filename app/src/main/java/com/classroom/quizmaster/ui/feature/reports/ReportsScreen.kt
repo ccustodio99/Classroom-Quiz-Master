@@ -21,7 +21,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.domain.model.ClassReport
@@ -30,6 +32,7 @@ import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.TopBarAction
+import com.classroom.quizmaster.ui.strings.UiLabels
 import kotlin.math.roundToInt
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -42,8 +45,8 @@ fun ReportsScreen(
     val report = state.report
 
     GenZScaffold(
-        title = "Reports",
-        subtitle = report?.topic ?: "Analytics and exports",
+        title = UiLabels.LEARNING_GAIN,
+        subtitle = report?.topic ?: UiLabels.MODULE_FLOW_TAGLINE,
         onBack = onBack,
         actions = listOf(
             TopBarAction(
@@ -89,9 +92,9 @@ private fun LoadingCard() {
     SectionCard(
         title = "Loading reports",
         subtitle = "Crunching assessment data",
-        caption = "We’re generating class-level analytics."
+        caption = "Generating class-level analytics..."
     ) {
-        Text("Preparing insights…", color = MaterialTheme.colorScheme.onSurfaceVariant)
+        Text("Preparing insights...", color = MaterialTheme.colorScheme.onSurfaceVariant)
     }
 }
 
@@ -99,7 +102,7 @@ private fun LoadingCard() {
 private fun ErrorCard(message: String, onRetry: () -> Unit) {
     SectionCard(
         title = "Something went wrong",
-        subtitle = "We couldn’t load the analytics",
+        subtitle = "We could not load the analytics"
         caption = message,
         trailingContent = {
             InfoPill(
@@ -122,7 +125,7 @@ private fun EmptyState() {
         subtitle = "Finish a session to unlock analytics",
         caption = "Deliver the module live or via assignment to populate this view."
     ) {
-        Text("Complete assessments first.")
+        Text("Complete assessments first / Kumpletuhin muna ang mga pagsusulit.")
     }
 }
 
@@ -131,36 +134,92 @@ private fun OverviewCard(report: ClassReport) {
     val gain = (report.postAverage - report.preAverage).roundToInt()
     SectionCard(
         title = "Class overview",
-        subtitle = "Learning gain snapshot",
+        subtitle = UiLabels.LEARNING_GAIN,
         caption = "Track how the cohort moved from pre to post."
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-            AdaptiveWrapRow(
-                horizontalSpacing = 8.dp,
-                verticalSpacing = 8.dp
-            ) {
-                InfoPill(text = "Pre ${"%.1f".format(report.preAverage)}%")
-                InfoPill(text = "Post ${"%.1f".format(report.postAverage)}%", backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.tertiary)
-                InfoPill(
-                    text = if (gain >= 0) "▲ +$gain pts" else "▼ ${(-gain)} pts",
-                    backgroundColor = if (gain >= 0) MaterialTheme.colorScheme.primary.copy(alpha = 0.16f) else MaterialTheme.colorScheme.error.copy(alpha = 0.16f),
-                    contentColor = if (gain >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error
-                )
-            }
+            ReportHeroMetrics(
+                pre = report.preAverage,
+                post = report.postAverage,
+                gain = gain
+            )
             LinearProgressIndicator(
                 progress = { (report.postAverage / 100).toFloat().coerceIn(0f, 1f) },
                 modifier = Modifier.fillMaxWidth(),
                 color = MaterialTheme.colorScheme.primary,
                 trackColor = MaterialTheme.colorScheme.surfaceVariant
             )
+            Text(
+                text = "Progress bar reflects post-test average out of 100%.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }
 
 @Composable
+private fun ReportHeroMetrics(pre: Double, post: Double, gain: Int) {
+    AdaptiveWrapRow(horizontalSpacing = 12.dp, verticalSpacing = 12.dp) {
+        MetricTile(
+            label = UiLabels.PRE_TEST_PILL,
+            value = "${"%.1f".format(pre)}%",
+            accentColor = MaterialTheme.colorScheme.primary
+        )
+        MetricTile(
+            label = UiLabels.POST_TEST_PILL,
+            value = "${"%.1f".format(post)}%",
+            accentColor = MaterialTheme.colorScheme.tertiary
+        )
+        val gainLabel = if (gain >= 0) "+$gain pts" else "$gain pts"
+        MetricTile(
+            label = "Gain",
+            value = gainLabel,
+            accentColor = if (gain >= 0) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.error,
+            emphasis = true
+        )
+    }
+}
+
+@Composable
+private fun MetricTile(
+    label: String,
+    value: String,
+    accentColor: Color,
+    emphasis: Boolean = false
+) {
+    val background = if (emphasis) accentColor.copy(alpha = 0.22f) else accentColor.copy(alpha = 0.14f)
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = background,
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 18.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp),
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Text(
+                text = label,
+                style = MaterialTheme.typography.labelMedium,
+                color = accentColor
+            )
+            Text(
+                text = value,
+                style = MaterialTheme.typography.titleLarge.copy(fontWeight = FontWeight.SemiBold),
+                color = MaterialTheme.colorScheme.onSurface
+            )
+        }
+    }
+}
+
+
+@Composable
 private fun MasteryCard(report: ClassReport) {
     SectionCard(
-        title = "Objective mastery",
+        title = UiLabels.MASTERY,
         subtitle = "Focus areas for reteach",
         caption = "Use this to celebrate wins and plan interventions."
     ) {
@@ -184,7 +243,7 @@ private fun MasteryCard(report: ClassReport) {
                             trackColor = MaterialTheme.colorScheme.background
                         )
                         Text(
-                            text = "Pre ${"%.1f".format(mastery.pre)}% → Post ${"%.1f".format(mastery.post)}%",
+                            text = "Pre ${"%.1f".format(mastery.pre)}% -> Post ${"%.1f".format(mastery.post)}%"
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -198,7 +257,7 @@ private fun MasteryCard(report: ClassReport) {
 @Composable
 private fun AttemptsCard(report: ClassReport) {
     SectionCard(
-        title = "Learner attempts",
+        title = "Learner attempts / Mga pagtatangka",
         subtitle = "Individual growth moments",
         caption = "Sort the class roster by post-test gains to spotlight growth."
     ) {
@@ -239,7 +298,7 @@ private fun AttemptsCard(report: ClassReport) {
 @Composable
 private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
     SectionCard(
-        title = "Exports",
+        title = "Exports / Mga output",
         subtitle = "Share-ready reports",
         caption = "Send polished summaries to parents or fellow teachers."
     ) {
@@ -253,7 +312,7 @@ private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
                 )
             ) {
                 Icon(imageVector = Icons.Rounded.PictureAsPdf, contentDescription = null)
-                Text("Export class PDF", modifier = Modifier.padding(start = 8.dp))
+                Text("Export class PDF / I-export ang PDF", modifier = Modifier.padding(start = 8.dp))
             }
             Button(
                 onClick = onExportCsv,
@@ -264,7 +323,7 @@ private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
                 )
             ) {
                 Icon(imageVector = Icons.Rounded.TableChart, contentDescription = null)
-                Text("Export CSV", modifier = Modifier.padding(start = 8.dp))
+                Text("Export CSV / I-export ang CSV", modifier = Modifier.padding(start = 8.dp))
             }
         }
     }

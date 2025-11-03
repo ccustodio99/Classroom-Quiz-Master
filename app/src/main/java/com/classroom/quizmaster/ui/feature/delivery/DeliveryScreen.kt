@@ -54,6 +54,7 @@ import com.classroom.quizmaster.ui.components.GenZScaffold
 import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.util.categoryLabel
+import com.classroom.quizmaster.ui.strings.UiLabels
 import com.classroom.quizmaster.ui.util.summaryLabel
 import com.classroom.quizmaster.ui.util.typeLabel
 import kotlin.math.roundToInt
@@ -71,7 +72,7 @@ fun DeliveryScreen(
 
     GenZScaffold(
         title = "Live delivery",
-        subtitle = stageMeta.subtitle,
+        subtitle = stageMeta.stageLabel,
         onBack = onBack
     ) { innerPadding ->
         Column(
@@ -121,13 +122,13 @@ private fun StageProgress(meta: StageMeta) {
         Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             InfoPill(text = meta.badgeLabel)
             Text(
-                text = meta.headline,
+                text = meta.stageLabel,
                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
                 color = MaterialTheme.colorScheme.onBackground
             )
         }
         Text(
-            text = meta.subtitle,
+            text = meta.description,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
@@ -162,7 +163,7 @@ private fun CaptureStudentStage(
     onStart: () -> Unit
 ) {
     SectionCard(
-        title = "Welcome the learner",
+        title = "Welcome learner / Tanggap ang mag-aaral",
         subtitle = "Capture nickname to personalise analytics",
         caption = "We keep data on-device. Nicknames help surface badges and growth moments."
     ) {
@@ -196,7 +197,7 @@ private fun AssessmentStageView(
     val question = stage.questions[stage.currentIndex]
     val progressLabel = "Tanong ${stage.currentIndex + 1} / ${stage.questions.size}"
     SectionCard(
-        title = if (stage.kind == AssessmentKind.PRE) "Pagsusulit Bago ang Aralin" else "Pagsusulit Pagkatapos ng Aralin",
+        title = if (stage.kind == AssessmentKind.PRE) UiLabels.PRE_TEST else UiLabels.POST_TEST,
         subtitle = progressLabel,
         caption = question.item.prompt
     ) {
@@ -555,8 +556,8 @@ private fun SummaryStage(
     onDone: () -> Unit
 ) {
     SectionCard(
-        title = "Learning gains",
-        subtitle = "Pag-angat ng Marka",
+        title = UiLabels.LEARNING_GAIN,
+        subtitle = UiLabels.LEARNING_GAIN,
         caption = "Celebrate growth and capture badges for motivation."
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -633,22 +634,22 @@ private fun SummaryScores(pre: Double, post: Double) {
 }
 
 private data class StageMeta(
-    val headline: String,
-    val subtitle: String,
+    val stageLabel: String,
+    val description: String,
     val badgeLabel: String,
     val progress: Float
 )
 
 private fun Stage.toMeta(): StageMeta = when (this) {
     Stage.Loading -> StageMeta(
-        headline = "Syncing module",
-        subtitle = "Hold tight while we prep your Gen Z flow",
+        stageLabel = "Initializing module / Inihahanda ang modyul",
+        description = "Hold tight while we prep your Gen Z flow",
         badgeLabel = "Preparing",
         progress = 0.08f
     )
     Stage.CaptureStudent -> StageMeta(
-        headline = "Welcome the learner",
-        subtitle = "Capture a nickname to personalise reports",
+        stageLabel = "Welcome learner / Tanggap ang mag-aaral",
+        description = "Capture a nickname to personalise analytics",
         badgeLabel = "Onboarding",
         progress = 0.16f
     )
@@ -656,47 +657,48 @@ private fun Stage.toMeta(): StageMeta = when (this) {
         val base = if (kind == AssessmentKind.PRE) 0.22f else 0.78f
         val range = 0.18f
         val ratio = if (questions.isNotEmpty()) (currentIndex + 1f) / questions.size else 0f
+        val total = questions.size
         StageMeta(
-            headline = if (kind == AssessmentKind.PRE) "Pre-Test diagnostics" else "Post-Test reflection",
-            subtitle = "Tanong ${currentIndex + 1} / ${questions.size}",
-            badgeLabel = if (kind == AssessmentKind.PRE) "Pre-Test" else "Post-Test",
+            stageLabel = if (kind == AssessmentKind.PRE) UiLabels.PRE_TEST else UiLabels.POST_TEST,
+            description = if (total > 0) "Tanong ${currentIndex + 1} / $total" else "Tanong 0",
+            badgeLabel = if (kind == AssessmentKind.PRE) UiLabels.PRE_TEST_PILL else UiLabels.POST_TEST_PILL,
             progress = (base + ratio * range).coerceIn(0f, 0.94f)
         )
     }
     is Stage.LessonStage -> {
         val ratio = if (totalSlides > 0) slideIndex.toFloat() / totalSlides else 0f
-        val badge = if (topic != null) "Paksa" else "Talakayan"
-        val subtitleText = if (topic != null) {
-            "Paksa $slideIndex / $totalSlides"
+        val description = if (topic != null) {
+            "Paksa ${slideIndex} / ${totalSlides} - ${topic.name}"
         } else {
-            "Slide $slideIndex / $totalSlides"
+            "Slide ${slideIndex} / ${totalSlides}"
         }
         StageMeta(
-            headline = if (topic != null) "Paksa spotlight" else "Talakayan live",
-            subtitle = topic?.name?.let { "$subtitleText • $it" } ?: subtitleText,
-            badgeLabel = badge,
+            stageLabel = UiLabels.LESSON,
+            description = description,
+            badgeLabel = UiLabels.LESSON_PILL,
             progress = (0.46f + ratio * 0.24f).coerceIn(0f, 0.9f)
         )
     }
     is Stage.InteractiveStage -> {
         val ratio = if (totalActivities > 0) activityIndex.toFloat() / totalActivities else 0f
         val subtitleText = buildString {
-            append("Activity $activityIndex / ${maxOf(totalActivities, 1)}")
-            topicName?.takeIf { it.isNotBlank() }?.let { append(" • $it") }
+            append("Activity ${activityIndex} / ${maxOf(totalActivities, 1)}")
+            topicName?.takeIf { it.isNotBlank() }?.let { append(" - ${it}") }
         }
         StageMeta(
-            headline = activity.categoryLabel(),
-            subtitle = subtitleText,
+            stageLabel = "${activity.categoryLabel()} / Mini Checks",
+            description = subtitleText,
             badgeLabel = activity.typeLabel(),
             progress = (0.7f + ratio * 0.15f).coerceIn(0f, 0.96f)
         )
     }
     is Stage.Summary -> StageMeta(
-        headline = "Learning gains",
-        subtitle = "Pag-angat ng marka at badges",
-        badgeLabel = "Summary",
+        stageLabel = UiLabels.LEARNING_GAIN,
+        description = "Pag-angat ng marka at badges",
+        badgeLabel = UiLabels.SUMMARY_PILL,
         progress = 1f
     )
 }
+
 
 private val Int.absoluteValue: Int get() = kotlin.math.abs(this)

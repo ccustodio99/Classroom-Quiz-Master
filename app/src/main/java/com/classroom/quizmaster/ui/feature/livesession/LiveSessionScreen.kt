@@ -44,6 +44,7 @@ import com.classroom.quizmaster.ui.components.InfoPill
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.TopBarAction
 import com.classroom.quizmaster.ui.feature.livesession.QuestionOption
+import com.classroom.quizmaster.ui.strings.UiLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -69,7 +70,7 @@ fun LiveSessionScreen(
 
     GenZScaffold(
         title = state.moduleTopic ?: "Live session",
-        subtitle = "Share the class code and watch responses roll in—no cloud required.",
+        subtitle = UiLabels.MODULE_FLOW_TAGLINE,
         onBack = onBack,
         actions = actions
     ) { innerPadding ->
@@ -109,14 +110,14 @@ private fun SessionCodeSection(
     onCopy: (String) -> Unit
 ) {
     SectionCard(
-        title = "Class code",
-        subtitle = "Students join on the same local network",
-        caption = "Best reliability when teacher and learners share one Wi‑Fi or LAN—no internet required."
+        title = "Class code / Code ng klase",
+        subtitle = "Students join on the same local network; walang internet? Walang problema.",
+        caption = "Keep teacher and learners on one WiFi or LAN for smooth syncing."
     ) {
         Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
             if (sessionCode == null) {
                 Text(
-                    text = "Preparing your live session…",
+                    text = "Preparing your live session..."
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -170,13 +171,13 @@ private fun ActiveQuestionSection(
     onSelect: (String?) -> Unit
 ) {
     SectionCard(
-        title = "Active question",
+        title = "Active question / Aktibong tanong",
         subtitle = activePrompt ?: "No prompt pinned",
-        caption = "Select which item is currently projected so answers sync to the right slot."
+        caption = "Align ${UiLabels.PRE_TEST_PILL} and ${UiLabels.POST_TEST_PILL} prompts with the live item."
     ) {
         if (questions.isEmpty()) {
             Text(
-                text = "Build pre/post items to enable live syncing.",
+                text = "Build ${UiLabels.PRE_TEST_PILL.lowercase()} and ${UiLabels.POST_TEST_PILL.lowercase()} items to enable live syncing.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -201,7 +202,7 @@ private fun ActiveQuestionSection(
                         onDismissRequest = { expanded = false }
                     ) {
                         DropdownMenuItem(
-                            text = { Text("No question pinned") },
+                            text = { Text("No question pinned / Walang tanong") },
                             onClick = {
                                 expanded = false
                                 onSelect(null)
@@ -227,7 +228,7 @@ private fun ActiveQuestionSection(
                     InfoPill(text = activeObjective)
                 }
                 TextButton(onClick = { onSelect(null) }) {
-                    Text("Clear active question")
+                    Text("Clear active question / Alisin ang pin")
                 }
             }
         }
@@ -237,13 +238,13 @@ private fun ActiveQuestionSection(
 @Composable
 private fun ParticipantsSection(participants: List<ParticipantSummary>, total: Int) {
     SectionCard(
-        title = "Participants",
+        title = "Participants / Mga kalahok",
         subtitle = "$total connected",
-        caption = "Nicknames appear instantly—everything stays within the room."
+        caption = "Nicknames appear instantly; lahat ay naka-save nang lokal."
     ) {
         if (participants.isEmpty()) {
             Text(
-                text = "Waiting for students to join…",
+                text = "Waiting for students to join / Naghihintay ng mga mag-aaral.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -292,13 +293,13 @@ private fun ParticipantRow(participant: ParticipantSummary) {
 @Composable
 private fun ResponsesSection(responses: List<ItemResponseSummary>, totalResponses: Int) {
     SectionCard(
-        title = "Responses by question",
+        title = "Responses by question / Mga sagot bawat tanong",
         subtitle = if (totalResponses == 0) "No responses yet" else "$totalResponses submissions logged",
-        caption = "Track misconceptions without relying on the cloud."
+        caption = "Track misconceptions and ${UiLabels.MASTERY.lowercase()} without relying on the cloud."
     ) {
         if (responses.isEmpty()) {
             Text(
-                text = "Responses will appear once answers are submitted.",
+                text = "Responses will appear once answers are submitted / Lalabas ang datos kapag may sagot na.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
@@ -325,7 +326,7 @@ private fun QuestionBreakdown(summary: ItemResponseSummary) {
         }
         if (summary.answerCounts.isEmpty()) {
             Text(
-                text = "No responses yet",
+                text = "No responses yet / Wala pang sagot",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

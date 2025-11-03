@@ -64,6 +64,7 @@ import com.classroom.quizmaster.ui.feature.builder.SliderInteractiveDraft
 import com.classroom.quizmaster.ui.feature.builder.TrueFalseInteractiveDraft
 import com.classroom.quizmaster.ui.feature.builder.TypeAnswerInteractiveDraft
 import com.classroom.quizmaster.ui.feature.builder.WordCloudInteractiveDraft
+import com.classroom.quizmaster.ui.strings.UiLabels
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -83,7 +84,7 @@ fun ModuleBuilderScreen(
             append(if (state.topics.size == 1) "1 topic" else "${state.topics.size} topics")
             val interactiveTotal = state.topics.sumOf { it.interactive.size }
             if (interactiveTotal > 0) {
-                append(" • $interactiveTotal interactive")
+                append(" - $interactiveTotal interactive")
             }
         }
     }
@@ -92,7 +93,8 @@ fun ModuleBuilderScreen(
     val subtitle = if (state.isEditing) {
         "Refresh objectives, slides, and reports before relaunching"
     } else {
-        "Clarity • Consistency • Control for every learner"
+        UiLabels.MODULE_FLOW_TAGLINE
+    }
     }
     GenZScaffold(
         title = title,
@@ -116,7 +118,7 @@ fun ModuleBuilderScreen(
                             if (state.subject.isNotBlank()) add(state.subject)
                             if (state.gradeLevel.isNotBlank()) add(state.gradeLevel)
                             if (state.section.isNotBlank()) add("Section ${state.section}")
-                        }.joinToString(separator = " • ")
+                        }.joinToString(separator = " - ")
                         Row(
                             horizontalArrangement = Arrangement.spacedBy(8.dp),
                             verticalAlignment = Alignment.CenterVertically
@@ -308,7 +310,7 @@ fun ModuleBuilderScreen(
                         val autoCount = state.interactivePreview.total
                         val topicCount = state.interactivePreview.topicInteractiveCount
                         val summary = if (topicCount > 0) {
-                            "$autoCount auto • $topicCount topic"
+                            "$autoCount auto - $topicCount topic"
                         } else {
                             "$autoCount auto"
                         }
