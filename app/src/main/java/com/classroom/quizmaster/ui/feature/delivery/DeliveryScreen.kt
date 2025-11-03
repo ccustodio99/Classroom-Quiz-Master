@@ -3,8 +3,6 @@ package com.classroom.quizmaster.ui.feature.delivery
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -59,7 +57,7 @@ import com.classroom.quizmaster.ui.util.summaryLabel
 import com.classroom.quizmaster.ui.util.typeLabel
 import kotlin.math.roundToInt
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun DeliveryScreen(
     viewModel: DeliveryViewModel,
@@ -318,7 +316,6 @@ private fun AssessmentStageView(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun LessonStageView(
     stage: Stage.LessonStage,
     onSubmitCheck: (String) -> Unit,
@@ -351,10 +348,10 @@ private fun LessonStageView(
                 if (topic.learningObjectives.isNotEmpty()) {
                     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         Text(
-                            text = "Layunin", 
+                            text = "Layunin",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             topic.learningObjectives.forEach { objective ->
                                 InfoPill(text = objective)
                             }
@@ -367,7 +364,7 @@ private fun LessonStageView(
                             text = "Mga Materyales",
                             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             topic.materials.forEach { material ->
                                 InfoPill(text = material.title)
                             }
@@ -425,7 +422,6 @@ private fun LessonStageView(
 }
 
 @Composable
-@OptIn(ExperimentalLayoutApi::class)
 private fun InteractiveStageView(
     stage: Stage.InteractiveStage,
     onNext: () -> Unit
@@ -489,10 +485,7 @@ private fun InteractiveStageView(
                 is PuzzleActivity -> {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Arrange blocks into this order:")
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             activity.correctOrder.forEach { block ->
                                 InfoPill(text = block)
                             }
@@ -530,10 +523,7 @@ private fun InteractiveStageView(
                 is BrainstormActivity -> {
                     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
                         Text("Idea buckets:")
-                        FlowRow(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalArrangement = Arrangement.spacedBy(8.dp)
-                        ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                             activity.categories.forEach { category ->
                                 InfoPill(text = category)
                             }
@@ -549,7 +539,6 @@ private fun InteractiveStageView(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun SummaryStage(
     stage: Stage.Summary,
@@ -591,10 +580,7 @@ private fun SummaryStage(
             if (stage.badges.isNotEmpty()) {
                 Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text("Badges unlocked", style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold))
-                    FlowRow(
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
-                    ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         stage.badges.forEach { badge ->
                             InfoPill(text = badge.title)
                         }
