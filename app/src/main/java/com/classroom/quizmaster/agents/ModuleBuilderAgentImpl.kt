@@ -57,20 +57,22 @@ class ModuleBuilderAgentImpl(
             )
         }
         val miniChecks = module.lesson.slides.mapNotNull { it.miniCheck }
-        if (miniChecks.isEmpty()) {
+        if (module.lesson.slides.isNotEmpty() && miniChecks.isEmpty()) {
             issues += Violation("lesson", "Add at least one slide with a mini check prompt to reinforce objectives")
         }
-        val lessonObjectives = miniChecks.flatMap { miniCheck ->
-            miniCheck.objectives.map { it.trim() }.filter { it.isNotEmpty() }
-        }.toSet()
-        val uncoveredObjectives = module.objectives.filterNot { objective ->
-            objective in lessonObjectives
-        }
-        if (uncoveredObjectives.isNotEmpty()) {
-            issues += Violation(
-                "lesson",
-                "Mini checks should tag objectives they reinforce: ${uncoveredObjectives.joinToString()}"
-            )
+        if (miniChecks.isNotEmpty()) {
+            val lessonObjectives = miniChecks.flatMap { miniCheck ->
+                miniCheck.objectives.map { it.trim() }.filter { it.isNotEmpty() }
+            }.toSet()
+            val uncoveredObjectives = module.objectives.filterNot { objective ->
+                objective in lessonObjectives
+            }
+            if (uncoveredObjectives.isNotEmpty()) {
+                issues += Violation(
+                    "lesson",
+                    "Mini checks should tag objectives they reinforce: ${uncoveredObjectives.joinToString()}"
+                )
+            }
         }
         val interactive = module.lesson.interactiveActivities
         if (interactive.isEmpty()) {

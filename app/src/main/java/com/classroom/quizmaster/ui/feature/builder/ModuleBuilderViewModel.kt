@@ -36,6 +36,7 @@ import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.abs
 import kotlin.math.max
@@ -67,31 +68,69 @@ class ModuleBuilderViewModel(
         _uiState.value = module.toBuilderState().copy(isEditing = true).withPreview()
     }
 
-    fun onClassroomNameChanged(value: String) = updateState { it.copy(classroomName = value) }
-
-    fun onSubjectChanged(value: String) = updateState { it.copy(subject = value) }
-
-    fun onGradeLevelChanged(value: String) = updateState { it.copy(gradeLevel = value) }
-
-    fun onSectionChanged(value: String) = updateState { it.copy(section = value) }
-
-    fun onClassroomDescriptionChanged(value: String) = updateState { it.copy(classroomDescription = value) }
-
-    fun onTopicChanged(value: String) = updateState { it.copy(topic = value) }
-
-    fun onObjectivesChanged(value: String) = updateState { it.copy(objectives = value) }
-
-    fun onSlidesChanged(value: String) = updateState { it.copy(slides = value) }
-
-    fun onTimePerItemChanged(value: String) = updateState { it.copy(timePerItem = value) }
-
-    fun addTopic() = updateState { state ->
-        state.copy(topics = state.topics + LessonTopicDraft())
+    fun onClassroomNameChanged(value: String) = updateState {
+        it.copy(classroomName = value, classroomSaved = false)
     }
 
-    fun removeTopic(id: String) = updateState { state ->
-        val remaining = state.topics.filterNot { it.id == id }
-        state.copy(topics = remaining.ifEmpty { listOf(LessonTopicDraft()) })
+    fun onSubjectChanged(value: String) = updateState {
+        it.copy(subject = value, classroomSaved = false)
+    }
+
+    fun onGradeLevelChanged(value: String) = updateState {
+        it.copy(gradeLevel = value, classroomSaved = false)
+    }
+
+    fun onSectionChanged(value: String) = updateState {
+        it.copy(section = value, classroomSaved = false)
+    }
+
+    fun onClassroomDescriptionChanged(value: String) = updateState {
+        it.copy(classroomDescription = value, classroomSaved = false)
+    }
+
+    fun onTopicChanged(value: String) = updateState {
+        it.copy(topic = value, moduleIdentitySaved = false)
+    }
+
+    fun onObjectivesChanged(value: String) = updateState {
+        it.copy(objectives = value, moduleIdentitySaved = false)
+    }
+
+    fun onSlidesChanged(value: String) = updateState {
+        it.copy(slides = value, moduleIdentitySaved = false)
+    }
+
+    fun onTimePerItemChanged(value: String) = updateState {
+        it.copy(timePerItem = value, moduleIdentitySaved = false)
+    }
+
+    fun addTopic() {
+        val current = _uiState.value
+        if (!current.moduleIdentitySaved) {
+            _uiState.value = current.copy(
+                errors = listOf("I-save muna ang module identity bago magdagdag ng topic."),
+                message = null
+            ).withPreview()
+            return
+        }
+        updateState { state ->
+            state.copy(topics = state.topics + LessonTopicDraft())
+        }
+    }
+
+    fun removeTopic(id: String) {
+        val current = _uiState.value
+        if (!current.moduleIdentitySaved) {
+            _uiState.value = current.copy(
+                errors = listOf("I-save muna ang module identity bago mag-alis ng topic."),
+                message = null
+            ).withPreview()
+            return
+        }
+        updateState { state ->
+            val remaining = state.topics.filterNot { it.id == id }
+            state.copy(topics = remaining.ifEmpty { listOf(LessonTopicDraft()) })
+        }
     }
 
     fun updateTopicName(id: String, value: String) = updateTopic(id) { it.copy(name = value) }
@@ -193,6 +232,14 @@ class ModuleBuilderViewModel(
     }
 
     private fun updateTopic(id: String, transform: (LessonTopicDraft) -> LessonTopicDraft) {
+        val current = _uiState.value
+        if (!current.moduleIdentitySaved) {
+            _uiState.value = current.copy(
+                errors = listOf("I-save muna ang module identity bago i-edit ang mga topic."),
+                message = null
+            ).withPreview()
+            return
+        }
         updateState { state ->
             state.copy(
                 topics = state.topics.map { topic ->
@@ -207,9 +254,120 @@ class ModuleBuilderViewModel(
         _uiState.value = updated.withPreview()
     }
 
+    fun saveClassroomSetup() {
+        val state = _uiState.value
+        val subject = state.resolvedSubject()
+        val gradeLevel = state.resolvedGradeLevel()
+        val section = state.resolvedSection()
+        val classroomName = state.resolvedClassroomName()
+        if (classroomName.isBlank()) {
+            _uiState.value = state.copy(
+                classroomSaved = false,
+                errors = listOf("Maglagay ng pangalan ng classroom bago mag-save."),
+                message = null
+            ).withPreview()
+            return
+        }
+        val profile = ClassroomProfile(
+            id = identifiers.classroomId,
+            name = classroomName,
+            subject = subject,
+            description = state.resolvedDescription(subject, gradeLevel, section),
+            gradeLevel = gradeLevel,
+            section = section,
+            ownerId = teacherId
+        )
+        viewModelScope.launch {
+            val result = classroomAgent.createOrUpdate(profile)
+            result.onSuccess { saved ->
+                _uiState.update { current ->
+                    current.copy(
+                        classroomName = saved.name,
+                        subject = saved.subject,
+                        gradeLevel = saved.gradeLevel,
+                        section = saved.section,
+                        classroomDescription = saved.description,
+                        classroomSaved = true,
+                        errors = emptyList(),
+                        message = "Naisave ang classroom profile."
+                    ).withPreview()
+                }
+            }.onFailure { error ->
+                _uiState.update { current ->
+                    current.copy(
+                        classroomSaved = false,
+                        errors = listOf(error.localizedMessage ?: "Hindi naisave ang classroom."),
+                        message = null
+                    ).withPreview()
+                }
+            }
+        }
+    }
+
+    fun saveModuleIdentity() {
+        val state = _uiState.value
+        if (!state.classroomSaved) {
+            _uiState.value = state.copy(
+                errors = listOf("I-save muna ang classroom setup bago ang module identity."),
+                message = null
+            ).withPreview()
+            return
+        }
+        val normalizedTopic = state.topic.trim()
+        if (normalizedTopic.isEmpty()) {
+            _uiState.value = state.copy(
+                errors = listOf("Maglagay ng paksa o topic para sa module."),
+                message = null
+            ).withPreview()
+            return
+        }
+        val objectives = parseObjectives(state.objectives)
+        if (objectives.isEmpty()) {
+            _uiState.value = state.copy(
+                errors = listOf("Magdagdag ng hindi bababa sa isang learning objective."),
+                message = null
+            ).withPreview()
+            return
+        }
+        val slides = parseSlides(state.slides)
+        val timePerItemSeconds = state.timePerItem.toIntOrNull()
+        if (timePerItemSeconds == null || timePerItemSeconds <= 0) {
+            _uiState.value = state.copy(
+                errors = listOf("Ilagay ang oras kada item bilang positibong numero."),
+                message = null
+            ).withPreview()
+            return
+        }
+        _uiState.update { current ->
+            current.copy(
+                topic = normalizedTopic,
+                objectives = objectives.joinToString(", "),
+                slides = slides.joinToString("\n"),
+                timePerItem = timePerItemSeconds.toString(),
+                moduleIdentitySaved = true,
+                errors = emptyList(),
+                message = "Naisave ang module identity."
+            ).withPreview()
+        }
+    }
+
     fun save(onSuccess: () -> Unit) {
         viewModelScope.launch {
             val state = _uiState.value
+            if (!state.classroomSaved) {
+                _uiState.value = state.copy(
+                    errors = listOf("I-save muna ang classroom setup bago tapusin ang module."),
+                    message = null
+                ).withPreview()
+                return@launch
+            }
+            if (!state.moduleIdentitySaved) {
+                _uiState.value = state.copy(
+                    errors = listOf("I-save muna ang module identity bago idagdag ang mga topic."),
+                    message = null
+                ).withPreview()
+                return@launch
+            }
             val objectives = parseObjectives(state.objectives)
             if (objectives.isEmpty()) {
                 _uiState.value = state.copy(
@@ -219,13 +377,6 @@ class ModuleBuilderViewModel(
                 return@launch
             }
             val slides = parseSlides(state.slides)
-            if (slides.isEmpty()) {
-                _uiState.value = state.copy(
-                    errors = listOf("Magdagdag ng kahit isang lesson slide."),
-                    message = null
-                ).withPreview()
-                return@launch
-            }
             val topicErrors = validateTopics(state.topics)
             if (topicErrors.isNotEmpty()) {
                 _uiState.value = state.copy(
@@ -326,12 +477,14 @@ class ModuleBuilderViewModel(
             )
             val classroomResult = classroomAgent.createOrUpdate(managedClassroom)
             if (classroomResult.isFailure) {
-                _uiState.value = state.copy(
-                    errors = listOf(
-                        classroomResult.exceptionOrNull()?.message ?: "Hindi naisave ang classroom."
-                    ),
-                    message = null
-                ).withPreview()
+                val message = classroomResult.exceptionOrNull()?.message ?: "Hindi naisave ang classroom."
+                _uiState.update { current ->
+                    current.copy(
+                        classroomSaved = false,
+                        errors = listOf(message),
+                        message = null
+                    ).withPreview()
+                }
                 return@launch
             }
             val violations = container.moduleBuilderAgent.validate(module)
@@ -388,9 +541,6 @@ class ModuleBuilderViewModel(
             if (topic.name.isBlank()) {
                 errors += "$topicLabel: Magbigay ng pangalan ng paksa."
             }
-            if (topic.details.isBlank()) {
-                errors += "$topicLabel: Magdagdag ng lesson details."
-            }
             val objectives = parseTopicObjectives(topic.objectives)
             if (objectives.isEmpty()) {
                 errors += "$topicLabel: Magdagdag ng learning objective."
@@ -398,14 +548,8 @@ class ModuleBuilderViewModel(
             topic.materials.forEach { material ->
                 errors += validateLearningMaterial(material, topicLabel)
             }
-            if (topic.preTest.isEmpty()) {
-                errors += "$topicLabel: Magdagdag ng kahit isang pre-test question."
-            }
             topic.preTest.forEachIndexed { qIndex, question ->
                 errors += validateMultipleChoice(question, "$topicLabel pre-test ${qIndex + 1}")
-            }
-            if (topic.postTest.isEmpty()) {
-                errors += "$topicLabel: Magdagdag ng kahit isang post-test item."
             }
             topic.postTest.forEachIndexed { qIndex, item ->
                 errors += validatePostTestItem(item, "$topicLabel post-test ${qIndex + 1}")
@@ -859,6 +1003,8 @@ private fun Module.toBuilderState(): ModuleBuilderUiState {
         slides = slidesContent,
         timePerItem = settings.timePerItemSeconds.toString(),
         topics = topicsDraft,
+        classroomSaved = true,
+        moduleIdentitySaved = true,
         isEditing = true
     )
 }
@@ -866,9 +1012,7 @@ private fun Module.toBuilderState(): ModuleBuilderUiState {
 private fun LessonTopic.toDraft(): LessonTopicDraft {
     val materialsDraft = materials.map { it.toDraft() }
     val preDraft = preTest.items.mapNotNull { it.toMultipleChoiceDraftOrNull() }
-        .ifEmpty { listOf(MultipleChoiceDraft()) }
     val postDraft = postTest.items.mapNotNull { it.toPostTestDraftOrNull() }
-        .ifEmpty { listOf(PostTestItemDraft.MultipleChoice()) }
     val interactiveDraft = interactiveAssessments.mapNotNull { it.toInteractiveDraftOrNull() }
         .ifEmpty { listOf(InteractiveDraftType.QUIZ.defaultDraft()) }
     return LessonTopicDraft(
@@ -1183,6 +1327,8 @@ data class ModuleBuilderUiState(
     val timePerItem: String = "60",
     val topics: List<LessonTopicDraft> = listOf(LessonTopicDraft()),
     val interactivePreview: InteractivePreviewSummary = InteractivePreviewSummary(),
+    val classroomSaved: Boolean = false,
+    val moduleIdentitySaved: Boolean = false,
     val errors: List<String> = emptyList(),
     val message: String? = null,
     val isEditing: Boolean = false
@@ -1205,8 +1351,8 @@ data class LessonTopicDraft(
     val objectives: String = "",
     val details: String = "",
     val materials: List<LearningMaterialDraft> = listOf(LearningMaterialDraft()),
-    val preTest: List<MultipleChoiceDraft> = listOf(MultipleChoiceDraft()),
-    val postTest: List<PostTestItemDraft> = listOf(PostTestItemDraft.MultipleChoice()),
+    val preTest: List<MultipleChoiceDraft> = emptyList(),
+    val postTest: List<PostTestItemDraft> = emptyList(),
     val interactive: List<InteractiveDraft> = listOf(InteractiveDraftType.QUIZ.defaultDraft())
 )
 

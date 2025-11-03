@@ -117,7 +117,24 @@ fun ModuleBuilderScreen(
                             if (state.gradeLevel.isNotBlank()) add(state.gradeLevel)
                             if (state.section.isNotBlank()) add("Section ${state.section}")
                         }.joinToString(separator = " • ")
-                        InfoPill(text = summary.ifBlank { "Set class profile" })
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            if (summary.isNotBlank()) {
+                                InfoPill(text = summary)
+                            }
+                            val statusColor = if (state.classroomSaved) {
+                                MaterialTheme.colorScheme.secondary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                            InfoPill(
+                                text = if (state.classroomSaved) "Saved" else "Needs save",
+                                backgroundColor = statusColor.copy(alpha = 0.16f),
+                                contentColor = statusColor
+                            )
+                        }
                     }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -151,6 +168,19 @@ fun ModuleBuilderScreen(
                                 .fillMaxWidth()
                                 .heightIn(min = 80.dp)
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Button(
+                                onClick = viewModel::saveClassroomSetup,
+                                enabled = !state.classroomSaved
+                            ) {
+                                Text(
+                                    text = if (state.classroomSaved) "Classroom saved" else "Save classroom"
+                                )
+                            }
+                        }
                     }
                 }
             }
@@ -159,7 +189,22 @@ fun ModuleBuilderScreen(
                     title = "Module identity",
                     subtitle = "Start with the essentials so reports stay meaningful",
                     trailingContent = {
-                        InfoPill(text = "$objectiveCount objectives")
+                        Row(
+                            horizontalArrangement = Arrangement.spacedBy(8.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            InfoPill(text = "$objectiveCount objectives")
+                            val statusColor = if (state.moduleIdentitySaved) {
+                                MaterialTheme.colorScheme.secondary
+                            } else {
+                                MaterialTheme.colorScheme.error
+                            }
+                            InfoPill(
+                                text = if (state.moduleIdentitySaved) "Saved" else "Needs save",
+                                backgroundColor = statusColor.copy(alpha = 0.16f),
+                                contentColor = statusColor
+                            )
+                        }
                     }
                 ) {
                     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
@@ -176,6 +221,26 @@ fun ModuleBuilderScreen(
                             supportingText = { Text("Tip: align with curriculum codes for sharper analytics") },
                             modifier = Modifier.fillMaxWidth()
                         )
+                        Row(
+                            modifier = Modifier.fillMaxWidth(),
+                            horizontalArrangement = Arrangement.End
+                        ) {
+                            Button(
+                                onClick = viewModel::saveModuleIdentity,
+                                enabled = state.classroomSaved && !state.moduleIdentitySaved
+                            ) {
+                                Text(
+                                    text = if (state.moduleIdentitySaved) "Module identity saved" else "Save module identity"
+                                )
+                            }
+                        }
+                        if (!state.classroomSaved) {
+                            Text(
+                                text = "Save the classroom profile above to unlock this step.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
                     }
                 }
             }
@@ -185,13 +250,33 @@ fun ModuleBuilderScreen(
                     subtitle = "Capture objectives, materials, and quizzes per topic",
                     caption = "Build Kahoot-style interactions, attach learning materials, and set pre/post tests for every lesson.",
                     trailingContent = {
-                        InfoPill(text = topicSummary.ifBlank { "Add topics" })
+                        val pillText = if (state.moduleIdentitySaved) {
+                            topicSummary.ifBlank { "Add topics" }
+                        } else {
+                            "Save identity first"
+                        }
+                        InfoPill(text = pillText)
                     }
                 ) {
-                    LessonTopicsSection(
-                        topics = state.topics,
-                        viewModel = viewModel
-                    )
+                    if (state.moduleIdentitySaved) {
+                        LessonTopicsSection(
+                            topics = state.topics,
+                            viewModel = viewModel
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Text(
+                                text = "I-save muna ang module identity bago magdagdag ng mga topic.",
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                            Text(
+                                text = "Finalize the objectives, slides, and pacing, then tap “Save module identity”.",
+                                style = MaterialTheme.typography.bodySmall,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                    }
                 }
             }
             item {
@@ -356,6 +441,7 @@ fun ModuleBuilderScreen(
                     val primaryLabel = if (state.isEditing) "I-update ang Module" else "I-save ang Module"
                     Button(
                         onClick = { viewModel.save(onBack) },
+                        enabled = state.classroomSaved && state.moduleIdentitySaved,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(primaryLabel)
@@ -614,6 +700,13 @@ private fun PreTestSection(
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurface
         )
+        if (questions.isEmpty()) {
+            Text(
+                text = "Optional: magdagdag ng diagnostic question para sa paksang ito.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         questions.forEachIndexed { index, question ->
             MultipleChoiceQuestionCard(
                 title = "Question ${index + 1}",
@@ -621,7 +714,7 @@ private fun PreTestSection(
                 rationale = question.rationale,
                 choices = question.choices,
                 selectedAnswers = setOf(question.correctIndex),
-                allowRemove = questions.size > 1,
+                allowRemove = true,
                 onPromptChange = { value ->
                     viewModel.updatePreTestQuestion(topicId, question.id) { it.copy(prompt = value) }
                 },
@@ -660,6 +753,13 @@ private fun PostTestSection(
             style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold),
             color = MaterialTheme.colorScheme.onSurface
         )
+        if (items.isEmpty()) {
+            Text(
+                text = "Optional: magdagdag ng follow-up assessment pagkatapos ng topic.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         items.forEachIndexed { index, item ->
             when (item) {
                 is PostTestItemDraft.MultipleChoice -> {
@@ -669,7 +769,7 @@ private fun PostTestSection(
                         rationale = item.rationale,
                         choices = item.choices,
                         selectedAnswers = setOf(item.correctIndex),
-                        allowRemove = items.size > 1,
+                        allowRemove = true,
                         onPromptChange = { value ->
                             viewModel.updatePostTestItem(topicId, item.id) {
                                 (it as PostTestItemDraft.MultipleChoice).copy(prompt = value)
@@ -699,7 +799,7 @@ private fun PostTestSection(
                     TrueFalseItemCard(
                         title = "True or false ${index + 1}",
                         item = item,
-                        allowRemove = items.size > 1,
+                        allowRemove = true,
                         onPromptChange = { value ->
                             viewModel.updatePostTestItem(topicId, item.id) {
                                 (it as PostTestItemDraft.TrueFalse).copy(prompt = value)
@@ -722,7 +822,7 @@ private fun PostTestSection(
                     NumericItemCard(
                         title = "Numeric ${index + 1}",
                         item = item,
-                        allowRemove = items.size > 1,
+                        allowRemove = true,
                         onPromptChange = { value ->
                             viewModel.updatePostTestItem(topicId, item.id) {
                                 (it as PostTestItemDraft.Numeric).copy(prompt = value)
