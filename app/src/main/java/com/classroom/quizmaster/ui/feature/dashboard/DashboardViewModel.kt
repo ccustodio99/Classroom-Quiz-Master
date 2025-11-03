@@ -13,7 +13,8 @@ import kotlinx.coroutines.launch
 class DashboardViewModel(
     private val container: AppContainer,
     private val snackbarHostState: SnackbarHostState,
-    private val teacherId: String?
+    private val teacherId: String?,
+    private val classroomId: String? = null
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(DashboardUiState())
@@ -25,7 +26,11 @@ class DashboardViewModel(
 
     private fun observeModules() {
         viewModelScope.launch {
-            container.moduleRepository.observeModules().collect { modules ->
+            val flow = classroomId?.let { id ->
+                container.moduleRepository.observeModulesByClassroom(id)
+            } ?: container.moduleRepository.observeModules()
+
+            flow.collect { modules ->
                 val filtered = filterForTeacher(modules)
                 if (filtered.isEmpty()) {
                     if (teacherId != null) {
@@ -95,8 +100,10 @@ class DashboardViewModel(
         }
     }
 
-    private fun filterForTeacher(modules: List<Module>): List<Module> =
-        teacherId?.let { ownerId -> modules.filter { it.classroom.ownerId == ownerId } } ?: modules
+    private fun filterForTeacher(modules: List<Module>): List<Module> {
+        val byTeacher = teacherId?.let { ownerId -> modules.filter { it.classroom.ownerId == ownerId } } ?: modules
+        return classroomId?.let { id -> byTeacher.filter { it.classroom.id == id } } ?: byTeacher
+    }
 }
 
 data class DashboardUiState(

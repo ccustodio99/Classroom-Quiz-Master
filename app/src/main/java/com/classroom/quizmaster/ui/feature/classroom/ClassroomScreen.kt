@@ -14,8 +14,6 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
-import androidx.compose.material.icons.rounded.People
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Button
 import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilterChip
@@ -23,7 +21,6 @@ import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
-import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
@@ -169,112 +166,4 @@ private fun ClassroomRow(
             }
         }
     }
-}
-
-@Composable
-private fun ClassroomEditorDialog(
-    state: ClassroomEditorState,
-    onDismiss: () -> Unit,
-    onSave: () -> Unit,
-    onUpdate: (ClassroomEditorState) -> Unit
-) {
-    var name by remember(state.id) { mutableStateOf(state.name) }
-    var subject by remember(state.id) { mutableStateOf(state.subject) }
-    var grade by remember(state.id) { mutableStateOf(state.gradeLevel) }
-    var section by remember(state.id) { mutableStateOf(state.section) }
-    var description by remember(state.id) { mutableStateOf(state.description) }
-    var archived by remember(state.id) { mutableStateOf(state.archived) }
-
-    fun emitUpdatedState(
-        nameValue: String = name,
-        subjectValue: String = subject,
-        gradeValue: String = grade,
-        sectionValue: String = section,
-        descriptionValue: String = description,
-        archivedValue: Boolean = archived
-    ) {
-        onUpdate(
-            state.copy(
-                name = nameValue,
-                subject = subjectValue,
-                gradeLevel = gradeValue,
-                section = sectionValue,
-                description = descriptionValue,
-                archived = archivedValue
-            )
-        )
-    }
-
-    AlertDialog(
-        onDismissRequest = onDismiss,
-        title = { Text(if (state.name.isBlank()) "New classroom" else "Edit classroom") },
-        text = {
-            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                OutlinedTextField(
-                    value = name,
-                    onValueChange = {
-                        name = it
-                        emitUpdatedState(nameValue = it)
-                    },
-                    label = { Text("Name") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = subject,
-                    onValueChange = {
-                        subject = it
-                        emitUpdatedState(subjectValue = it)
-                    },
-                    label = { Text("Subject") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = grade,
-                    onValueChange = {
-                        grade = it
-                        emitUpdatedState(gradeValue = it)
-                    },
-                    label = { Text("Grade level") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = section,
-                    onValueChange = {
-                        section = it
-                        emitUpdatedState(sectionValue = it)
-                    },
-                    label = { Text("Section (optional)") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                OutlinedTextField(
-                    value = description,
-                    onValueChange = {
-                        description = it
-                        emitUpdatedState(descriptionValue = it)
-                    },
-                    label = { Text("Details") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End
-                ) {
-                    TextButton(onClick = {
-                        archived = !archived
-                        emitUpdatedState(archivedValue = archived)
-                    }) {
-                        Text(if (archived) "Mark active" else "Archive")
-                    }
-                }
-            }
-        },
-        confirmButton = {
-            Button(onClick = onSave, enabled = name.isNotBlank()) {
-                Text("Save")
-            }
-        },
-        dismissButton = {
-            TextButton(onClick = onDismiss) { Text("Cancel") }
-        }
-    )
 }

@@ -23,6 +23,8 @@ import com.classroom.quizmaster.ui.feature.admin.AdminApprovalScreen
 import com.classroom.quizmaster.ui.feature.auth.AuthScreen
 import com.classroom.quizmaster.ui.feature.builder.ModuleBuilderScreen
 import com.classroom.quizmaster.ui.feature.builder.ModuleBuilderViewModel
+import com.classroom.quizmaster.ui.feature.classroom.ClassDetailScreen
+import com.classroom.quizmaster.ui.feature.classroom.ClassDetailViewModel
 import com.classroom.quizmaster.ui.feature.classroom.ClassroomScreen
 import com.classroom.quizmaster.ui.feature.classroom.ClassroomViewModel
 import com.classroom.quizmaster.ui.feature.dashboard.DashboardScreen
@@ -38,6 +40,7 @@ import com.classroom.quizmaster.ui.feature.livesession.LiveSessionScreen
 import com.classroom.quizmaster.ui.feature.livesession.LiveSessionViewModel
 import com.classroom.quizmaster.ui.feature.reports.ReportsScreen
 import com.classroom.quizmaster.ui.feature.reports.ReportsViewModel
+import com.classroom.quizmaster.ui.feature.home.TeacherHomeScreen
 import com.classroom.quizmaster.ui.viewModelFactory
 
 @Composable
@@ -62,7 +65,7 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
         } else {
             val target = when (user.role) {
                 UserRole.Admin -> Screen.Admin.route
-                UserRole.Teacher -> Screen.Dashboard.route
+                UserRole.Teacher -> Screen.TeacherHome.route
                 UserRole.Student -> Screen.Join.route
             }
             if (currentRoute != target) {
@@ -122,6 +125,32 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     onManageClasses = { navController.navigate(Screen.Classrooms.route) }
                 )
             }
+            composable(Screen.TeacherHome.route) {
+                val teacherId = sessionState.currentUser?.takeIf { it.role == UserRole.Teacher }?.id
+                if (teacherId == null) {
+                    HelpGuideScreen(onBack = { navController.popBackStack() })
+                } else {
+                    val classroomViewModel = androidx.lifecycle.viewmodel.compose.viewModel<ClassroomViewModel>(
+                        factory = viewModelFactory { ClassroomViewModel(container, teacherId) }
+                    )
+                    val dashboardViewModel = androidx.lifecycle.viewmodel.compose.viewModel<DashboardViewModel>(
+                        factory = viewModelFactory { DashboardViewModel(container, snackbarHostState, teacherId) }
+                    )
+                    TeacherHomeScreen(
+                        classroomViewModel = classroomViewModel,
+                        dashboardViewModel = dashboardViewModel,
+                        snackbarHostState = snackbarHostState,
+                        onOpenClassDetail = { classId -> navController.navigate(Screen.ClassDetail.createRoute(classId)) },
+                        onOpenClassManager = { navController.navigate(Screen.Classrooms.route) },
+                        onCreateModule = { navController.navigate(Screen.Builder.createRoute()) },
+                        onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) },
+                        onStartDelivery = { moduleId -> navController.navigate(Screen.Delivery.createRoute(moduleId)) },
+                        onOpenReports = { moduleId -> navController.navigate(Screen.Reports.createRoute(moduleId)) },
+                        onJoinSession = { navController.navigate(Screen.Join.route) }
+                    )
+                }
+            }
+
             composable(
                 route = Screen.Builder.route,
                 arguments = listOf(
@@ -200,6 +229,23 @@ fun QuizMasterApp(navController: NavHostController = rememberNavController()) {
                     onBack = { navController.popBackStack() }
                 )
             }
+            composable(Screen.ClassDetail.route) { backStackEntry ->
+                val classroomId = backStackEntry.arguments?.getString("classroomId") ?: return@composable
+                val teacherId = sessionState.currentUser?.takeIf { it.role == UserRole.Teacher }?.id
+                val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<ClassDetailViewModel>(
+                    factory = viewModelFactory { ClassDetailViewModel(container, classroomId, teacherId) }
+                )
+                ClassDetailScreen(
+                    viewModel = viewModel,
+                    snackbarHostState = snackbarHostState,
+                    onBack = { navController.popBackStack() },
+                    onCreateModule = { navController.navigate(Screen.Builder.createRoute()) },
+                    onOpenModule = { moduleId -> navController.navigate(Screen.ModuleDetail.createRoute(moduleId)) },
+                    onStartDelivery = { moduleId -> navController.navigate(Screen.Delivery.createRoute(moduleId)) },
+                    onOpenReports = { moduleId -> navController.navigate(Screen.Reports.createRoute(moduleId)) },
+                    onManageClass = { navController.navigate(Screen.Classrooms.route) }
+                )
+            }
             composable(Screen.Join.route) {
                 val viewModel = androidx.lifecycle.viewmodel.compose.viewModel<JoinSessionViewModel>(
                     factory = viewModelFactory { JoinSessionViewModel() }
@@ -221,6 +267,7 @@ sealed class Screen(val route: String) {
     data object Admin : Screen("admin")
     data object Classrooms : Screen("classrooms")
     data object Dashboard : Screen("dashboard")
+    data object TeacherHome : Screen("teacherHome")
     data object Builder : Screen("builder?moduleId={moduleId}") {
         fun createRoute(moduleId: String? = null): String {
             val encoded = moduleId?.let { Uri.encode(it) } ?: ""
@@ -241,6 +288,9 @@ sealed class Screen(val route: String) {
     }
     data object Reports : Screen("reports/{moduleId}") {
         fun createRoute(moduleId: String) = "reports/$moduleId"
+    }
+    data object ClassDetail : Screen("classDetail/{classroomId}") {
+        fun createRoute(classroomId: String) = "classDetail/$classroomId"
     }
     data object Join : Screen("join")
     data object Help : Screen("help")
