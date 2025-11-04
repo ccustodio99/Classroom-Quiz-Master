@@ -24,7 +24,6 @@ import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import org.webrtc.PeerConnectionFactory
 import javax.inject.Qualifier
 import javax.inject.Singleton
 
@@ -79,19 +78,6 @@ object AppModule {
     @Provides
     @Singleton
     fun provideLiveSignaling(firestore: FirebaseFirestore): LiveSignaling = LiveSignaling(firestore)
-
-    @Provides
-    @Singleton
-    fun providePeerConnectionFactory(@ApplicationContext context: Context): PeerConnectionFactory {
-        PeerConnectionFactory.initialize(
-            PeerConnectionFactory.InitializationOptions.builder(context)
-                .setEnableInternalTracer(false)
-                .createInitializationOptions(),
-        )
-        return PeerConnectionFactory.builder()
-            .setOptions(PeerConnectionFactory.Options())
-            .createPeerConnectionFactory()
-    }
 
     @Provides
     @Singleton

@@ -2,6 +2,7 @@ plugins {
     id("com.android.application")
     kotlin("android")
     kotlin("kapt")
+    id("kotlin-parcelize")
     kotlin("plugin.serialization")
     id("com.google.gms.google-services")
 }
@@ -43,7 +44,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.13"
+        kotlinCompilerExtensionVersion = "1.5.11"
     }
 
     packaging {
@@ -82,12 +83,6 @@ dependencies {
     kapt("androidx.room:room-compiler:2.6.1")
 
     implementation("androidx.datastore:datastore-preferences:1.1.1")
-
-    // WebRTC for local peer-to-peer communication
-    implementation("org.webrtc:google-webrtc:1.0.32006")
-
-    // For NSD/mDNS
-    implementation("androidx.core:core-networking:1.13.1")
 
     testImplementation("junit:junit:4.13.2")
     androidTestImplementation("androidx.test.ext:junit:1.2.1")
