@@ -27,6 +27,12 @@ class AssignmentRepositoryImpl(
         return entity.toDomain(json)
     }
 
+    override fun observeAll(): Flow<List<Assignment>> {
+        return dao.observeAll().map { entities ->
+            entities.mapNotNull { it.toDomain(json) }
+        }
+    }
+
     override fun observeForModule(moduleId: String): Flow<List<Assignment>> {
         return dao.observeForModule(moduleId).map { entities ->
             entities.mapNotNull { it.toDomain(json) }

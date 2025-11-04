@@ -1,5 +1,7 @@
 package com.classroom.quizmaster.ui.feature.home
 
+import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -21,13 +23,10 @@ import androidx.compose.material.icons.rounded.CheckCircle
 import androidx.compose.material.icons.rounded.Class
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.People
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.ExtendedFloatingActionButton
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FilledTonalButton
-import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -39,7 +38,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +49,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.domain.model.ClassroomProfile
 import com.classroom.quizmaster.ui.feature.classroom.ClassroomEditorDialog
@@ -58,7 +57,6 @@ import com.classroom.quizmaster.ui.feature.classroom.ClassroomViewModel
 import com.classroom.quizmaster.ui.feature.dashboard.DashboardViewModel
 import com.classroom.quizmaster.ui.feature.dashboard.ModuleSummary
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TeacherHomeScreen(
     classroomViewModel: ClassroomViewModel,
@@ -98,18 +96,11 @@ fun TeacherHomeScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = { Text(selectedTab.appBarTitle) },
-                actions = {
-                    if (selectedTab == TeacherHomeTab.Classes) {
-                        IconButton(onClick = onOpenClassManager) {
-                            Icon(Icons.Rounded.Class, contentDescription = "Manage classes")
-                        }
-                    }
-                    IconButton(onClick = onJoinSession) {
-                        Icon(Icons.Rounded.People, contentDescription = "Join live session")
-                    }
-                }
+            TeacherHomeTopBar(
+                title = selectedTab.appBarTitle,
+                showManageClasses = selectedTab == TeacherHomeTab.Classes,
+                onOpenClassManager = onOpenClassManager,
+                onJoinSession = onJoinSession
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) },
@@ -125,7 +116,9 @@ fun TeacherHomeScreen(
                 }
             }
         },
-        floatingActionButton = floatingAction
+        floatingActionButton = {
+            floatingAction?.invoke()
+        }
     ) { innerPadding ->
         when (selectedTab) {
             TeacherHomeTab.Classes -> ClassesTab(
@@ -134,7 +127,7 @@ fun TeacherHomeScreen(
                 onEdit = classroomViewModel::startEdit,
                 onArchiveToggle = classroomViewModel::setArchived,
                 onOpenClassDetail = onOpenClassDetail,
-                onCreateModule = { onCreateModule(null) },
+                onCreateModule = onCreateModule,
                 modifier = Modifier.padding(innerPadding)
             )
             TeacherHomeTab.Calendar -> CalendarTab(
@@ -162,6 +155,43 @@ fun TeacherHomeScreen(
 }
 
 @Composable
+private fun TeacherHomeTopBar(
+    title: String,
+    showManageClasses: Boolean,
+    onOpenClassManager: () -> Unit,
+    onJoinSession: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = title,
+                modifier = Modifier.weight(1f),
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            if (showManageClasses) {
+                IconButton(onClick = onOpenClassManager) {
+                    Icon(Icons.Rounded.Class, contentDescription = "Manage classes")
+                }
+            }
+            IconButton(onClick = onJoinSession) {
+                Icon(Icons.Rounded.People, contentDescription = "Join live session")
+            }
+        }
+    }
+}
+
+@Composable
 private fun AddClassFab(onClick: () -> Unit) {
     ExtendedFloatingActionButton(onClick = onClick) {
         Icon(Icons.Rounded.Add, contentDescription = null)
@@ -177,7 +207,7 @@ private fun ClassesTab(
     onEdit: (ClassroomProfile) -> Unit,
     onArchiveToggle: (String, Boolean) -> Unit,
     onOpenClassDetail: (String) -> Unit,
-    onCreateModule: () -> Unit,
+    onCreateModule: (String?) -> Unit,
     modifier: Modifier = Modifier
 ) {
     Column(
@@ -187,15 +217,15 @@ private fun ClassesTab(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            FilterChip(
+            FilterToggleChip(
+                text = "Active",
                 selected = !state.showArchived,
-                onClick = { onToggleArchived(false) },
-                label = { Text("Active") }
+                onClick = { onToggleArchived(false) }
             )
-            FilterChip(
+            FilterToggleChip(
+                text = "Archived",
                 selected = state.showArchived,
-                onClick = { onToggleArchived(true) },
-                label = { Text("Archived") }
+                onClick = { onToggleArchived(true) }
             )
         }
 
@@ -212,7 +242,7 @@ private fun ClassesTab(
                         profile = classroom,
                         onOpen = { onOpenClassDetail(classroom.id) },
                         onEdit = { onEdit(classroom) },
-                        onCreateModule = onCreateModule,
+                        onCreateModule = { onCreateModule(classroom.id) },
                         onArchiveToggle = {
                             val archive = classroom.status != com.classroom.quizmaster.domain.model.ClassroomStatus.Archived
                             onArchiveToggle(classroom.id, archive)
@@ -236,10 +266,13 @@ private fun ClassCard(
     Surface(
         shape = MaterialTheme.shapes.extraLarge,
         tonalElevation = 2.dp,
-        onClick = onOpen
+        modifier = Modifier
+            .fillMaxWidth()
+            .clip(MaterialTheme.shapes.extraLarge)
     ) {
         Column(
             modifier = Modifier
+                .clickable(onClick = onOpen)
                 .fillMaxWidth()
                 .padding(20.dp),
             verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -299,9 +332,9 @@ private fun ClassCard(
                 }
             }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                AssistChip(onClick = {}, label = { Text(profile.gradeLevel) })
+                InfoChip(text = profile.gradeLevel)
                 if (profile.section.isNotBlank()) {
-                    AssistChip(onClick = {}, label = { Text("Section ${profile.section}") })
+                    InfoChip(text = "Section ${profile.section}")
                 }
             }
             if (profile.description.isNotBlank()) {
@@ -474,6 +507,51 @@ private fun ToDoTab(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun FilterToggleChip(text: String, selected: Boolean, onClick: () -> Unit) {
+    val background = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.16f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val borderColor = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.6f)
+    } else {
+        MaterialTheme.colorScheme.outline.copy(alpha = 0.6f)
+    }
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = background,
+        contentColor = if (selected) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurfaceVariant,
+        border = BorderStroke(1.dp, borderColor),
+        modifier = Modifier
+            .clip(MaterialTheme.shapes.small)
+            .clickable(onClick = onClick)
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 14.dp, vertical = 8.dp),
+            style = MaterialTheme.typography.labelLarge,
+            fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Normal
+        )
+    }
+}
+
+@Composable
+private fun InfoChip(text: String) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium
+        )
     }
 }
 

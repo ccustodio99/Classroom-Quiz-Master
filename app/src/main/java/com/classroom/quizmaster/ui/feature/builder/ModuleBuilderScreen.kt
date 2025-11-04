@@ -3,34 +3,38 @@ package com.classroom.quizmaster.ui.feature.builder
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.ColumnScope
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.heightIn
-import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.KeyboardArrowDown
+import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material3.Button
-import androidx.compose.material3.ExperimentalMaterial3Api
+import androidx.compose.material3.Divider
 import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FilterChip
+import androidx.compose.material3.FilledTonalButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.Divider
-import androidx.compose.material3.Switch
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
@@ -39,9 +43,11 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.layout.onGloballyPositioned
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.ui.components.AdaptiveWrapRow
 import com.classroom.quizmaster.ui.components.GenZScaffold
@@ -66,35 +72,104 @@ import com.classroom.quizmaster.ui.feature.builder.TypeAnswerInteractiveDraft
 import com.classroom.quizmaster.ui.feature.builder.WordCloudInteractiveDraft
 import com.classroom.quizmaster.ui.strings.UiLabels
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ModuleBuilderScreen(
     viewModel: ModuleBuilderViewModel,
     onBack: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsState()
-    val objectiveCount = remember(state.objectives) {
-        state.objectives.split(',').map { it.trim() }.filter { it.isNotEmpty() }.size
+    val objectiveCount = remember(state.objectives, state.topics) {
+        val moduleObjectives = state.objectives
+            .split(',', '\n')
+            .map { it.trim() }
+            .filter { it.isNotEmpty() }
+        val topicObjectives = state.topics.flatMap { topic ->
+            topic.objectives
+                .split(',', '\n')
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+        }
+        (moduleObjectives + topicObjectives).toSet().size
     }
     val slideCount = remember(state.slides) {
         state.slides.lineSequence().map { it.trim() }.count { it.isNotEmpty() }
     }
+    val resolvedModuleTopic = remember(state.topic, state.topics) {
+        state.topic.trim().ifBlank {
+            state.topics.firstOrNull { it.name.isNotBlank() }?.name?.trim().orEmpty()
+        }
+    }
     val topicSummary = remember(state.topics) {
-        buildString {
-            append(if (state.topics.size == 1) "1 topic" else "${state.topics.size} topics")
-            val interactiveTotal = state.topics.sumOf { it.interactive.size }
-            if (interactiveTotal > 0) {
-                append(" - $interactiveTotal interactive")
+        if (state.topics.isEmpty()) {
+            ""
+        } else {
+            buildString {
+                append(if (state.topics.size == 1) "1 topic" else "${state.topics.size} topics")
+                val interactiveTotal = state.topics.sumOf { it.interactive.size }
+                if (interactiveTotal > 0) {
+                    append(" - $interactiveTotal interactive")
+                }
             }
         }
     }
 
-    val title = if (state.isEditing) "Update module flow" else "Design module flow"
-    val subtitle = if (state.isEditing) {
-        "Refresh objectives, slides, and reports before relaunching"
-    } else {
-        UiLabels.MODULE_FLOW_TAGLINE
+    val title = if (state.isEditing) "Update topic/module" else "Create topic/module"
+    val subtitle = UiLabels.MODULE_FLOW_TAGLINE
+    val identityValid = resolvedModuleTopic.isNotBlank() &&
+        objectiveCount > 0 &&
+        slideCount > 0 &&
+        (state.timePerItem.toIntOrNull() ?: 0) > 0
+    val hasIdentityDraft = state.moduleIdentitySaved ||
+        state.topic.isNotBlank() ||
+        state.objectives.isNotBlank() ||
+        state.slides.isNotBlank() ||
+        state.topics.isNotEmpty()
+    val hasLessonDraft = state.slides.isNotBlank() ||
+        state.topics.any { topic ->
+            topic.name.isNotBlank() ||
+                topic.objectives.isNotBlank() ||
+                topic.details.isNotBlank() ||
+                topic.materials.any { material ->
+                    material.title.isNotBlank() || material.reference.isNotBlank()
+                } ||
+                topic.interactive.any { it.prompt.isNotBlank() }
+        }
+    val hasAssessmentDraft = state.topics.any { topic ->
+        topic.preTest.isNotEmpty() || topic.postTest.isNotEmpty()
+    } || state.interactivePreview.total > 0
+    val lessonDraftPresent = hasLessonDraft
+    val moduleStatus = when {
+        identityValid -> StepStatus.Complete
+        hasIdentityDraft -> StepStatus.Active
+        else -> StepStatus.Pending
     }
+    val lessonStatus = when {
+        identityValid && lessonDraftPresent -> StepStatus.Complete
+        lessonDraftPresent -> StepStatus.Active
+        else -> StepStatus.Pending
+    }
+    val assessmentStatus = when {
+        identityValid && hasAssessmentDraft -> StepStatus.Complete
+        hasAssessmentDraft -> StepStatus.Active
+        else -> StepStatus.Pending
+    }
+    val progressSteps = listOf(
+        BuilderStep(
+            title = "Module identity",
+            description = "Topic, objectives, pacing, and slides",
+            status = moduleStatus
+        ),
+        BuilderStep(
+            title = "Lesson beats",
+            description = "Lesson topics, materials, and interactives",
+            status = lessonStatus
+        ),
+        BuilderStep(
+            title = "Assessments",
+            description = "Pre/Post items and mini checks",
+            status = assessmentStatus
+        )
+    )
     GenZScaffold(
         title = title,
         subtitle = subtitle,
@@ -108,139 +183,36 @@ fun ModuleBuilderScreen(
             verticalArrangement = Arrangement.spacedBy(20.dp)
         ) {
             item {
-                SectionCard(
-                    title = "Classroom setup",
-                    subtitle = "Frame the space before crafting the flow",
-                    caption = "Subject + classroom notes power reporting labels and live session codes.",
-                    trailingContent = {
-                        val summary = buildList {
-                            if (state.subject.isNotBlank()) add(state.subject)
-                            if (state.gradeLevel.isNotBlank()) add(state.gradeLevel)
-                            if (state.section.isNotBlank()) add("Section ${state.section}")
-                        }.joinToString(separator = " - ")
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            if (summary.isNotBlank()) {
-                                InfoPill(text = summary)
-                            }
-                            val statusColor = if (state.classroomSaved) {
-                                MaterialTheme.colorScheme.secondary
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            }
-                            InfoPill(
-                                text = if (state.classroomSaved) "Saved" else "Needs save",
-                                backgroundColor = statusColor.copy(alpha = 0.16f),
-                                contentColor = statusColor
-                            )
-                        }
-                    }
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        OutlinedTextField(
-                            value = state.classroomName,
-                            onValueChange = viewModel::onClassroomNameChanged,
-                            label = { Text("Classroom or Subject name") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = state.subject,
-                            onValueChange = viewModel::onSubjectChanged,
-                            label = { Text("Subject / Strand") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        GradeLevelPicker(
-                            value = state.gradeLevel,
-                            onValueChange = viewModel::onGradeLevelChanged
-                        )
-                        OutlinedTextField(
-                            value = state.section,
-                            onValueChange = viewModel::onSectionChanged,
-                            label = { Text("Section (optional)") },
-                            modifier = Modifier.fillMaxWidth()
-                        )
-                        OutlinedTextField(
-                            value = state.classroomDescription,
-                            onValueChange = viewModel::onClassroomDescriptionChanged,
-                            label = { Text("Details / reminders") },
-                            modifier = Modifier
-                                .fillMaxWidth()
-                                .heightIn(min = 80.dp)
-                        )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Button(
-                                onClick = viewModel::saveClassroomSetup,
-                                enabled = !state.classroomSaved
-                            ) {
-                                Text(
-                                    text = if (state.classroomSaved) "Classroom saved" else "Save classroom"
-                                )
-                            }
-                        }
-                    }
-                }
+                BuilderProgressHeader(steps = progressSteps)
             }
             item {
-                SectionCard(
-                    title = "Module identity",
-                    subtitle = "Start with the essentials so reports stay meaningful",
-                    trailingContent = {
-                        Row(
-                            horizontalArrangement = Arrangement.spacedBy(8.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            InfoPill(text = "$objectiveCount objectives")
-                            val statusColor = if (state.moduleIdentitySaved) {
-                                MaterialTheme.colorScheme.secondary
-                            } else {
-                                MaterialTheme.colorScheme.error
-                            }
-                            InfoPill(
-                                text = if (state.moduleIdentitySaved) "Saved" else "Needs save",
-                                backgroundColor = statusColor.copy(alpha = 0.16f),
-                                contentColor = statusColor
-                            )
-                        }
-                    }
+                Surface(
+                    shape = MaterialTheme.shapes.large,
+                    tonalElevation = 1.dp,
+                    color = MaterialTheme.colorScheme.surfaceVariant
                 ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
-                        OutlinedTextField(
-                            value = state.topic,
-                            onValueChange = viewModel::onTopicChanged,
-                            label = { Text("Paksa / Topic") },
-                            modifier = Modifier.fillMaxWidth()
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(horizontal = 20.dp, vertical = 16.dp),
+                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Text(
+                            text = "Classroom setup now lives in the Classrooms tab.",
+                            style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
                         )
-                        OutlinedTextField(
-                            value = state.objectives,
-                            onValueChange = viewModel::onObjectivesChanged,
-                            label = { Text("Learning Objectives (comma separated)") },
-                            supportingText = { Text("Tip: align with curriculum codes for sharper analytics") },
-                            modifier = Modifier.fillMaxWidth()
+                        Text(
+                            text = "Use the New Class flow to change subject, grade level, or section details. Those updates sync automatically when you open this builder.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.End
-                        ) {
-                            Button(
-                                onClick = viewModel::saveModuleIdentity,
-                                enabled = state.classroomSaved && !state.moduleIdentitySaved
-                            ) {
-                                Text(
-                                    text = if (state.moduleIdentitySaved) "Module identity saved" else "Save module identity"
-                                )
-                            }
-                        }
-                        if (!state.classroomSaved) {
-                            Text(
-                                text = "Save the classroom profile above to unlock this step.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.error
-                            )
+                        val classroomSummary = buildList {
+                            state.subject.takeIf { it.isNotBlank() }?.let { add(it) }
+                            state.gradeLevel.takeIf { it.isNotBlank() }?.let { add(it) }
+                            state.section.takeIf { it.isNotBlank() }?.let { add("Section $it") }
+                        }.joinToString(" \u2022 ")
+                        if (classroomSummary.isNotBlank()) {
+                            InfoPill(text = classroomSummary)
                         }
                     }
                 }
@@ -251,113 +223,44 @@ fun ModuleBuilderScreen(
                     subtitle = "Capture objectives, materials, and quizzes per topic",
                     caption = "Build Kahoot-style interactions, attach learning materials, and set pre/post tests for every lesson.",
                     trailingContent = {
-                        val pillText = if (state.moduleIdentitySaved) {
-                            topicSummary.ifBlank { "Add topics" }
-                        } else {
-                            "Save identity first"
+                        val pillText = when {
+                            topicSummary.isBlank() -> "Draft topics"
+                            identityValid -> topicSummary
+                            else -> "$topicSummary draft"
                         }
                         InfoPill(text = pillText)
                     }
                 ) {
-                    if (state.moduleIdentitySaved) {
+                    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+                        if (!identityValid) {
+                            Surface(
+                                shape = MaterialTheme.shapes.medium,
+                                color = MaterialTheme.colorScheme.surfaceVariant,
+                                tonalElevation = 0.dp
+                            ) {
+                                Text(
+                                    text = "Draft your lessons now. Once the basics above are complete, saving the module locks analytics labels.",
+                                    modifier = Modifier.padding(16.dp),
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                        LessonSlidesSubsection(
+                            slideCount = slideCount,
+                            slides = state.slides,
+                            onSlidesChanged = viewModel::onSlidesChanged
+                        )
+                        InteractiveLessonPackSubsection(preview = state.interactivePreview)
+                        AssessmentPacingSubsection(
+                            timePerItem = state.timePerItem,
+                            onTimePerItemChanged = viewModel::onTimePerItemChanged
+                        )
                         LessonTopicsSection(
                             topics = state.topics,
                             viewModel = viewModel
                         )
-                    } else {
-                        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                            Text(
-                                text = "I-save muna ang module identity bago magdagdag ng mga topic.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                            Text(
-                                text = "Finalize the objectives, slides, and pacing, then tap “Save module identity”.",
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
                     }
-                }
-            }
-            item {
-                SectionCard(
-                    title = "Lesson slides",
-                    subtitle = "Keep a steady storytelling arc",
-                    caption = "Each line becomes a card inside the live lesson. Use emojis or call-to-actions for energy.",
-                    trailingContent = {
-                        InfoPill(text = "$slideCount slides", backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f), contentColor = MaterialTheme.colorScheme.tertiary)
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = state.slides,
-                        onValueChange = viewModel::onSlidesChanged,
-                        label = { Text("Slide content") },
-                        supportingText = { Text("Preview: ${if (slideCount > 0) "${slideCount} cards queued" else "Add at least one slide"}") },
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .heightIn(min = 180.dp)
-                    )
-                }
-            }
-            item {
-                SectionCard(
-                    title = "Interactive lesson pack",
-                    subtitle = "Auto-generated blend of knowledge checks and opinion pulses",
-                    caption = "Edit your objectives, slides, or pacing to instantly refresh the activities.",
-                    trailingContent = {
-                        val autoCount = state.interactivePreview.total
-                        val topicCount = state.interactivePreview.topicInteractiveCount
-                        val summary = if (topicCount > 0) {
-                            "$autoCount auto - $topicCount topic"
-                        } else {
-                            "$autoCount auto"
-                        }
-                        InfoPill(text = summary)
-                    }
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        if (state.interactivePreview.isEmpty()) {
-                            Text(
-                                text = "Magdagdag ng objectives at slides para makita ang interactive flow.",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        } else {
-                            InteractivePreviewGroup(
-                                title = "To Test Knowledge",
-                                count = state.interactivePreview.knowledgeCount,
-                                entries = state.interactivePreview.knowledgeChecks
-                            )
-                            InteractivePreviewGroup(
-                                title = "To Gather Opinions",
-                                count = state.interactivePreview.opinionCount,
-                                entries = state.interactivePreview.opinionPulse
-                            )
-                        }
-                        Text(
-                            text = "To Test Knowledge: Quiz, True/False, Type Answer, Puzzle, Slider. To Gather Opinions: Poll, Word Cloud, Open-Ended, Brainstorm.",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-            item {
-                SectionCard(
-                    title = "Assessment pacing",
-                    subtitle = "Balance focus with momentum",
-                    caption = "A 45-60 second cadence works well for Gen Z attention spans while keeping rigour.",
-                    trailingContent = {
-                        InfoPill(text = "${state.timePerItem.ifBlank { "60" }}s")
-                    }
-                ) {
-                    OutlinedTextField(
-                        value = state.timePerItem,
-                        onValueChange = viewModel::onTimePerItemChanged,
-                        label = { Text("Time per item (seconds)") },
-                        modifier = Modifier.fillMaxWidth()
-                    )
                 }
             }
             if (state.errors.isNotEmpty()) {
@@ -442,13 +345,109 @@ fun ModuleBuilderScreen(
                     val primaryLabel = if (state.isEditing) "I-update ang Module" else "I-save ang Module"
                     Button(
                         onClick = { viewModel.save(onBack) },
-                        enabled = state.classroomSaved && state.moduleIdentitySaved,
+                        enabled = identityValid && lessonDraftPresent,
                         modifier = Modifier.weight(1f)
                     ) {
                         Text(primaryLabel)
                     }
                 }
             }
+        }
+    }
+}
+
+private data class BuilderStep(
+    val title: String,
+    val description: String,
+    val status: StepStatus
+)
+
+private enum class StepStatus { Complete, Active, Pending }
+
+@Composable
+private fun BuilderProgressHeader(steps: List<BuilderStep>) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 1.dp,
+        color = MaterialTheme.colorScheme.surface
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 20.dp, vertical = 16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = "Module flow progress",
+                style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                text = "Work through each step from top to bottom. Saving the module will lock in anything marked complete.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            steps.forEach { step ->
+                BuilderStepRow(step)
+            }
+        }
+    }
+}
+
+@Composable
+private fun BuilderStepRow(step: BuilderStep) {
+    val indicatorColor = when (step.status) {
+        StepStatus.Complete -> MaterialTheme.colorScheme.primary
+        StepStatus.Active -> MaterialTheme.colorScheme.tertiary
+        StepStatus.Pending -> MaterialTheme.colorScheme.outline
+    }
+    val label = when (step.status) {
+        StepStatus.Complete -> "Complete"
+        StepStatus.Active -> "In progress"
+        StepStatus.Pending -> "Pending"
+    }
+    val labelBackground = when (step.status) {
+        StepStatus.Pending -> MaterialTheme.colorScheme.surfaceVariant
+        else -> indicatorColor.copy(alpha = 0.18f)
+    }
+    val labelColor = when (step.status) {
+        StepStatus.Pending -> MaterialTheme.colorScheme.onSurfaceVariant
+        else -> indicatorColor
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        Surface(
+            modifier = Modifier.size(14.dp),
+            shape = CircleShape,
+            color = indicatorColor
+        ) {}
+        Column(
+            modifier = Modifier.weight(1f),
+            verticalArrangement = Arrangement.spacedBy(2.dp)
+        ) {
+            Text(
+                text = step.title,
+                style = MaterialTheme.typography.titleSmall.copy(fontWeight = FontWeight.SemiBold)
+            )
+            Text(
+                text = step.description,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        Surface(
+            color = labelBackground,
+            contentColor = labelColor,
+            shape = MaterialTheme.shapes.small
+        ) {
+            Text(
+                text = label,
+                modifier = Modifier.padding(horizontal = 10.dp, vertical = 4.dp),
+                style = MaterialTheme.typography.labelSmall,
+                fontWeight = FontWeight.Medium
+            )
         }
     }
 }
@@ -502,21 +501,174 @@ private fun LessonTopicsSection(
     viewModel: ModuleBuilderViewModel
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(20.dp)) {
-        topics.forEachIndexed { index, topic ->
-            LessonTopicCard(
-                index = index,
-                topic = topic,
-                allowRemove = topics.size > 1,
-                viewModel = viewModel
-            )
-        }
-        OutlinedButton(
+        FilledTonalButton(
             onClick = viewModel::addTopic,
             modifier = Modifier.fillMaxWidth()
         ) {
             Icon(imageVector = Icons.Filled.Add, contentDescription = null)
             Spacer(modifier = Modifier.width(8.dp))
-            Text("Add topic or lesson")
+            Text("Add topic / lesson / assessments")
+        }
+
+        if (topics.isEmpty()) {
+            Text(
+                text = "Walang lesson beats pa. Magdagdag ng topic para maayos ang lesson flow at assessments.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            topics.forEachIndexed { index, topic ->
+                LessonTopicCard(
+                    index = index,
+                    topic = topic,
+                    allowRemove = topics.isNotEmpty(),
+                    viewModel = viewModel
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun LessonSlidesSubsection(
+    slideCount: Int,
+    slides: String,
+    onSlidesChanged: (String) -> Unit
+) {
+    TopicSubsection(
+        title = "Lesson slides",
+        subtitle = "Keep a steady storytelling arc",
+        badge = {
+            val text = when (slideCount) {
+                0 -> "No slides"
+                1 -> "1 slide"
+                else -> "$slideCount slides"
+            }
+            InfoPill(
+                text = text,
+                backgroundColor = MaterialTheme.colorScheme.tertiary.copy(alpha = 0.18f),
+                contentColor = MaterialTheme.colorScheme.tertiary
+            )
+        }
+    ) {
+        OutlinedTextField(
+            value = slides,
+            onValueChange = onSlidesChanged,
+            label = { Text("Slide content") },
+            supportingText = { Text("Preview: ${if (slideCount > 0) "$slideCount cards queued" else "Add at least one slide"}") },
+            modifier = Modifier
+                .fillMaxWidth()
+                .heightIn(min = 180.dp)
+        )
+    }
+}
+
+@Composable
+private fun InteractiveLessonPackSubsection(preview: InteractivePreviewSummary) {
+    val autoCount = preview.total
+    val topicCount = preview.topicInteractiveCount
+    val summary = when {
+        autoCount == 0 && topicCount == 0 -> "No auto activities"
+        topicCount > 0 -> "$autoCount auto, $topicCount topic"
+        else -> "$autoCount auto"
+    }
+    TopicSubsection(
+        title = "Interactive lesson pack",
+        subtitle = "Auto-generated blend of knowledge checks and opinion pulses",
+        badge = { InfoPill(text = summary) }
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            if (preview.isEmpty()) {
+                Text(
+                    text = "Magdagdag ng objectives at slides para makita ang interactive flow.",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            } else {
+                InteractivePreviewGroup(
+                    title = "To Test Knowledge",
+                    count = preview.knowledgeCount,
+                    entries = preview.knowledgeChecks
+                )
+                InteractivePreviewGroup(
+                    title = "To Gather Opinions",
+                    count = preview.opinionCount,
+                    entries = preview.opinionPulse
+                )
+            }
+            Text(
+                text = "To Test Knowledge: Quiz, True/False, Type Answer, Puzzle, Slider. To Gather Opinions: Poll, Word Cloud, Open-Ended, Brainstorm.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+}
+
+@Composable
+private fun AssessmentPacingSubsection(
+    timePerItem: String,
+    onTimePerItemChanged: (String) -> Unit
+) {
+    val pacing = timePerItem.ifBlank { "60" }
+    TopicSubsection(
+        title = "Assessment pacing",
+        subtitle = "Balance focus with momentum",
+        badge = { InfoPill(text = "${pacing}s") }
+    ) {
+        OutlinedTextField(
+            value = timePerItem,
+            onValueChange = onTimePerItemChanged,
+            label = { Text("Time per item (seconds)") },
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
+
+@Composable
+private fun TopicSubsection(
+    title: String,
+    subtitle: String,
+    badge: (@Composable () -> Unit)? = null,
+    content: @Composable ColumnScope.() -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        color = MaterialTheme.colorScheme.surfaceVariant.copy(alpha = 0.35f),
+        tonalElevation = 0.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Column(
+                    modifier = Modifier.weight(1f),
+                    verticalArrangement = Arrangement.spacedBy(4.dp)
+                ) {
+                    Text(
+                        text = title,
+                        style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.SemiBold),
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
+                    Text(
+                        text = subtitle,
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                badge?.let {
+                    Box(modifier = Modifier.padding(start = 12.dp)) {
+                        it()
+                    }
+                }
+            }
+            content()
         }
     }
 }
@@ -617,7 +769,6 @@ private fun LearningMaterialsSection(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun LearningMaterialRow(
     topicId: String,
@@ -648,23 +799,42 @@ private fun LearningMaterialRow(
             modifier = Modifier.fillMaxWidth()
         )
         var expanded by remember(material.id) { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = expanded,
-            onExpandedChange = { expanded = !expanded }
-        ) {
+        var textFieldSize by remember(material.id) { mutableStateOf(IntSize.Zero) }
+        val density = LocalDensity.current
+        val dropdownWidth = if (textFieldSize.width > 0) {
+            with(density) { textFieldSize.width.toDp() }
+        } else {
+            240.dp
+        }
+        Box {
             OutlinedTextField(
                 value = material.type.displayName(),
                 onValueChange = {},
                 readOnly = true,
                 label = { Text("Material type") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
+                trailingIcon = {
+                    IconButton(onClick = { expanded = !expanded }) {
+                        val icon = if (expanded) Icons.Filled.KeyboardArrowUp else Icons.Filled.KeyboardArrowDown
+                        Icon(
+                            imageVector = icon,
+                            contentDescription = if (expanded) {
+                                "Collapse material types"
+                            } else {
+                                "Expand material types"
+                            }
+                        )
+                    }
+                },
                 modifier = Modifier
-                    .menuAnchor()
                     .fillMaxWidth()
+                    .onGloballyPositioned { coordinates ->
+                        textFieldSize = coordinates.size
+                    }
             )
             DropdownMenu(
                 expanded = expanded,
-                onDismissRequest = { expanded = false }
+                onDismissRequest = { expanded = false },
+                modifier = Modifier.width(dropdownWidth)
             ) {
                 LearningMaterialType.values().forEach { type ->
                     DropdownMenuItem(
@@ -2029,66 +2199,6 @@ private fun MultipleChoiceOptionsEditor(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun GradeLevelPicker(
-    value: String,
-    onValueChange: (String) -> Unit
-) {
-    var expanded by remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(
-        expanded = expanded,
-        onExpandedChange = { expanded = !expanded }
-    ) {
-        OutlinedTextField(
-            value = value,
-            onValueChange = onValueChange,
-            label = { Text("Grade level") },
-            placeholder = { Text("e.g. Grade 11 or 2") },
-            supportingText = { Text("Choose a level or type a custom value") },
-            modifier = Modifier
-                .menuAnchor()
-                .fillMaxWidth(),
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded) },
-            singleLine = true,
-            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Text)
-        )
-        DropdownMenu(
-            expanded = expanded,
-            onDismissRequest = { expanded = false }
-        ) {
-            gradeLevelOptions.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option) },
-                    onClick = {
-                        onValueChange(option)
-                        expanded = false
-                    }
-                )
-            }
-        }
-    }
-}
-
-private val gradeLevelOptions = listOf(
-    "Kindergarten",
-    "Grade 1",
-    "Grade 2",
-    "Grade 3",
-    "Grade 4",
-    "Grade 5",
-    "Grade 6",
-    "Grade 7",
-    "Grade 8",
-    "Grade 9",
-    "Grade 10",
-    "Grade 11",
-    "Grade 12",
-    "Senior High",
-    "College / University",
-    "TVL / TESDA"
-)
-
 private fun LearningMaterialType.displayName(): String = when (this) {
     LearningMaterialType.Document -> "Document / PDF"
     LearningMaterialType.Presentation -> "Presentation (PPT)"
@@ -2099,4 +2209,7 @@ private fun LearningMaterialType.displayName(): String = when (this) {
 }
 
 private fun optionLabel(index: Int): String = ('A' + index).toString()
+
+
+
 

@@ -36,6 +36,7 @@ import java.util.Locale
 import java.util.UUID
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.math.abs
@@ -46,7 +47,8 @@ import kotlin.random.Random
 class ModuleBuilderViewModel(
     private val container: AppContainer,
     private val moduleId: String? = null,
-    private val teacherId: String? = null
+    private val teacherId: String? = null,
+    private val classroomId: String? = null
 ) : ViewModel() {
     private val _uiState = MutableStateFlow(ModuleBuilderUiState().withPreview())
     val uiState: StateFlow<ModuleBuilderUiState> = _uiState
@@ -56,8 +58,11 @@ class ModuleBuilderViewModel(
     private val classroomAgent = container.classroomAgent
 
     init {
-        moduleId?.let { id ->
-            viewModelScope.launch { loadModule(id) }
+        val existingModuleId = moduleId
+        if (existingModuleId != null) {
+            viewModelScope.launch { loadModule(existingModuleId) }
+        } else {
+            viewModelScope.launch { hydrateClassroomFromSetup(classroomId) }
         }
     }
 
@@ -66,6 +71,42 @@ class ModuleBuilderViewModel(
         identifiers = ModuleIdentifiers.fromModule(module)
         editing = true
         _uiState.value = module.toBuilderState().copy(isEditing = true).withPreview()
+    }
+
+    private suspend fun hydrateClassroomFromSetup(targetClassroomId: String? = null) {
+        targetClassroomId?.let { classroomId ->
+            val profile = classroomAgent.fetchClassroom(classroomId) ?: return
+            applyClassroomProfile(profile)
+            return
+        }
+        val teacher = teacherId ?: return
+        val allClassrooms = classroomAgent.observeClassrooms(includeArchived = false)
+            .firstOrNull()
+            ?.filter { it.status == com.classroom.quizmaster.domain.model.ClassroomStatus.Active }
+            .orEmpty()
+        if (allClassrooms.isEmpty()) return
+        val teacherClassrooms = allClassrooms.filter { it.ownerId == teacher }
+        val preferred = teacherClassrooms.maxByOrNull { it.updatedAt }
+            ?: teacherClassrooms.maxByOrNull { it.createdAt }
+            ?: allClassrooms.maxByOrNull { it.updatedAt }
+            ?: allClassrooms.maxByOrNull { it.createdAt }
+            ?: allClassrooms.firstOrNull()
+            ?: return
+        applyClassroomProfile(preferred)
+    }
+
+    private fun applyClassroomProfile(profile: ClassroomProfile) {
+        identifiers = identifiers.copy(classroomId = profile.id)
+        _uiState.update { current ->
+            current.copy(
+                classroomName = profile.name.ifBlank { current.classroomName },
+                subject = profile.subject.ifBlank { current.subject },
+                gradeLevel = profile.gradeLevel.ifBlank { current.gradeLevel },
+                section = profile.section,
+                classroomDescription = profile.description.ifBlank { current.classroomDescription },
+                classroomSaved = true
+            ).withPreview()
+        }
     }
 
     fun onClassroomNameChanged(value: String) = updateState {
@@ -105,31 +146,15 @@ class ModuleBuilderViewModel(
     }
 
     fun addTopic() {
-        val current = _uiState.value
-        if (!current.moduleIdentitySaved) {
-            _uiState.value = current.copy(
-                errors = listOf("I-save muna ang module identity bago magdagdag ng topic."),
-                message = null
-            ).withPreview()
-            return
-        }
         updateState { state ->
             state.copy(topics = state.topics + LessonTopicDraft())
         }
     }
 
     fun removeTopic(id: String) {
-        val current = _uiState.value
-        if (!current.moduleIdentitySaved) {
-            _uiState.value = current.copy(
-                errors = listOf("I-save muna ang module identity bago mag-alis ng topic."),
-                message = null
-            ).withPreview()
-            return
-        }
         updateState { state ->
             val remaining = state.topics.filterNot { it.id == id }
-            state.copy(topics = remaining.ifEmpty { listOf(LessonTopicDraft()) })
+            state.copy(topics = remaining)
         }
     }
 
@@ -232,14 +257,6 @@ class ModuleBuilderViewModel(
     }
 
     private fun updateTopic(id: String, transform: (LessonTopicDraft) -> LessonTopicDraft) {
-        val current = _uiState.value
-        if (!current.moduleIdentitySaved) {
-            _uiState.value = current.copy(
-                errors = listOf("I-save muna ang module identity bago i-edit ang mga topic."),
-                message = null
-            ).withPreview()
-            return
-        }
         updateState { state ->
             state.copy(
                 topics = state.topics.map { topic ->
@@ -306,13 +323,6 @@ class ModuleBuilderViewModel(
 
     fun saveModuleIdentity() {
         val state = _uiState.value
-        if (!state.classroomSaved) {
-            _uiState.value = state.copy(
-                errors = listOf("I-save muna ang classroom setup bago ang module identity."),
-                message = null
-            ).withPreview()
-            return
-        }
         val normalizedTopic = state.topic.trim()
         if (normalizedTopic.isEmpty()) {
             _uiState.value = state.copy(
@@ -354,38 +364,39 @@ class ModuleBuilderViewModel(
     fun save(onSuccess: () -> Unit) {
         viewModelScope.launch {
             val state = _uiState.value
-            if (!state.classroomSaved) {
-                _uiState.value = state.copy(
-                    errors = listOf("I-save muna ang classroom setup bago tapusin ang module."),
-                    message = null
-                ).withPreview()
-                return@launch
-            }
-            if (!state.moduleIdentitySaved) {
-                _uiState.value = state.copy(
-                    errors = listOf("I-save muna ang module identity bago idagdag ang mga topic."),
-                    message = null
-                ).withPreview()
-                return@launch
-            }
-            val objectives = parseObjectives(state.objectives)
-            if (objectives.isEmpty()) {
-                _uiState.value = state.copy(
-                    errors = listOf("Magdagdag ng hindi bababa sa isang learning objective."),
-                    message = null
-                ).withPreview()
-                return@launch
-            }
+            val normalizedTopicInput = state.topic.trim()
+            val fallbackTopic = state.topics.firstOrNull { it.name.isNotBlank() }?.name?.trim().orEmpty()
+            val resolvedTopic = normalizedTopicInput.ifBlank { fallbackTopic }
+            val moduleObjectives = parseObjectives(state.objectives)
+            val topicObjectives = state.topics.flatMap { parseTopicObjectives(it.objectives) }
+            val objectives = (if (moduleObjectives.isNotEmpty()) moduleObjectives else topicObjectives)
+                .map { it.trim() }
+                .filter { it.isNotEmpty() }
+                .distinct()
             val slides = parseSlides(state.slides)
+            val timePerItemSeconds = state.timePerItem.toIntOrNull()
+            val validationErrors = mutableListOf<String>()
+            if (resolvedTopic.isBlank()) {
+                validationErrors += "Maglagay ng paksa o topic para sa module."
+            }
+            if (objectives.isEmpty()) {
+                validationErrors += "Magdagdag ng hindi bababa sa isang learning objective."
+            }
+            if (timePerItemSeconds == null || timePerItemSeconds <= 0) {
+                validationErrors += "Ilagay ang oras kada item bilang positibong numero."
+            }
             val topicErrors = validateTopics(state.topics)
             if (topicErrors.isNotEmpty()) {
+                validationErrors += topicErrors
+            }
+            if (validationErrors.isNotEmpty()) {
                 _uiState.value = state.copy(
-                    errors = topicErrors,
+                    errors = validationErrors,
                     message = null
                 ).withPreview()
                 return@launch
             }
-            val timePerItemSeconds = state.timePerItem.toIntOrNull() ?: 60
+            val pacingSeconds = timePerItemSeconds ?: 60
             val items = container.itemBankAgent.query(objectives, limit = max(objectives.size * 6, 12))
             if (items.isEmpty()) {
                 _uiState.value = state.copy(
@@ -412,7 +423,7 @@ class ModuleBuilderViewModel(
             }
             val preItems = generatedPre.take(formSize)
             val postItems = generatedPost.take(formSize)
-            val topic = state.topic.ifBlank { "G11 Math Module" }
+            val topic = resolvedTopic.ifBlank { "G11 Math Module" }
             val subject = state.resolvedSubject()
             val gradeLevel = state.resolvedGradeLevel()
             val section = state.resolvedSection()
@@ -430,14 +441,14 @@ class ModuleBuilderViewModel(
                 topic = topic,
                 objectives = objectives,
                 slides = slides,
-                timePerItemSeconds = timePerItemSeconds,
+                timePerItemSeconds = pacingSeconds,
                 classroomName = classroomName
             )
             val defaultObjective = objectives.firstOrNull() ?: topic
             val lessonTopics = state.topics.mapIndexed { index, draft ->
                 draft.toLessonTopic(
                     index = index,
-                    timePerItemSeconds = timePerItemSeconds,
+                    timePerItemSeconds = pacingSeconds,
                     defaultObjective = defaultObjective
                 )
             }
@@ -455,7 +466,7 @@ class ModuleBuilderViewModel(
                 preTest = Assessment(
                     id = identifiers.preAssessmentId,
                     items = preItems,
-                    timePerItemSec = timePerItemSeconds
+                    timePerItemSec = pacingSeconds
                 ),
                 lesson = Lesson(
                     id = identifiers.lessonId,
@@ -466,9 +477,9 @@ class ModuleBuilderViewModel(
                 postTest = Assessment(
                     id = identifiers.postAssessmentId,
                     items = postItems,
-                    timePerItemSec = timePerItemSeconds
+                    timePerItemSec = pacingSeconds
                 ),
-                settings = ModuleSettings(timePerItemSeconds = timePerItemSeconds)
+                settings = ModuleSettings(timePerItemSeconds = pacingSeconds)
             )
             val now = System.currentTimeMillis()
             val module = baseModule.copy(
@@ -487,6 +498,12 @@ class ModuleBuilderViewModel(
                 }
                 return@launch
             }
+            _uiState.update { current ->
+                current.copy(
+                    classroomSaved = true,
+                    moduleIdentitySaved = true
+                ).withPreview()
+            }
             val violations = container.moduleBuilderAgent.validate(module)
             if (violations.isNotEmpty()) {
                 _uiState.value = state.copy(
@@ -500,7 +517,9 @@ class ModuleBuilderViewModel(
                     identifiers = ModuleIdentifiers.fromModule(module)
                     val successMessage = if (editing) "Module updated!" else "Module saved!"
                     editing = true
-                    _uiState.value = ModuleBuilderUiState(message = successMessage, isEditing = true).withPreview()
+                    _uiState.value = module.toBuilderState()
+                        .copy(message = successMessage, isEditing = true)
+                        .withPreview()
                     onSuccess()
                 }
                 .onFailure { error ->
@@ -696,10 +715,16 @@ class ModuleBuilderViewModel(
     }
 
     private fun ModuleBuilderUiState.withPreview(): ModuleBuilderUiState {
-        val objectives = parseObjectives(objectives)
+        val moduleObjectives = parseObjectives(objectives)
+        val lessonObjectives = topics.flatMap { parseTopicObjectives(it.objectives) }
+        val objectives = (if (moduleObjectives.isNotEmpty()) moduleObjectives else lessonObjectives)
+            .ifEmpty { moduleObjectives }
+        val topicFocus = topic.trim().ifBlank {
+            topics.firstOrNull { it.name.isNotBlank() }?.name?.trim().orEmpty()
+        }
         val slides = parseSlides(slides)
         val autoActivities = generateInteractiveActivities(
-            topic = topic.ifBlank { "G11 Math Module" },
+            topic = topicFocus.ifBlank { "G11 Math Module" },
             objectives = objectives,
             slides = slides,
             timePerItemSeconds = timePerItem.toIntOrNull() ?: 60,
@@ -990,7 +1015,7 @@ private fun Module.toBuilderState(): ModuleBuilderUiState {
     val topicsDraft = if (lesson.topics.isNotEmpty()) {
         lesson.topics.map { it.toDraft() }
     } else {
-        listOf(LessonTopicDraft())
+        emptyList()
     }
     return ModuleBuilderUiState(
         classroomName = classroom.name,
@@ -1317,15 +1342,15 @@ private fun MultipleChoiceDraft.toItem(
 
 data class ModuleBuilderUiState(
     val classroomName: String = "",
-    val subject: String = "G11 General Mathematics",
-    val gradeLevel: String = "Grade 11",
+    val subject: String = "",
+    val gradeLevel: String = "",
     val section: String = "",
     val classroomDescription: String = "",
     val topic: String = "",
-    val objectives: String = "LO1, LO2, LO3",
+    val objectives: String = "",
     val slides: String = "Panimula sa simple interest\nPagkuwenta ng compound interest",
     val timePerItem: String = "60",
-    val topics: List<LessonTopicDraft> = listOf(LessonTopicDraft()),
+    val topics: List<LessonTopicDraft> = emptyList(),
     val interactivePreview: InteractivePreviewSummary = InteractivePreviewSummary(),
     val classroomSaved: Boolean = false,
     val moduleIdentitySaved: Boolean = false,

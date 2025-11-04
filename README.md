@@ -1,13 +1,27 @@
-# Classroom Quiz Master (Kotlin Android • Jetpack Compose)
+# Classroom Quiz Master — Mobile LMS Blueprint (Kotlin Android • Jetpack Compose)
 
-A teacher‑friendly **Kotlin Android** mobile app that turns **Grade 11 General Mathematics** lessons into interactive, measurable modules with a **Pre‑Test → Lesson → Post‑Test** flow and clear learning‑gain reports.
+A classroom-centric **Kotlin Android** LMS that now follows the full **Mobile LMS – Flow & Structure** blueprint: five-tab navigation, microlearning units, offline-first data sync with Firebase, and real-time live activities. Teachers still drive the **Pre‑Test → Lesson → Post‑Test** loop, but learners and admins now get dedicated spaces for catalog browsing, activity timelines, and privacy controls.
 
 > **Platform:** Android (Kotlin) • **UI:** Jetpack Compose (Material 3) • **Arch:** MVVM + Clean Architecture • **Min SDK:** 24 • **Target SDK:** 34/35
 
 ---
 
 ## 🎓 How Classroom Quiz Master Works
-Classroom Quiz Master brings interactive assessments, structured lessons, and actionable reporting together so teachers can measure learning in real time-online or offline.
+Classroom Quiz Master orchestrates the end-to-end flow:
+1. **Home (Tab 1)** – “Today’s Flow” feed with Tagalog labels (`Pagsusulit Bago ang Aralin`, `Talakayan / Aralin`, `Pagsusulit Pagkatapos ng Aralin`), classroom cards, and quick live-session launch.
+2. **Learn (Tab 2)** – Catalog of microlearning courses (3–7 minute units) auto-generated from modules, with search over objectives and difficulty tags.
+3. **Classroom (Tab 3)** – Google Classroom-style manager for Stream/Classwork/People/Grades, with module wiring and LAN-ready live delivery.
+4. **Activity (Tab 4)** – Streaks, badges, certificates, and engagement analytics powered by the gamification agent.
+5. **Profile (Tab 5)** – Account, privacy, download controls, and explicit offline-first sync actions (push/pull to Firebase).
+
+Global accents include a floating **➕ quick-action button** (scan code / redeem key / join cohort), search entry points, and notification hooks. Everything runs locally via Room, then mirrors to Firebase Realtime Database/Firestore when online.
+
+## 📱 5-Tab Navigation Map
+- **Home** – “Today’s Flow” feed combining pre-test, lesson, post-test, reminders, streak insights, and persona guidance (Learner, Instructor, Admin).
+- **Learn** – Searchable catalog of `CourseSummary` objects; each course splits into `LearningUnit` blocks (Pre-test, Lesson, Post-test, Live) with estimated minutes.
+- **Classroom** – Roster, Stream/Classwork topics, quick module creation, and LAN-ready live session launchers.
+- **Activity** – Aggregated `ActivityTimeline` showing streak days, unlocked `Badge`s, and downloadable certificates.
+- **Profile** – Account identity, consent reminders, and manual sync controls backed by the `SyncAgent` (`Push modules`, `Pull updates`). Logging out preserves all cached data.
 
 ## 🔐 Accounts & Access Control
 - **Default Admin:** On first launch the app seeds `admin@classroom.local` / `admin123`. Use this account to approve new teachers and students.
@@ -38,6 +52,7 @@ Classroom Quiz Master brings interactive assessments, structured lessons, and ac
 - **Reports & Exports:** Automatic Pre vs Post analytics, objective mastery insights, and PDF/CSV exports.
 - **Engagement:** Optional leaderboards, podium celebrations, and lightweight gamification (avatars/badges).
 - **Localization:** Tagalog labels across key teacher-facing surfaces.
+- **Blueprint Additions:** `CourseSummary`, `LearningUnit`, `HomeFeedItem`, and `ActivityTimeline` models drive the mobile LMS shell, while `CatalogRepository` keeps home feed, catalog, and activity data in sync with Room + Firebase.
 
 ---
 

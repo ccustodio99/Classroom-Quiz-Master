@@ -1,9 +1,11 @@
 package com.classroom.quizmaster.ui.feature.classroom
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.RowScope
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -19,7 +21,6 @@ import androidx.compose.material.icons.rounded.CalendarToday
 import androidx.compose.material.icons.rounded.MoreVert
 import androidx.compose.material.icons.rounded.People
 import androidx.compose.material.icons.rounded.Settings
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.FilledTonalButton
@@ -31,10 +32,7 @@ import androidx.compose.material3.Scaffold
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
-import androidx.compose.material3.Tab
-import androidx.compose.material3.TabRow
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -44,6 +42,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.draw.clip
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
@@ -76,32 +75,13 @@ fun ClassDetailScreen(
     Scaffold(
         modifier = modifier,
         topBar = {
-            TopAppBar(
-                title = {
-                    Text(
-                        text = state.classroom?.name ?: "Classroom",
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
-                },
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
-                    }
-                },
-                actions = {
-                    state.classroom?.let { classroom ->
-                        IconButton(onClick = { onManageClass(classroom) }) {
-                            Icon(Icons.Rounded.Settings, contentDescription = "Class settings")
-                        }
-                    }
-                    IconButton(onClick = { selectedTab = ClassDetailTab.People }) {
-                        Icon(Icons.Rounded.People, contentDescription = "View people")
-                    }
-                    IconButton(onClick = viewModel::refreshClassroom) {
-                        Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
-                    }
-                }
+            ClassDetailTopBar(
+                title = state.classroom?.name ?: "Classroom",
+                classroom = state.classroom,
+                onBack = onBack,
+                onManageClass = onManageClass,
+                onShowPeople = { selectedTab = ClassDetailTab.People },
+                onRefresh = viewModel::refreshClassroom
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -111,16 +91,10 @@ fun ClassDetailScreen(
                 .padding(innerPadding)
                 .fillMaxSize()
         ) {
-            TabRow(selectedTabIndex = selectedTab.ordinal) {
-                ClassDetailTab.entries.forEach { tab ->
-                    Tab(
-                        selected = selectedTab == tab,
-                        onClick = { selectedTab = tab },
-                        text = { Text(tab.label) },
-                        icon = { Icon(tab.icon, contentDescription = null) }
-                    )
-                }
-            }
+            ClassDetailTabBar(
+                selected = selectedTab,
+                onSelect = { selectedTab = it }
+            )
             when (selectedTab) {
                 ClassDetailTab.Stream -> StreamTab(state)
                 ClassDetailTab.Classwork -> ClassworkTab(
@@ -189,6 +163,124 @@ private fun StreamTab(state: ClassDetailUiState) {
 }
 
 @Composable
+private fun ClassDetailTopBar(
+    title: String,
+    classroom: ClassroomProfile?,
+    onBack: () -> Unit,
+    onManageClass: (ClassroomProfile) -> Unit,
+    onShowPeople: () -> Unit,
+    onRefresh: () -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        contentColor = MaterialTheme.colorScheme.onSurface,
+        shadowElevation = 4.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 8.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(4.dp)
+        ) {
+            IconButton(onClick = onBack) {
+                Icon(Icons.AutoMirrored.Rounded.ArrowBack, contentDescription = "Back")
+            }
+            Text(
+                text = title,
+                modifier = Modifier
+                    .weight(1f)
+                    .padding(start = 8.dp),
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                style = MaterialTheme.typography.titleLarge,
+                fontWeight = FontWeight.SemiBold
+            )
+            classroom?.let {
+                IconButton(onClick = { onManageClass(it) }) {
+                    Icon(Icons.Rounded.Settings, contentDescription = "Class settings")
+                }
+            }
+            IconButton(onClick = onShowPeople) {
+                Icon(Icons.Rounded.People, contentDescription = "View people")
+            }
+            IconButton(onClick = onRefresh) {
+                Icon(Icons.Rounded.MoreVert, contentDescription = "More options")
+            }
+        }
+    }
+}
+
+@Composable
+private fun ClassDetailTabBar(
+    selected: ClassDetailTab,
+    onSelect: (ClassDetailTab) -> Unit
+) {
+    Surface(
+        color = MaterialTheme.colorScheme.surface,
+        tonalElevation = 2.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            ClassDetailTab.entries.forEach { tab ->
+                ClassDetailTabButton(
+                    tab = tab,
+                    selected = tab == selected,
+                    onClick = { onSelect(tab) }
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun RowScope.ClassDetailTabButton(
+    tab: ClassDetailTab,
+    selected: Boolean,
+    onClick: () -> Unit
+) {
+    val background = if (selected) {
+        MaterialTheme.colorScheme.primary.copy(alpha = 0.18f)
+    } else {
+        MaterialTheme.colorScheme.surfaceVariant
+    }
+    val contentColor = if (selected) {
+        MaterialTheme.colorScheme.primary
+    } else {
+        MaterialTheme.colorScheme.onSurfaceVariant
+    }
+    Surface(
+        modifier = Modifier
+            .weight(1f)
+            .clip(MaterialTheme.shapes.large)
+            .clickable(onClick = onClick),
+        color = background,
+        contentColor = contentColor,
+        tonalElevation = 0.dp
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 12.dp, vertical = 10.dp),
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.Center
+        ) {
+            Icon(tab.icon, contentDescription = null)
+            Spacer(modifier = Modifier.width(8.dp))
+            Text(
+                text = tab.label,
+                style = MaterialTheme.typography.labelLarge,
+                fontWeight = if (selected) FontWeight.SemiBold else FontWeight.Medium
+            )
+        }
+    }
+}
+
+@Composable
 private fun ClassworkTab(
     state: ClassDetailUiState,
     onCreateModule: (String) -> Unit,
@@ -210,7 +302,7 @@ private fun ClassworkTab(
                 ) {
                     Icon(Icons.Rounded.Assignment, contentDescription = null)
                     Spacer(modifier = Modifier.width(8.dp))
-                    Text("Create classwork module")
+                    Text("Create topic/module")
                 }
             }
         }
@@ -323,7 +415,7 @@ private fun ClassHeroCard(profile: ClassroomProfile) {
                 style = MaterialTheme.typography.headlineSmall.copy(fontWeight = FontWeight.Bold)
             )
             if (profile.section.isNotBlank()) {
-                AssistChip(onClick = {}, label = { Text("Section ${profile.section}") })
+                InfoChip(text = "Section ${profile.section}")
             }
             if (profile.description.isNotBlank()) {
                 Text(text = profile.description, style = MaterialTheme.typography.bodyMedium)
@@ -490,6 +582,21 @@ private fun RowContent(icon: androidx.compose.ui.graphics.vector.ImageVector, ti
             Text(title, style = MaterialTheme.typography.bodyLarge, fontWeight = FontWeight.Medium)
             Text(subtitle, style = MaterialTheme.typography.bodySmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
         }
+    }
+}
+
+@Composable
+private fun InfoChip(text: String) {
+    Surface(
+        shape = MaterialTheme.shapes.small,
+        color = MaterialTheme.colorScheme.surfaceVariant,
+        contentColor = MaterialTheme.colorScheme.onSurfaceVariant
+    ) {
+        Text(
+            text = text,
+            modifier = Modifier.padding(horizontal = 12.dp, vertical = 6.dp),
+            style = MaterialTheme.typography.labelMedium
+        )
     }
 }
 

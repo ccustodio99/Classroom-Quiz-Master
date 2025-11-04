@@ -28,6 +28,8 @@ import com.classroom.quizmaster.agents.SyncAgent
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.repo.AssignmentRepository
 import com.classroom.quizmaster.data.repo.AssignmentRepositoryImpl
+import com.classroom.quizmaster.data.repo.CatalogRepository
+import com.classroom.quizmaster.data.repo.CatalogRepositoryImpl
 import com.classroom.quizmaster.data.repo.AttemptRepository
 import com.classroom.quizmaster.data.repo.AttemptRepositoryImpl
 import com.classroom.quizmaster.data.repo.AccountRepository
@@ -73,6 +75,7 @@ class AppContainer(context: Context) {
     val reportExportAgent: ReportExportAgent = ReportExportAgentImpl(appContext)
     val itemBankAgent: ItemBankAgent = ItemBankAgentImpl()
     val gamificationAgent: GamificationAgent = GamificationAgentImpl()
+    val catalogRepository: CatalogRepository = CatalogRepositoryImpl(moduleRepository, assignmentRepository, gamificationAgent)
     val syncAgent: SyncAgent = FirebaseSyncAgent(moduleRepository, json)
     val authAgent: AuthAgent = AuthAgentImpl(accountRepository)
     val classroomAgent: ClassroomAgent = ClassroomAgentImpl(classroomRepository, moduleRepository)

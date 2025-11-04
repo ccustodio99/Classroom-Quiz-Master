@@ -125,7 +125,7 @@ private fun EmptyState() {
         subtitle = "Finish a session to unlock analytics",
         caption = "Deliver the module live or via assignment to populate this view."
     ) {
-        Text("Complete assessments first / Kumpletuhin muna ang mga pagsusulit.")
+        Text("Complete assessments first.")
     }
 }
 
@@ -243,7 +243,7 @@ private fun MasteryCard(report: ClassReport) {
                             trackColor = MaterialTheme.colorScheme.background
                         )
                         Text(
-                            text = "Pre ${"%.1f".format(mastery.pre)}% -> Post ${"%.1f".format(mastery.post)}%"
+                            text = "Pre ${"%.1f".format(mastery.pre)}% -> Post ${"%.1f".format(mastery.post)}%",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
@@ -257,7 +257,7 @@ private fun MasteryCard(report: ClassReport) {
 @Composable
 private fun AttemptsCard(report: ClassReport) {
     SectionCard(
-        title = "Learner attempts / Mga pagtatangka",
+        title = "Learner attempts",
         subtitle = "Individual growth moments",
         caption = "Sort the class roster by post-test gains to spotlight growth."
     ) {
@@ -298,7 +298,7 @@ private fun AttemptsCard(report: ClassReport) {
 @Composable
 private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
     SectionCard(
-        title = "Exports / Mga output",
+        title = "Exports",
         subtitle = "Share-ready reports",
         caption = "Send polished summaries to parents or fellow teachers."
     ) {
@@ -312,7 +312,7 @@ private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
                 )
             ) {
                 Icon(imageVector = Icons.Rounded.PictureAsPdf, contentDescription = null)
-                Text("Export class PDF / I-export ang PDF", modifier = Modifier.padding(start = 8.dp))
+                Text("Export class PDF", modifier = Modifier.padding(start = 8.dp))
             }
             Button(
                 onClick = onExportCsv,
@@ -323,7 +323,7 @@ private fun ExportCard(onExportPdf: () -> Unit, onExportCsv: () -> Unit) {
                 )
             ) {
                 Icon(imageVector = Icons.Rounded.TableChart, contentDescription = null)
-                Text("Export CSV / I-export ang CSV", modifier = Modifier.padding(start = 8.dp))
+                Text("Export CSV", modifier = Modifier.padding(start = 8.dp))
             }
         }
     }

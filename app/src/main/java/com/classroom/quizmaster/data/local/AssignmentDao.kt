@@ -14,6 +14,9 @@ interface AssignmentDao {
     @Query("SELECT * FROM assignments WHERE module_id = :moduleId")
     fun observeForModule(moduleId: String): Flow<List<AssignmentEntity>>
 
+    @Query("SELECT * FROM assignments")
+    fun observeAll(): Flow<List<AssignmentEntity>>
+
     @Query("SELECT * FROM assignments WHERE id = :id")
     suspend fun get(id: String): AssignmentEntity?
 
