@@ -83,6 +83,7 @@ dependencies {
     implementation(libs.androidx.navigation.compose)
     implementation(libs.hilt.android)
     implementation(libs.hilt.navigation.compose)
+    implementation(libs.androidx.hilt.work)
     implementation(libs.coroutines.core)
     implementation(libs.coroutines.android)
     implementation(libs.androidx.work.runtime)
@@ -92,6 +93,7 @@ dependencies {
     implementation(libs.firebase.analytics)
 
     kapt(libs.hilt.compiler)
+    kapt(libs.androidx.hilt.compiler)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.junit5.api)

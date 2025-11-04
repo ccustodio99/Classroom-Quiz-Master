@@ -30,7 +30,8 @@ dependencies {
     implementation(libs.firebase.analytics)
     implementation(libs.firebase.auth)
     implementation(libs.firebase.firestore)
-    implementation(libs.firebase.rtdb)
+    implementation(libs.firebase.storage)
+    implementation(libs.google.webrtc)
     implementation(libs.jvm.serialization.json)
 
     testImplementation(kotlin("test"))
