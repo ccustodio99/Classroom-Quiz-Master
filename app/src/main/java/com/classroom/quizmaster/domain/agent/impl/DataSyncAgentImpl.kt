@@ -1,19 +1,21 @@
 package com.classroom.quizmaster.domain.agent.impl
 
 import com.classroom.quizmaster.data.local.BlueprintLocalDataSource
+import com.classroom.quizmaster.data.local.ClassworkBundle
 import com.classroom.quizmaster.data.local.PendingSync
+import com.classroom.quizmaster.data.remote.FirestoreSyncService
 import com.classroom.quizmaster.domain.agent.DataSyncAgent
 import com.classroom.quizmaster.domain.model.SyncStatus
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class DataSyncAgentImpl(
     private val localData: BlueprintLocalDataSource,
+    private val firestoreSyncService: FirestoreSyncService,
     private val syncDispatcher: CoroutineScope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 ) : DataSyncAgent {
 
@@ -36,28 +38,48 @@ class DataSyncAgentImpl(
 
     override fun triggerSync() {
         syncDispatcher.launch {
-            val operations = localData.snapshot.value.pendingSync
-            if (operations.isEmpty()) {
-                status.value = SyncStatus.Success(System.currentTimeMillis())
-                return@launch
-            }
             status.value = SyncStatus.InProgress
-            processOperations(operations)
+            val operations = localData.snapshot.value.pendingSync
+            try {
+                if (operations.isNotEmpty()) {
+                    pushPendingOperations(operations)
+                }
+                pullRemoteSnapshot()
+                status.value = SyncStatus.Success(System.currentTimeMillis())
+            } catch (error: Exception) {
+                status.value = SyncStatus.Error(error.message.orEmpty())
+            }
         }
     }
 
-    private suspend fun processOperations(operations: List<PendingSync>) {
-        try {
-            for (operation in operations) {
-                // Simulate network call with delay. In a real implementation, this is where
-                // Firebase or REST API calls would be executed.
-                delay(150)
+    private suspend fun pushPendingOperations(operations: List<PendingSync>) {
+        for (operation in operations) {
+            try {
+                firestoreSyncService.pushOperation(operation)
                 localData.markSyncSuccess(operation.id)
+            } catch (error: Exception) {
+                localData.incrementSyncAttempts(operation.id)
+                throw error
             }
-            status.value = SyncStatus.Success(System.currentTimeMillis())
-        } catch (error: Exception) {
-            operations.firstOrNull()?.let { localData.incrementSyncAttempts(it.id) }
-            status.value = SyncStatus.Error(error.message.orEmpty())
+        }
+    }
+
+    private suspend fun pullRemoteSnapshot() {
+        val snapshot = firestoreSyncService.fetchSnapshot()
+        snapshot.classes.forEach { localData.upsertClass(it) }
+        snapshot.rosters.forEach { (classId, entries) ->
+            entries.forEach { localData.upsertRosterEntry(classId, it) }
+        }
+        snapshot.classwork.forEach { (classId, items) ->
+            items.forEach { classwork ->
+                localData.upsertClasswork(ClassworkBundle(item = classwork))
+            }
+        }
+        snapshot.attempts.forEach { localData.recordAttempt(it) }
+        snapshot.submissions.forEach { localData.recordSubmission(it) }
+        snapshot.liveSessions.forEach { localData.upsertLiveSession(it) }
+        snapshot.liveResponses.forEach { (_, responses) ->
+            responses.forEach { localData.recordLiveResponse(it) }
         }
     }
 }
