@@ -25,6 +25,8 @@ import com.classroom.quizmaster.agents.ReportExportAgentImpl
 import com.classroom.quizmaster.agents.ScoringAnalyticsAgent
 import com.classroom.quizmaster.agents.ScoringAnalyticsAgentImpl
 import com.classroom.quizmaster.agents.SyncAgent
+import com.classroom.quizmaster.data.local.BlueprintLocalDataSource
+import com.classroom.quizmaster.data.local.BlueprintLocalStore
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.repo.AssignmentRepository
 import com.classroom.quizmaster.data.repo.AssignmentRepositoryImpl
@@ -42,8 +44,13 @@ import com.classroom.quizmaster.data.util.PasswordHasher
 import com.classroom.quizmaster.domain.model.AccountStatus
 import com.classroom.quizmaster.domain.model.UserAccount
 import com.classroom.quizmaster.domain.model.UserRole
+import com.classroom.quizmaster.domain.agent.DataSyncAgent
+import com.classroom.quizmaster.domain.agent.impl.DataSyncAgentImpl
+import com.classroom.quizmaster.data.remote.FirestoreSyncService
 import com.classroom.quizmaster.lan.LiveSessionLanFactory
 import com.google.firebase.FirebaseApp
+import com.google.firebase.firestore.ktx.firestore
+import com.google.firebase.ktx.Firebase
 import kotlinx.serialization.json.Json
 import kotlinx.coroutines.runBlocking
 import java.util.UUID
@@ -59,6 +66,16 @@ class AppContainer(context: Context) {
 
     private val database = QuizMasterDatabase.build(appContext)
     private val lanFactory = LiveSessionLanFactory()
+
+    private val blueprintStore = BlueprintLocalStore(appContext, json)
+    val blueprintLocalData: BlueprintLocalDataSource = BlueprintLocalDataSource(blueprintStore, json)
+    private val firestore by lazy { Firebase.firestore }
+    private val firestoreSyncService: FirestoreSyncService by lazy { FirestoreSyncService(firestore, json) }
+    private val dataSyncAgentInternal: DataSyncAgent by lazy {
+        DataSyncAgentImpl(blueprintLocalData, firestoreSyncService)
+    }
+    val dataSyncAgent: DataSyncAgent
+        get() = dataSyncAgentInternal
 
     val moduleRepository: ModuleRepository = ModuleRepositoryImpl(database.moduleDao(), json)
     val attemptRepository: AttemptRepository = AttemptRepositoryImpl(database.attemptDao(), json)
@@ -84,6 +101,7 @@ class AppContainer(context: Context) {
         if (FirebaseApp.getApps(appContext).isEmpty()) {
             FirebaseApp.initializeApp(appContext)
         }
+        dataSyncAgentInternal.start()
         ensureDefaultAdmin()
     }
 

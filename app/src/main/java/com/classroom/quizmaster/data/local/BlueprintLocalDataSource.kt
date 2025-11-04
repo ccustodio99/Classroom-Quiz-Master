@@ -163,7 +163,36 @@ class BlueprintLocalDataSource(
         snapshot.value.liveResponses[sessionId].orEmpty()
 
     suspend fun enqueueSync(entityType: SyncEntityType, entityId: String, payload: Any) {
-        val payloadJson = json.encodeToString(payload)
+        val payloadJson = when (entityType) {
+            SyncEntityType.CLASS -> json.encodeToString(
+                com.classroom.quizmaster.domain.model.Class.serializer(),
+                payload as com.classroom.quizmaster.domain.model.Class
+            )
+            SyncEntityType.ROSTER -> json.encodeToString(
+                com.classroom.quizmaster.domain.model.Roster.serializer(),
+                payload as com.classroom.quizmaster.domain.model.Roster
+            )
+            SyncEntityType.CLASSWORK -> json.encodeToString(
+                com.classroom.quizmaster.domain.model.Classwork.serializer(),
+                payload as com.classroom.quizmaster.domain.model.Classwork
+            )
+            SyncEntityType.ATTEMPT -> json.encodeToString(
+                com.classroom.quizmaster.domain.model.Attempt.serializer(),
+                payload as com.classroom.quizmaster.domain.model.Attempt
+            )
+            SyncEntityType.SUBMISSION -> json.encodeToString(
+                com.classroom.quizmaster.domain.model.Submission.serializer(),
+                payload as com.classroom.quizmaster.domain.model.Submission
+            )
+            SyncEntityType.LIVE_SESSION -> json.encodeToString(
+                com.classroom.quizmaster.domain.model.LiveSession.serializer(),
+                payload as com.classroom.quizmaster.domain.model.LiveSession
+            )
+            SyncEntityType.LIVE_RESPONSE -> json.encodeToString(
+                com.classroom.quizmaster.domain.model.LiveResponse.serializer(),
+                payload as com.classroom.quizmaster.domain.model.LiveResponse
+            )
+        }
         val operation = PendingSync(
             id = UUID.randomUUID().toString(),
             entityType = entityType,
