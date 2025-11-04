@@ -3,9 +3,9 @@ package com.example.lms.core.sync
 import com.example.lms.core.common.runCatchingResult
 import com.example.lms.core.database.dao.OutboxDao
 import com.example.lms.core.database.entity.OutboxEntity
-import com.example.lms.core.model.Class
 import com.example.lms.core.model.LmsResult
 import com.example.lms.core.model.SyncStatus
+import com.example.lms.core.network.ClassRemoteDataSource
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -13,10 +13,6 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
-
-interface ClassRemoteDataSource {
-    suspend fun fetchClasses(org: String): LmsResult<List<Class>>
-}
 
 class SyncOrchestrator(
     private val outboxDao: OutboxDao,

@@ -6,7 +6,7 @@
 - `core:model`: Domain models shared across modules.
 - `core:common`: Coroutine helpers, result wrappers, and utilities.
 - `core:database`: Room database schema, entities, and DAO definitions (v1 schema).
-- `core:network`: Firebase integrations (Auth, Firestore, RTDB) and live session protocol helpers.
+- `core:network`: Firebase integrations (Auth, Firestore, Storage) plus presence, signaling, and WebRTC helpers.
 - `core:sync`: Outbox-based synchronization orchestrator, WorkManager integration points.
 - `feature:*`: UI + ViewModel layers for auth, home, learning catalog, classroom management, activity history, profile, and live sessions.
 
@@ -19,8 +19,8 @@ Feature ViewModel -> UseCases (feature module) -> Repositories (core sync/networ
 ```
 
 - **Repositories** coordinate between local Room cache and Firebase sources using coroutines and `Flow`.
-- **Outbox** persists pending mutations in Room and syncs via WorkManager when connectivity resumes.
-- **Live Sessions** rely on NSD discovery, WebRTC data channels, and fallback Firebase RTDB channels.
+- **Outbox** persists pending mutations in Room and syncs via WorkManager when connectivity resumes; `PresenceService` keeps Firestore heartbeat docs updated while offline.
+- **Live Sessions** rely on NSD discovery, WebRTC data channels, and Firestore-backed signaling + presence.
 
 ## Offline-First Strategy
 
@@ -35,7 +35,7 @@ Feature ViewModel -> UseCases (feature module) -> Repositories (core sync/networ
 ## Live Session Discovery & Transport
 
 - **Discovery**: Android NSD publishes `_lms._udp` services; clients scan LAN for hosts.
-- **Transport**: Prefer WebRTC DataChannels for <1s updates. Fall back to Firebase RTDB topics when peer-to-peer fails.
+- **Transport**: Prefer WebRTC DataChannels for <1s updates. Firestore subcollections (`live/{sessionId}/offers|answers|ice`) provide signaling and fallback relay.
 - **Protocol**: Questions encoded as compact strings via `LiveSessionProtocol`. Responses include latency and scoring payloads.
 - **Failover**: Peers elect the earliest join timestamp as the new host if the original drops.
 

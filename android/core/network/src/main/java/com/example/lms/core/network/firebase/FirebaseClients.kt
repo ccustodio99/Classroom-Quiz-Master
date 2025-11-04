@@ -4,6 +4,7 @@ import com.example.lms.core.common.runCatchingResult
 import com.example.lms.core.model.Class
 import com.example.lms.core.model.LmsResult
 import com.example.lms.core.model.User
+import com.example.lms.core.network.ClassRemoteDataSource
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.ktx.toObject
@@ -24,11 +25,15 @@ class FirebaseUserDataSource(
 
 class FirebaseClassDataSource(
     private val firestore: FirebaseFirestore,
-) {
-    suspend fun fetchClasses(org: String): LmsResult<List<Class>> = runCatchingResult {
-        firestore.collection("orgs").document(org).collection("classes").get().await().documents.mapNotNull {
-            it.toObject<Class>()
-        }
+) : ClassRemoteDataSource {
+    override suspend fun fetchClasses(org: String): LmsResult<List<Class>> = runCatchingResult {
+        firestore.collection("org")
+            .document(org)
+            .collection("classes")
+            .get()
+            .await()
+            .documents
+            .mapNotNull { it.toObject<Class>() }
     }
 }
 

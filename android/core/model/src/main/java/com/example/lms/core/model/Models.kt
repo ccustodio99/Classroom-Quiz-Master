@@ -92,6 +92,34 @@ data class LiveResponse(
     val timestamp: Long,
 )
 
+data class PresenceRecord(
+    val classId: String,
+    val userId: String,
+    val updatedAt: Long,
+    val expiresAt: Long,
+)
+
+enum class SignalType { OFFER, ANSWER, ICE }
+
+data class LiveSignalMessage(
+    val sessionId: String,
+    val peerId: String,
+    val type: SignalType,
+    val sdp: String? = null,
+    val candidate: String? = null,
+    val sdpMid: String? = null,
+    val sdpMLineIndex: Int? = null,
+    val timestamp: Long = System.currentTimeMillis(),
+)
+
+data class LeaderboardEntry(
+    val userId: String,
+    val displayName: String,
+    val score: Double,
+    val streak: Int,
+    val latencyMs: Long,
+)
+
 sealed class LmsResult<out T> {
     data class Success<T>(val value: T) : LmsResult<T>()
     data class Error(val throwable: Throwable) : LmsResult<Nothing>()

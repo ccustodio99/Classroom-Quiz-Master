@@ -32,8 +32,11 @@ dependencies {
     implementation(libs.coroutines.android)
     implementation(libs.androidx.work.runtime)
     implementation(libs.androidx.datastore)
+    implementation(libs.hilt.android)
+    implementation(libs.androidx.hilt.work)
 
     kapt(libs.hilt.compiler)
+    kapt(libs.androidx.hilt.compiler)
 
     testImplementation(kotlin("test"))
     testImplementation(libs.coroutines.test)

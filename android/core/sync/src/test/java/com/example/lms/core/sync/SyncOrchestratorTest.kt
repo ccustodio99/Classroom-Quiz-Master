@@ -3,6 +3,7 @@ package com.example.lms.core.sync
 import com.example.lms.core.database.dao.OutboxDao
 import com.example.lms.core.database.entity.OutboxEntity
 import com.example.lms.core.model.LmsResult
+import com.example.lms.core.network.ClassRemoteDataSource
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
