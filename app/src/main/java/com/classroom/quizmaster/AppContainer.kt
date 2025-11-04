@@ -1,30 +1,18 @@
 package com.classroom.quizmaster
 
 import android.content.Context
-import com.classroom.quizmaster.domain.agent.AssessmentAgent
 import com.classroom.quizmaster.agents.AssessmentAgentImpl
-import com.classroom.quizmaster.domain.agent.AssignmentAgent
 import com.classroom.quizmaster.agents.AssignmentAgentImpl
-import com.classroom.quizmaster.domain.agent.AuthAgent
 import com.classroom.quizmaster.agents.AuthAgentImpl
-import com.classroom.quizmaster.domain.agent.ClassroomAgent
 import com.classroom.quizmaster.agents.ClassroomAgentImpl
 import com.classroom.quizmaster.agents.FirebaseSyncAgent
-import com.classroom.quizmaster.domain.agent.GamificationAgent
 import com.classroom.quizmaster.agents.GamificationAgentImpl
-import com.classroom.quizmaster.domain.agent.ItemBankAgent
 import com.classroom.quizmaster.agents.ItemBankAgentImpl
-import com.classroom.quizmaster.domain.agent.LessonAgent
 import com.classroom.quizmaster.agents.LessonAgentImpl
-import com.classroom.quizmaster.domain.agent.LiveSessionAgent
 import com.classroom.quizmaster.agents.LiveSessionAgentImpl
-import com.classroom.quizmaster.domain.agent.ModuleBuilderAgent
 import com.classroom.quizmaster.agents.ModuleBuilderAgentImpl
-import com.classroom.quizmaster.domain.agent.ReportExportAgent
 import com.classroom.quizmaster.agents.ReportExportAgentImpl
-import com.classroom.quizmaster.domain.agent.ScoringAnalyticsAgent
 import com.classroom.quizmaster.agents.ScoringAnalyticsAgentImpl
-import com.classroom.quizmaster.domain.agent.SyncAgent
 import com.classroom.quizmaster.data.local.BlueprintLocalDataSource
 import com.classroom.quizmaster.data.local.BlueprintLocalStore
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
@@ -83,19 +71,19 @@ class AppContainer(context: Context) {
     val accountRepository: AccountRepository = AccountRepositoryImpl(database.accountDao())
     val classroomRepository: ClassroomRepository = ClassroomRepositoryImpl(database.classroomDao(), json)
 
-    val moduleBuilderAgent: ModuleBuilderAgent = ModuleBuilderAgentImpl(moduleRepository)
-    val assessmentAgent: AssessmentAgent = AssessmentAgentImpl(moduleRepository, attemptRepository)
-    val lessonAgent: LessonAgent = LessonAgentImpl(moduleRepository)
-    val liveSessionAgent: LiveSessionAgent = LiveSessionAgentImpl()
-    val assignmentAgent: AssignmentAgent = AssignmentAgentImpl(assignmentRepository)
-    val scoringAnalyticsAgent: ScoringAnalyticsAgent = ScoringAnalyticsAgentImpl(moduleRepository, attemptRepository)
-    val reportExportAgent: ReportExportAgent = ReportExportAgentImpl(appContext)
-    val itemBankAgent: ItemBankAgent = ItemBankAgentImpl()
-    val gamificationAgent: GamificationAgent = GamificationAgentImpl()
+    val moduleBuilderAgent = ModuleBuilderAgentImpl(moduleRepository)
+    val assessmentAgent = AssessmentAgentImpl(moduleRepository, attemptRepository)
+    val lessonAgent = LessonAgentImpl(moduleRepository)
+    val liveSessionAgent = LiveSessionAgentImpl()
+    val assignmentAgent = AssignmentAgentImpl(assignmentRepository)
+    val scoringAnalyticsAgent = ScoringAnalyticsAgentImpl(moduleRepository, attemptRepository)
+    val reportExportAgent = ReportExportAgentImpl(appContext)
+    val itemBankAgent = ItemBankAgentImpl()
+    val gamificationAgent = GamificationAgentImpl()
     val catalogRepository: CatalogRepository = CatalogRepositoryImpl(moduleRepository, assignmentRepository, gamificationAgent)
-    val syncAgent: SyncAgent = FirebaseSyncAgent(moduleRepository, json)
-    val authAgent: AuthAgent = AuthAgentImpl(accountRepository)
-    val classroomAgent: ClassroomAgent = ClassroomAgentImpl(classroomRepository, moduleRepository)
+    val syncAgent = FirebaseSyncAgent(moduleRepository, json)
+    val authAgent = AuthAgentImpl(accountRepository)
+    val classroomAgent = ClassroomAgentImpl(classroomRepository, moduleRepository)
 
     init {
         if (FirebaseApp.getApps(appContext).isEmpty()) {
