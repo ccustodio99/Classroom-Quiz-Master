@@ -15,9 +15,9 @@ import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableFloatStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -25,6 +25,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun LiveRoute(
@@ -32,9 +33,10 @@ fun LiveRoute(
     onExit: () -> Unit,
     viewModel: LiveViewModel = hiltViewModel(),
 ) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
     LiveScreen(
         modifier = modifier,
-        state = viewModel.uiState,
+        state = state,
         onExit = onExit,
     )
 }
@@ -57,6 +59,11 @@ fun LiveScreen(
         Text("Live session", style = MaterialTheme.typography.headlineSmall, fontWeight = FontWeight.Bold)
         Text("Mode: ${state.mode.name} • Code ${state.sessionCode}", style = MaterialTheme.typography.bodyMedium)
         Text(state.connectionStatus, style = MaterialTheme.typography.labelMedium)
+        Text(
+            if (state.availablePeers.isEmpty()) "No nearby sessions detected yet" else
+                "Nearby sessions: ${state.availablePeers.joinToString()}",
+            style = MaterialTheme.typography.labelSmall,
+        )
         Button(onClick = onExit) { Text(if (state.mode == LiveMode.HOST) "End session" else "Leave session") }
         Card(
             shape = RoundedCornerShape(16.dp),
