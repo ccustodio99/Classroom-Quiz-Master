@@ -1,30 +1,30 @@
 package com.classroom.quizmaster
 
 import android.content.Context
-import com.classroom.quizmaster.agents.AssessmentAgent
+import com.classroom.quizmaster.domain.agent.AssessmentAgent
 import com.classroom.quizmaster.agents.AssessmentAgentImpl
-import com.classroom.quizmaster.agents.AssignmentAgent
+import com.classroom.quizmaster.domain.agent.AssignmentAgent
 import com.classroom.quizmaster.agents.AssignmentAgentImpl
-import com.classroom.quizmaster.agents.AuthAgent
+import com.classroom.quizmaster.domain.agent.AuthAgent
 import com.classroom.quizmaster.agents.AuthAgentImpl
-import com.classroom.quizmaster.agents.ClassroomAgent
+import com.classroom.quizmaster.domain.agent.ClassroomAgent
 import com.classroom.quizmaster.agents.ClassroomAgentImpl
 import com.classroom.quizmaster.agents.FirebaseSyncAgent
-import com.classroom.quizmaster.agents.GamificationAgent
+import com.classroom.quizmaster.domain.agent.GamificationAgent
 import com.classroom.quizmaster.agents.GamificationAgentImpl
-import com.classroom.quizmaster.agents.ItemBankAgent
+import com.classroom.quizmaster.domain.agent.ItemBankAgent
 import com.classroom.quizmaster.agents.ItemBankAgentImpl
-import com.classroom.quizmaster.agents.LessonAgent
+import com.classroom.quizmaster.domain.agent.LessonAgent
 import com.classroom.quizmaster.agents.LessonAgentImpl
-import com.classroom.quizmaster.agents.LiveSessionAgent
+import com.classroom.quizmaster.domain.agent.LiveSessionAgent
 import com.classroom.quizmaster.agents.LiveSessionAgentImpl
-import com.classroom.quizmaster.agents.ModuleBuilderAgent
+import com.classroom.quizmaster.domain.agent.ModuleBuilderAgent
 import com.classroom.quizmaster.agents.ModuleBuilderAgentImpl
-import com.classroom.quizmaster.agents.ReportExportAgent
+import com.classroom.quizmaster.domain.agent.ReportExportAgent
 import com.classroom.quizmaster.agents.ReportExportAgentImpl
-import com.classroom.quizmaster.agents.ScoringAnalyticsAgent
+import com.classroom.quizmaster.domain.agent.ScoringAnalyticsAgent
 import com.classroom.quizmaster.agents.ScoringAnalyticsAgentImpl
-import com.classroom.quizmaster.agents.SyncAgent
+import com.classroom.quizmaster.domain.agent.SyncAgent
 import com.classroom.quizmaster.data.local.BlueprintLocalDataSource
 import com.classroom.quizmaster.data.local.BlueprintLocalStore
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
@@ -86,7 +86,7 @@ class AppContainer(context: Context) {
     val moduleBuilderAgent: ModuleBuilderAgent = ModuleBuilderAgentImpl(moduleRepository)
     val assessmentAgent: AssessmentAgent = AssessmentAgentImpl(moduleRepository, attemptRepository)
     val lessonAgent: LessonAgent = LessonAgentImpl(moduleRepository)
-    val liveSessionAgent: LiveSessionAgent = LiveSessionAgentImpl(lanFactory)
+    val liveSessionAgent: LiveSessionAgent = LiveSessionAgentImpl()
     val assignmentAgent: AssignmentAgent = AssignmentAgentImpl(assignmentRepository)
     val scoringAnalyticsAgent: ScoringAnalyticsAgent = ScoringAnalyticsAgentImpl(moduleRepository, attemptRepository)
     val reportExportAgent: ReportExportAgent = ReportExportAgentImpl(appContext)
