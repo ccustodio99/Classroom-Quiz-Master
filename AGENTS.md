@@ -1,16 +1,16 @@
 # AGENTS.md — Functional Agents (Kotlin Android • Mobile)
 
-This document outlines the functional agents that orchestrate the core flows of the mobile LMS. The architecture is designed to be classroom-centric, offline-first, and event-driven, with Firebase as the backend.
+This document outlines the functional agents that orchestrate the core flows of the mobile LMS. The architecture is classroom-centric, offline-first, and event-driven with Firebase as the single backend.
 
 > Each agent lists: **Responsibility • Triggers • Inputs • Outputs • Core Entities**
 
 ---
 
 ## 1) ClassroomAgent
-**Responsibility:** Manage classroom lifecycle and roster. Handles creation, joining, and user role management.
-**Triggers:** User creates a class; user joins a class via code; admin manages rosters.
-**Inputs:** User ID, class details (subject, section), join code.
-**Outputs:** Updated `Class` and `Roster` records persisted locally and synced.
+**Responsibility:** Manage classroom lifecycle and roster. Handles creation, joining, and role management.  
+**Triggers:** User creates a class; user joins via join code; admin edits roster.  
+**Inputs:** User ID, class details (subject, section), join code.  
+**Outputs:** Updated `Class` and `Roster` records persisted locally and synced.  
 **Core Entities:** `Class`, `Roster`, `User`
 
 ```kotlin
@@ -24,10 +24,10 @@ interface ClassroomAgent {
 ---
 
 ## 2) ClassworkAgent
-**Responsibility:** Author and manage all classwork items, including assignments, quizzes, and materials.
-**Triggers:** Instructor creates/updates classwork; system auto-assigns pre-tests.
-**Inputs:** Class ID, classwork details (title, type, due date, points).
-**Outputs:** `Classwork` records persisted and synced.
+**Responsibility:** Author and manage assignments, quizzes, materials, and live activities.  
+**Triggers:** Instructor CRUD on classwork; system auto-assigns pre-tests.  
+**Inputs:** Class ID, classwork metadata (title, type, due date, points).  
+**Outputs:** `Classwork` records persisted and synced.  
 **Core Entities:** `Classwork`, `Question`
 
 ```kotlin
@@ -41,10 +41,10 @@ interface ClassworkAgent {
 ---
 
 ## 3) AssessmentAgent
-**Responsibility:** Deliver assessments (pre-test, post-test, quizzes), manage timing, and score responses against keys.
-**Triggers:** Learner starts a `Classwork` item of type `PRETEST`, `POSTTEST`, or `QUIZ`.
-**Inputs:** `Classwork` ID, `User` ID.
-**Outputs:** `Attempt` record with detailed answers and timestamps.
+**Responsibility:** Deliver assessments, manage timing, and score responses against keys.  
+**Triggers:** Learner starts a `Classwork` item of type `PRETEST`, `POSTTEST`, or `QUIZ`.  
+**Inputs:** `Classwork` ID, `User` ID.  
+**Outputs:** `Attempt` records with answers and timestamps.  
 **Core Entities:** `Attempt`, `Question`, `Submission`
 
 ```kotlin
@@ -57,11 +57,11 @@ interface AssessmentAgent {
 ---
 
 ## 4) LiveSessionAgent
-**Responsibility:** Manage real-time, Kahoot-style in-class activities. Prioritizes local network (LAN) for communication, falling back to Firebase RTDB.
-**Triggers:** Instructor starts a `LIVE` classwork item.
-**Inputs:** `Classwork` (Live), host settings.
-**Outputs:** `LiveSession` state, `LiveResponse` records.
-**Notes:** Handles host failover and presence tracking within the session.
+**Responsibility:** Manage real-time in-class activities (Kahoot-style). Prioritises LAN/WebRTC, with Firestore fallback.  
+**Triggers:** Instructor starts `LIVE` classwork.  
+**Inputs:** `Classwork` (live), host settings.  
+**Outputs:** `LiveSession` state and `LiveResponse` records.  
+**Notes:** Handles host failover and presence tracking.  
 **Core Entities:** `LiveSession`, `LiveResponse`
 
 ```kotlin
@@ -75,9 +75,9 @@ interface LiveSessionAgent {
 ---
 
 ## 5) ScoringAnalyticsAgent
-**Responsibility:** Compute learning gain by comparing pre-test and post-test scores. Analyzes item difficulty and engagement.
-**Triggers:** `Submission` records for pre-tests and post-tests are available.
-**Inputs:** `Attempt` records for a user/class, `Classwork` objective tags.
+**Responsibility:** Compute learning gain by comparing pre-test and post-test scores; analyse item difficulty and engagement.  
+**Triggers:** `Submission` records for pre/post tests exist.  
+**Inputs:** `Attempt` records for a user/class, `Classwork` objective tags.  
 **Outputs:** Analytics reports (e.g., learning gain per objective).
 
 ```kotlin
@@ -89,10 +89,10 @@ interface ScoringAnalyticsAgent {
 ---
 
 ## 6) ReportExportAgent
-**Responsibility:** Generate and export reports (e.g., learning gain, class summaries) in PDF or CSV format.
-**Triggers:** Instructor requests to export analytics.
-**Inputs:** Analytics data.
-**Outputs:** `FileRef` pointing to the generated report file.
+**Responsibility:** Generate and export reports (learning gain, class summaries) in PDF or CSV format.  
+**Triggers:** Instructor requests export.  
+**Inputs:** Analytics data.  
+**Outputs:** `FileRef` pointing to the generated file.
 
 ```kotlin
 interface ReportExportAgent {
@@ -104,11 +104,11 @@ interface ReportExportAgent {
 ---
 
 ## 7) DataSyncAgent
-**Responsibility:** Core of the offline-first system. Manages the local data queue, syncs with Firebase Firestore/RTDB when online, and handles conflicts.
-**Triggers:** Network connectivity changes; data is created/updated locally.
-**Inputs:** Local data changes (writes, updates, deletes).
-**Outputs:** Sync status events (`SyncStatus`).
-**Notes:** Uses a background worker for periodic sync.
+**Responsibility:** Manage offline-first sync queue, coordinate with Firestore, and resolve conflicts.  
+**Triggers:** Connectivity changes; local write queue updates.  
+**Inputs:** Local data mutations.  
+**Outputs:** `SyncStatus` events via `StateFlow`.  
+**Notes:** Runs in a background worker for periodic sync.
 
 ```kotlin
 interface DataSyncAgent {
@@ -121,10 +121,10 @@ interface DataSyncAgent {
 ---
 
 ## 8) PresenceAgent
-**Responsibility:** Manage real-time user presence within a classroom using Firebase RTDB.
-**Triggers:** User enters or leaves a classroom screen.
-**Inputs:** `classId`, `userId`.
-**Outputs:** Updates to `/presence/{classId}/{userId}` in RTDB.
+**Responsibility:** Track user presence in classrooms (RTDB heartbeat).  
+**Triggers:** User opens or leaves classroom UI.  
+**Inputs:** `classId`, `userId`.  
+**Outputs:** Updates to `/presence/{classId}/{userId}` and real-time online lists.
 
 ```kotlin
 interface PresenceAgent {

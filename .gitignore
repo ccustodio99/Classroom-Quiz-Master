@@ -9,3 +9,11 @@ gradle-8.5/
 # be committed to the repository.
 gradle/wrapper/gradle-wrapper.jar
 local.properties
+
+app/build/
+*.apk
+functions/node_modules/
+functions/lib/
+firebase/serviceAccount*.json
+app/src/main/google-services.json
+
