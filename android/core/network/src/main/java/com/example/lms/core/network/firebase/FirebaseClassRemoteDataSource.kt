@@ -1,8 +1,8 @@
 package com.example.lms.core.network.firebase
 
-import com.example.lms.core.model.Class
+import com.example.lms.core.network.ClassRemoteDataSource
 import com.example.lms.core.model.LmsResult
-import com.example.lms.core.sync.ClassRemoteDataSource
+import com.example.lms.core.model.Class
 
 class FirebaseClassRemoteDataSource(
     private val dataSource: FirebaseClassDataSource,

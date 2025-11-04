@@ -14,4 +14,5 @@ dependencyResolutionManagement {
 }
 
 rootProject.name = "Classroom-Quiz-Master"
-include(":app")
+// Legacy :app module is no longer part of the build; delegate to the new android/ project instead.
+includeBuild("android")

@@ -76,8 +76,6 @@ class WebRtcPeerSession(
 
             override fun onIceCandidatesRemoved(candidates: Array<out IceCandidate>) = Unit
 
-            override fun onSelectedCandidatePairChanged(event: PeerConnection.CandidatePairChangeEvent) = Unit
-
             override fun onAddStream(stream: org.webrtc.MediaStream?) = Unit
 
             override fun onRemoveStream(stream: org.webrtc.MediaStream?) = Unit

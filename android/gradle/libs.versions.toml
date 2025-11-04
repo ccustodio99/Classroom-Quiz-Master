@@ -53,13 +53,14 @@ firebase-auth = { module = "com.google.firebase:firebase-auth-ktx" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore-ktx" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-storage = { module = "com.google.firebase:firebase-storage-ktx" }
-google-webrtc = { module = "org.webrtc:google-webrtc", version = "1.0.32006" }
+google-webrtc = { module = "com.github.webrtc-sdk:android", version = "104.5112.10" }
 androidx-hilt-work = { module = "androidx.hilt:hilt-work", version = "1.2.0" }
 androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version = "1.2.0" }
 flow-turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
 hilt-android = { module = "com.google.dagger:hilt-android", version.ref = "daggerHilt" }
 hilt-compiler = { module = "com.google.dagger:hilt-android-compiler", version.ref = "daggerHilt" }
 hilt-navigation-compose = { module = "androidx.hilt:hilt-navigation-compose", version = "1.2.0" }
+jvm-android-material = { module = "com.google.android.material:material", version = "1.11.0" }
 jvm-serialization-json = { module = "org.jetbrains.kotlinx:kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
 junit = { module = "junit:junit", version = "4.13.2" }
 junit5-api = { module = "org.junit.jupiter:junit-jupiter-api", version = "5.10.2" }

@@ -26,8 +26,8 @@ android {
 dependencies {
     implementation(project(":core:model"))
     implementation(libs.coroutines.core)
-    implementation(libs.androidx.room.runtime)
-    implementation(libs.androidx.room.ktx)
+    api(libs.androidx.room.runtime)
+    api(libs.androidx.room.ktx)
     implementation(libs.jvm.serialization.json)
     kapt(libs.androidx.room.compiler)
 

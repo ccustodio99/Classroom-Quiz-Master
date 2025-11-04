@@ -18,8 +18,8 @@ class ClassroomLmsApplication : Application(), Configuration.Provider {
         OutboxWorker.schedule(this, DEFAULT_ORG)
     }
 
-    override fun getWorkManagerConfiguration(): Configuration =
-        Configuration.Builder()
+    override val workManagerConfiguration: Configuration
+        get() = Configuration.Builder()
             .setWorkerFactory(workerFactory)
             .build()
 

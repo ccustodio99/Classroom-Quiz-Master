@@ -4,13 +4,54 @@
   <component name="GradleSettings">
     <option name="linkedExternalProjectsSettings">
       <GradleProjectSettings>
+        <compositeConfiguration>
+          <compositeBuild compositeDefinitionSource="SCRIPT">
+            <builds>
+              <build path="$PROJECT_DIR$/android" name="ClassroomLMS">
+                <projects>
+                  <project path="$PROJECT_DIR$/android" />
+                  <project path="$PROJECT_DIR$/android/app" />
+                  <project path="$PROJECT_DIR$/android/core" />
+                  <project path="$PROJECT_DIR$/android/core/common" />
+                  <project path="$PROJECT_DIR$/android/core/database" />
+                  <project path="$PROJECT_DIR$/android/core/model" />
+                  <project path="$PROJECT_DIR$/android/core/network" />
+                  <project path="$PROJECT_DIR$/android/core/sync" />
+                  <project path="$PROJECT_DIR$/android/feature" />
+                  <project path="$PROJECT_DIR$/android/feature/activity" />
+                  <project path="$PROJECT_DIR$/android/feature/auth" />
+                  <project path="$PROJECT_DIR$/android/feature/classroom" />
+                  <project path="$PROJECT_DIR$/android/feature/home" />
+                  <project path="$PROJECT_DIR$/android/feature/learn" />
+                  <project path="$PROJECT_DIR$/android/feature/live" />
+                  <project path="$PROJECT_DIR$/android/feature/profile" />
+                </projects>
+              </build>
+            </builds>
+          </compositeBuild>
+        </compositeConfiguration>
         <option name="testRunner" value="CHOOSE_PER_TEST" />
         <option name="externalProjectPath" value="$PROJECT_DIR$" />
         <option name="gradleJvm" value="#GRADLE_LOCAL_JAVA_HOME" />
         <option name="modules">
           <set>
             <option value="$PROJECT_DIR$" />
-            <option value="$PROJECT_DIR$/app" />
+            <option value="$PROJECT_DIR$/android" />
+            <option value="$PROJECT_DIR$/android/app" />
+            <option value="$PROJECT_DIR$/android/core" />
+            <option value="$PROJECT_DIR$/android/core/common" />
+            <option value="$PROJECT_DIR$/android/core/database" />
+            <option value="$PROJECT_DIR$/android/core/model" />
+            <option value="$PROJECT_DIR$/android/core/network" />
+            <option value="$PROJECT_DIR$/android/core/sync" />
+            <option value="$PROJECT_DIR$/android/feature" />
+            <option value="$PROJECT_DIR$/android/feature/activity" />
+            <option value="$PROJECT_DIR$/android/feature/auth" />
+            <option value="$PROJECT_DIR$/android/feature/classroom" />
+            <option value="$PROJECT_DIR$/android/feature/home" />
+            <option value="$PROJECT_DIR$/android/feature/learn" />
+            <option value="$PROJECT_DIR$/android/feature/live" />
+            <option value="$PROJECT_DIR$/android/feature/profile" />
           </set>
         </option>
       </GradleProjectSettings>
