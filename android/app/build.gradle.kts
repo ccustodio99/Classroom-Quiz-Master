@@ -91,6 +91,9 @@ dependencies {
     implementation(libs.google.webrtc)
     implementation(platform(libs.firebase.bom))
     implementation(libs.firebase.analytics)
+    implementation(libs.firebase.auth)
+    implementation(libs.firebase.firestore)
+    implementation(libs.firebase.storage)
 
     kapt(libs.hilt.compiler)
     kapt(libs.androidx.hilt.compiler)

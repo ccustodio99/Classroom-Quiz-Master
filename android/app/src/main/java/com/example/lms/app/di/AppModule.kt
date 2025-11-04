@@ -9,6 +9,8 @@ import com.example.lms.core.database.dao.UserDao
 import com.example.lms.core.network.ClassRemoteDataSource
 import com.example.lms.core.network.firebase.FirebaseClassDataSource
 import com.example.lms.core.network.live.LiveSignaling
+import com.example.lms.core.network.live.LanDiscoveryManager
+import com.example.lms.core.network.live.WebRtcPeerSession
 import com.example.lms.core.network.presence.PresenceService
 import com.example.lms.core.sync.SyncOrchestrator
 import com.google.firebase.auth.FirebaseAuth
@@ -78,6 +80,16 @@ object AppModule {
     @Provides
     @Singleton
     fun provideLiveSignaling(firestore: FirebaseFirestore): LiveSignaling = LiveSignaling(firestore)
+
+    @Provides
+    @Singleton
+    fun provideLanDiscoveryManager(@ApplicationContext context: Context): LanDiscoveryManager =
+        LanDiscoveryManager(context)
+
+    @Provides
+    @Singleton
+    fun provideWebRtcPeerSession(@ApplicationContext context: Context): WebRtcPeerSession =
+        WebRtcPeerSession(context)
 
     @Provides
     @Singleton

@@ -30,6 +30,7 @@ androidx-compose-ui-testManifest = { module = "androidx.compose.ui:ui-test-manif
 androidx-compose-runtime = { module = "androidx.compose.runtime:runtime" }
 androidx-core-ktx = { module = "androidx.core:core-ktx", version = "1.12.0" }
 androidx-lifecycle-runtime = { module = "androidx.lifecycle:lifecycle-runtime-ktx", version.ref = "androidxLifecycle" }
+androidx-lifecycle-runtime-compose = { module = "androidx.lifecycle:lifecycle-runtime-compose", version.ref = "androidxLifecycle" }
 androidx-lifecycle-viewmodel = { module = "androidx.lifecycle:lifecycle-viewmodel-ktx", version.ref = "androidxLifecycle" }
 androidx-navigation-compose = { module = "androidx.navigation:navigation-compose", version.ref = "androidxNavigation" }
 androidx-room-runtime = { module = "androidx.room:room-runtime", version.ref = "androidxRoom" }
@@ -52,6 +53,7 @@ firebase-auth = { module = "com.google.firebase:firebase-auth-ktx" }
 firebase-firestore = { module = "com.google.firebase:firebase-firestore-ktx" }
 firebase-bom = { module = "com.google.firebase:firebase-bom", version.ref = "firebaseBom" }
 firebase-storage = { module = "com.google.firebase:firebase-storage-ktx" }
+google-webrtc = { module = "org.webrtc:google-webrtc", version = "1.0.32006" }
 androidx-hilt-work = { module = "androidx.hilt:hilt-work", version = "1.2.0" }
 androidx-hilt-compiler = { module = "androidx.hilt:hilt-compiler", version = "1.2.0" }
 flow-turbine = { module = "app.cash.turbine:turbine", version.ref = "turbine" }
