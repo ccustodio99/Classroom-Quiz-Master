@@ -1,6 +1,6 @@
 package com.classroom.quizmaster.data.repo
 
-import com.classroom.quizmaster.agents.GamificationAgent
+import com.classroom.quizmaster.domain.agent.GamificationAgent
 import com.classroom.quizmaster.domain.model.ActivityTimeline
 import com.classroom.quizmaster.domain.model.Badge
 import com.classroom.quizmaster.domain.model.Assignment

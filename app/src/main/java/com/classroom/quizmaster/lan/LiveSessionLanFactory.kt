@@ -1,7 +1,7 @@
 package com.classroom.quizmaster.lan
 
-import com.classroom.quizmaster.agents.LiveSnapshot
-import com.classroom.quizmaster.agents.AnswerPayload
+import com.classroom.quizmaster.domain.model.AnswerPayload
+import com.classroom.quizmaster.domain.model.LiveSnapshot
 
 class LiveSessionLanFactory(
     private val configuration: LanConfiguration = LanConfiguration()

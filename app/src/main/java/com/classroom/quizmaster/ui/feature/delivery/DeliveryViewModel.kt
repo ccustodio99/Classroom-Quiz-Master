@@ -3,7 +3,7 @@ package com.classroom.quizmaster.ui.feature.delivery
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.AppContainer
-import com.classroom.quizmaster.agents.AnswerPayload
+import com.classroom.quizmaster.domain.model.AnswerPayload
 import com.classroom.quizmaster.domain.model.Badge
 import com.classroom.quizmaster.domain.model.InteractiveActivity
 import com.classroom.quizmaster.domain.model.Item

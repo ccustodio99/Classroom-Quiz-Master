@@ -2,6 +2,7 @@ package com.classroom.quizmaster.agents
 
 import com.classroom.quizmaster.data.repo.AccountRepository
 import com.classroom.quizmaster.data.util.PasswordHasher
+import com.classroom.quizmaster.domain.agent.AuthAgent
 import com.classroom.quizmaster.domain.model.AccountStatus
 import com.classroom.quizmaster.domain.model.UserAccount
 import com.classroom.quizmaster.domain.model.UserRole

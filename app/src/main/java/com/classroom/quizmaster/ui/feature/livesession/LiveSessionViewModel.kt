@@ -3,7 +3,7 @@ package com.classroom.quizmaster.ui.feature.livesession
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.AppContainer
-import com.classroom.quizmaster.agents.LiveSnapshot
+import com.classroom.quizmaster.domain.model.LiveSnapshot
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

@@ -2,7 +2,8 @@ package com.classroom.quizmaster.ui.feature.join
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.classroom.quizmaster.agents.AnswerPayload
+import com.classroom.quizmaster.domain.model.AnswerPayload
+import com.classroom.quizmaster.domain.model.LiveSnapshot
 import com.classroom.quizmaster.lan.LanDiscoveryClient
 import com.classroom.quizmaster.lan.LanParticipantClient
 import kotlinx.coroutines.Job
@@ -185,7 +186,7 @@ data class JoinSessionUiState(
     val connected: Boolean = false,
     val activePrompt: String? = null,
     val activeObjective: String? = null,
-    val lastSnapshot: com.classroom.quizmaster.agents.LiveSnapshot? = null,
+    val lastSnapshot: LiveSnapshot? = null,
     val answerAck: String? = null,
     val pendingTypedAnswer: String = ""
 )

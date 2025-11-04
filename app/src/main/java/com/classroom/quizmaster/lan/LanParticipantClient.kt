@@ -1,6 +1,6 @@
 package com.classroom.quizmaster.lan
 
-import com.classroom.quizmaster.agents.AnswerPayload
+import com.classroom.quizmaster.domain.model.AnswerPayload
 import java.io.BufferedReader
 import java.io.BufferedWriter
 import java.io.InputStreamReader
