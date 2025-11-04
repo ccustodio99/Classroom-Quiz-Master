@@ -6,6 +6,7 @@ plugins {
     id("com.google.dagger.hilt.android")
     kotlin("kapt")
     kotlin("plugin.serialization")
+    id("org.jetbrains.kotlin.plugin.compose")
 }
 
 android {
@@ -13,7 +14,7 @@ android {
     compileSdk = 35
 
     defaultConfig {
-        applicationId = "com.acme.lms"
+        applicationId = "com.classroom.quizmaster"
         minSdk = 24
         targetSdk = 35
         versionCode = 1
@@ -65,7 +66,9 @@ dependencies {
     implementation("androidx.core:core-ktx:1.13.1")
     implementation("androidx.activity:activity-compose:1.9.3")
     implementation("androidx.compose.material3:material3")
+    implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.8.3")
+    implementation("com.google.android.material:material:1.12.0")
     implementation("androidx.lifecycle:lifecycle-runtime-ktx:2.8.6")
     implementation("androidx.lifecycle:lifecycle-viewmodel-compose:2.8.6")
     implementation("androidx.hilt:hilt-navigation-compose:1.2.0")
@@ -89,8 +92,8 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
 
     // Coroutines + serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.3")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.3")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.8.1")
     implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
 
     testImplementation("junit:junit:4.13.2")

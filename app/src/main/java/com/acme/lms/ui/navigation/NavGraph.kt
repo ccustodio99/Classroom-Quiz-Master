@@ -10,19 +10,19 @@ import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.navigation.NavController
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Assessment
-import androidx.compose.material.icons.filled.Book
 import androidx.compose.material.icons.filled.Home
-import androidx.compose.material.icons.filled.People
+import androidx.compose.material.icons.filled.MenuBook
+import androidx.compose.material.icons.filled.Group
+import androidx.compose.material.icons.filled.Quiz
 import androidx.compose.material.icons.filled.Person
 
 data class NavItem(val route: String, val label: String, val icon: ImageVector)
 
 private val navItems = listOf(
     NavItem("home", "Home", Icons.Default.Home),
-    NavItem("learn", "Learn", Icons.Default.Book),
-    NavItem("classroom", "Classroom", Icons.Default.People),
-    NavItem("activity", "Activity", Icons.Default.Assessment),
+    NavItem("learn", "Learn", Icons.Default.MenuBook),
+    NavItem("classroom", "Classroom", Icons.Default.Group),
+    NavItem("activity", "Activity", Icons.Default.Quiz),
     NavItem("profile", "Profile", Icons.Default.Person)
 )
 

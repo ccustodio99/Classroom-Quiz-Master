@@ -1,6 +1,20 @@
 <?xml version="1.0" encoding="UTF-8"?>
 <project version="4">
   <component name="CompilerConfiguration">
-    <bytecodeTargetLevel target="1.6" />
+    <bytecodeTargetLevel target="21">
+      <module name="ClassroomLMS.app" target="21" />
+      <module name="ClassroomLMS.core.common" target="21" />
+      <module name="ClassroomLMS.core.database" target="21" />
+      <module name="ClassroomLMS.core.model" target="21" />
+      <module name="ClassroomLMS.core.network" target="21" />
+      <module name="ClassroomLMS.core.sync" target="21" />
+      <module name="ClassroomLMS.feature.activity" target="21" />
+      <module name="ClassroomLMS.feature.auth" target="21" />
+      <module name="ClassroomLMS.feature.classroom" target="21" />
+      <module name="ClassroomLMS.feature.home" target="21" />
+      <module name="ClassroomLMS.feature.learn" target="21" />
+      <module name="ClassroomLMS.feature.live" target="21" />
+      <module name="ClassroomLMS.feature.profile" target="21" />
+    </bytecodeTargetLevel>
   </component>
 </project>
