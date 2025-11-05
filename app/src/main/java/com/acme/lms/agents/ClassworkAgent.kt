@@ -1,7 +1,7 @@
 package com.acme.lms.agents
 
-import com.example.lms.core.model.Classwork
-import com.example.lms.core.model.Submission
+import com.acme.lms.data.model.Classwork
+import com.acme.lms.data.model.Submission
 
 interface ClassworkAgent {
     suspend fun createOrUpdate(classwork: Classwork): Result<Unit>

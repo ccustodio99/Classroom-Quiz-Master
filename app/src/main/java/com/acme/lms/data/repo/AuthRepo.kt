@@ -1,7 +1,7 @@
 package com.acme.lms.data.repo
 
-import com.example.lms.core.model.User
-import com.example.lms.core.model.UserRole // Added for UserRole enum
+import com.acme.lms.data.model.User
+import com.acme.lms.data.model.UserRole
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject

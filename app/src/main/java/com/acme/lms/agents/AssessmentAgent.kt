@@ -1,7 +1,7 @@
 package com.acme.lms.agents
 
-import com.example.lms.core.model.Attempt
-import com.example.lms.core.model.Submission
+import com.acme.lms.data.model.Attempt
+import com.acme.lms.data.model.Submission
 
 interface AssessmentAgent {
     suspend fun start(classId: String, classworkId: String, userId: String): Attempt

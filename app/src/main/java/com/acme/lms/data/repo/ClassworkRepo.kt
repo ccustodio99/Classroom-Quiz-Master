@@ -1,7 +1,7 @@
 package com.acme.lms.data.repo
 
-import com.example.lms.core.model.Classwork
-import com.example.lms.core.model.Submission
+import com.acme.lms.data.model.Classwork
+import com.acme.lms.data.model.Submission
 import kotlinx.coroutines.flow.Flow
 
 interface ClassworkRepo {

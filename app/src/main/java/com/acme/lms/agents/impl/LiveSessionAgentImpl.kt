@@ -1,9 +1,9 @@
 package com.acme.lms.agents.impl
 
 import com.acme.lms.agents.LiveSessionAgent
-import com.example.lms.core.model.LiveResponse
-import com.example.lms.core.model.LiveSession
-import com.example.lms.core.model.LiveSessionState // Added
+import com.acme.lms.data.model.LiveResponse
+import com.acme.lms.data.model.LiveSession
+import com.acme.lms.data.model.LiveSessionState
 import com.acme.lms.data.repo.LiveRepo
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -17,7 +17,11 @@ class LiveSessionAgentImpl @Inject constructor(
 ) : LiveSessionAgent {
 
     override suspend fun startSession(classId: String, classworkId: String, hostId: String): LiveSession = runCatching {
-        val classworkDoc = db.document(classworkId)
+        val classworkDoc = if (classworkId.contains("/")) {
+            db.document(classworkId)
+        } else {
+            db.document(classId).collection("classwork").document(classworkId)
+        }
         // ensure classwork exists
         classworkDoc.get().await()
         val session = LiveSession(

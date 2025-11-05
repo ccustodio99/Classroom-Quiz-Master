@@ -1,7 +1,7 @@
 package com.acme.lms.data.repo.impl
 
-import com.example.lms.core.model.Classwork
-import com.example.lms.core.model.Submission
+import com.acme.lms.data.model.Classwork
+import com.acme.lms.data.model.Submission
 import com.acme.lms.data.repo.ClassworkRepo
 import com.acme.lms.data.util.Time
 import com.acme.lms.data.util.asFlow

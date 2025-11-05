@@ -1,10 +1,10 @@
 package com.acme.lms.data.repo.impl
 
-import com.example.lms.core.model.Class
-import com.example.lms.core.model.JoinPolicy
-import com.example.lms.core.model.Roster
-import com.example.lms.core.model.RosterRole
-import com.example.lms.core.model.User
+import com.acme.lms.data.model.Class
+import com.acme.lms.data.model.JoinPolicy
+import com.acme.lms.data.model.Roster
+import com.acme.lms.data.model.RosterRole
+import com.acme.lms.data.model.User
 import com.acme.lms.data.repo.ClassRepo
 import com.acme.lms.data.util.asFlow
 import com.google.firebase.auth.FirebaseAuth

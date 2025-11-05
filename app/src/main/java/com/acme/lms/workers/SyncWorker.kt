@@ -4,10 +4,13 @@ import android.content.Context
 import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
+import androidx.work.workDataOf
 import com.acme.lms.data.repo.SyncRepo
+import com.acme.lms.data.util.Time
 import dagger.assisted.Assisted
 import dagger.assisted.AssistedInject
 import timber.log.Timber
+import com.acme.lms.agents.impl.SYNC_OUTPUT_COMPLETED_AT
 
 @HiltWorker
 class SyncWorker @AssistedInject constructor(
@@ -19,7 +22,9 @@ class SyncWorker @AssistedInject constructor(
     override suspend fun doWork(): Result {
         return try {
             syncRepo.sync()
-            Result.success()
+            Result.success(
+                workDataOf(SYNC_OUTPUT_COMPLETED_AT to Time.now())
+            )
         } catch (e: Exception) {
             Timber.e(e, "Sync failed")
             Result.failure()
