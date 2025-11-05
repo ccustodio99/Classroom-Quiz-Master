@@ -1,6 +1,6 @@
 package com.acme.lms.agents
 
-import com.example.lms.core.model.SyncStatus
+import com.acme.lms.data.model.SyncStatus
 import kotlinx.coroutines.flow.StateFlow
 
 interface DataSyncAgent {

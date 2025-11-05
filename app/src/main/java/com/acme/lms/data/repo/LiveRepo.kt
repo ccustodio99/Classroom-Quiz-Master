@@ -1,8 +1,8 @@
 package com.acme.lms.data.repo
 
-import com.example.lms.core.model.LiveResponse
-import com.example.lms.core.model.LiveSession
-import com.example.lms.core.model.LiveSessionState
+import com.acme.lms.data.model.LiveResponse
+import com.acme.lms.data.model.LiveSession
+import com.acme.lms.data.model.LiveSessionState
 import com.acme.lms.data.net.lan.LanBroadcaster
 import com.acme.lms.data.net.webrtc.WebRtcHost
 import com.acme.lms.data.util.Time

@@ -1,9 +1,9 @@
 package com.acme.lms.agents.impl
 
 import com.acme.lms.agents.ClassroomAgent
-import com.example.lms.core.model.Class
-import com.example.lms.core.model.Roster
-import com.example.lms.core.model.User
+import com.acme.lms.data.model.Class
+import com.acme.lms.data.model.Roster
+import com.acme.lms.data.model.User
 import com.acme.lms.data.repo.ClassRepo
 import javax.inject.Inject
 import javax.inject.Singleton

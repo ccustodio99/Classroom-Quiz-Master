@@ -1,8 +1,8 @@
 package com.acme.lms.agents.impl
 
 import com.acme.lms.agents.ClassworkAgent
-import com.example.lms.core.model.Classwork
-import com.example.lms.core.model.Submission
+import com.acme.lms.data.model.Classwork
+import com.acme.lms.data.model.Submission
 import com.acme.lms.data.repo.ClassworkRepo
 import javax.inject.Inject
 import javax.inject.Singleton

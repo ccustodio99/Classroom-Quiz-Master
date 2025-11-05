@@ -1,7 +1,7 @@
 package com.acme.lms.agents
 
-import com.example.lms.core.model.LiveResponse
-import com.example.lms.core.model.LiveSession
+import com.acme.lms.data.model.LiveResponse
+import com.acme.lms.data.model.LiveSession
 
 interface LiveSessionAgent {
     suspend fun startSession(classId: String, classworkId: String, hostId: String): LiveSession
