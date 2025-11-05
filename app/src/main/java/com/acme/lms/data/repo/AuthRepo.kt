@@ -1,6 +1,7 @@
 package com.acme.lms.data.repo
 
-import com.acme.lms.data.model.User
+import com.example.lms.core.model.User
+import com.example.lms.core.model.UserRole // Added for UserRole enum
 import com.google.firebase.auth.FirebaseAuth
 import kotlinx.coroutines.tasks.await
 import javax.inject.Inject
@@ -21,6 +22,7 @@ class AuthRepo @Inject constructor(
             id = firebaseUser.uid,
             name = firebaseUser.displayName.orEmpty(),
             email = firebaseUser.email.orEmpty(),
+            role = UserRole.LEARNER, // Fixed: Defaulting role to LEARNER for new sign-ins
             org = firebaseUser.photoUrl?.host.orEmpty() // placeholder for org claim
         )
     }

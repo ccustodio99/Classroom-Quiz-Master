@@ -3,7 +3,7 @@ package com.acme.lms.ui.viewmodel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.acme.lms.agents.ClassroomAgent
-import com.acme.lms.data.model.Roster
+import com.example.lms.core.model.Roster
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow

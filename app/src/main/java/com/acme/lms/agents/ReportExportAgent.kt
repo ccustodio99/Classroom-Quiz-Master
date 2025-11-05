@@ -1,6 +1,6 @@
 package com.acme.lms.agents
 
-import com.acme.lms.data.model.FileRef
+import com.example.lms.core.model.FileRef
 
 interface ReportExportAgent {
     suspend fun exportClassSummaryPdf(classId: String): Result<FileRef>

@@ -1,39 +1,55 @@
 package com.acme.lms.agents.impl
 
+import android.content.Context
+import androidx.work.ExistingPeriodicWorkPolicy
+import androidx.work.PeriodicWorkRequestBuilder
+import androidx.work.WorkManager
 import com.acme.lms.agents.DataSyncAgent
-import com.acme.lms.data.model.SyncStatus
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.launch
+import com.example.lms.core.model.SyncStatus
+import com.acme.lms.workers.SyncWorker
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
+import java.util.concurrent.TimeUnit
 import javax.inject.Inject
 import javax.inject.Singleton
 
 @Singleton
-class DataSyncAgentImpl @Inject constructor() : DataSyncAgent {
+class DataSyncAgentImpl @Inject constructor(
+    private val context: Context
+) : DataSyncAgent {
 
-    private val scope = CoroutineScope(Dispatchers.IO + Job())
-    private val status = MutableStateFlow(SyncStatus.IDLE)
+    private val workManager = WorkManager.getInstance(context)
 
     override fun start() {
-        if (status.value == SyncStatus.RUNNING) return
-        triggerSync()
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(
+            15, TimeUnit.MINUTES
+        ).build()
+        workManager.enqueueUniquePeriodicWork(
+            "sync",
+            ExistingPeriodicWorkPolicy.KEEP,
+            request
+        )
     }
 
-    override fun getStatus(): StateFlow<SyncStatus> = status
+    override fun getStatus(): Flow<SyncStatus> {
+        return workManager.getWorkInfosForUniqueWorkFlow("sync").map {
+            val workInfo = it.firstOrNull()
+            SyncStatus(
+                inProgress = workInfo?.state?.isFinished == false,
+                lastSuccessAt = null, // TODO: Get actual last success time from SyncOrchestrator
+                pendingItems = 0 // TODO: Get actual pending items count from SyncOrchestrator
+            )
+        }
+    }
 
     override fun triggerSync() {
-        scope.launch {
-            status.value = SyncStatus.RUNNING
-            try {
-                delay(500) // simulate sync work
-                status.value = SyncStatus.IDLE
-            } catch (t: Throwable) {
-                status.value = SyncStatus.ERROR
-            }
-        }
+        val request = PeriodicWorkRequestBuilder<SyncWorker>(
+            15, TimeUnit.MINUTES
+        ).build()
+        workManager.enqueueUniquePeriodicWork(
+            "sync",
+            ExistingPeriodicWorkPolicy.REPLACE,
+            request
+        )
     }
 }

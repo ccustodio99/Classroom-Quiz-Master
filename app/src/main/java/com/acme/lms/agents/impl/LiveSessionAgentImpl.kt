@@ -1,8 +1,9 @@
 package com.acme.lms.agents.impl
 
 import com.acme.lms.agents.LiveSessionAgent
-import com.acme.lms.data.model.LiveResponse
-import com.acme.lms.data.model.LiveSession
+import com.example.lms.core.model.LiveResponse
+import com.example.lms.core.model.LiveSession
+import com.example.lms.core.model.LiveSessionState // Added
 import com.acme.lms.data.repo.LiveRepo
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -15,22 +16,24 @@ class LiveSessionAgentImpl @Inject constructor(
     private val db: FirebaseFirestore
 ) : LiveSessionAgent {
 
-    override suspend fun startSession(classworkId: String, hostId: String): LiveSession {
+    override suspend fun startSession(classId: String, classworkId: String, hostId: String): LiveSession = runCatching {
         val classworkDoc = db.document(classworkId)
-        val classPath = classworkDoc.parent?.parent?.path
-            ?: error("Invalid classwork path: $classworkId")
         // ensure classwork exists
         classworkDoc.get().await()
         val session = LiveSession(
-            classId = classPath,
-            workId = classworkId,
-            hostId = hostId
+            classId = classId,
+            assignmentId = classworkId, // Fixed: Renamed workId to assignmentId
+            state = LiveSessionState.LOBBY, // Added default state
+            startedAt = null, // Explicitly null for starting session
+            endedAt = null, // Explicitly null for starting session
         )
-        return liveRepo.hostSession(classPath, session)
-    }
+        liveRepo.hostSession(classId, session)
+    }.getOrThrow()
 
-    override suspend fun joinSession(joinCode: String, userId: String): Result<Unit> =
-        Result.success(Unit) // LAN discovery handled by client; Firestore fallback not yet implemented
+    override suspend fun joinSession(joinCode: String, userId: String): Result<Unit> {
+        // LAN discovery handled by client; Firestore fallback not yet implemented
+        return Result.success(Unit)
+    }
 
     override suspend fun submitResponse(response: LiveResponse): Result<Unit> =
         runCatching { liveRepo.submitResponse(response) }

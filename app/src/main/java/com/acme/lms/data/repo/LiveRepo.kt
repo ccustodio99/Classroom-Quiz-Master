@@ -1,7 +1,8 @@
 package com.acme.lms.data.repo
 
-import com.acme.lms.data.model.LiveResponse
-import com.acme.lms.data.model.LiveSession
+import com.example.lms.core.model.LiveResponse
+import com.example.lms.core.model.LiveSession
+import com.example.lms.core.model.LiveSessionState
 import com.acme.lms.data.net.lan.LanBroadcaster
 import com.acme.lms.data.net.webrtc.WebRtcHost
 import com.acme.lms.data.util.Time
@@ -28,7 +29,7 @@ class LiveRepo @Inject constructor(
         val enriched = session.copy(
             id = doc.path,
             classId = classPath,
-            status = "running",
+            state = LiveSessionState.RUNNING, // FIXED: from 'status = "running"' to 'state = LiveSessionState.RUNNING'
             startedAt = Time.now()
         )
         lan.start(enriched.id)
@@ -40,14 +41,14 @@ class LiveRepo @Inject constructor(
     fun answersStream(sessionPath: String): Flow<List<LiveResponse>> =
         sessionDoc(sessionPath)
             .collection("responses")
-            .orderBy("ts", Query.Direction.DESCENDING)
+            .orderBy("timestamp", Query.Direction.DESCENDING)
             .asFlow(::responseFromSnapshot)
 
     suspend fun submitResponse(response: LiveResponse) {
         val doc = sessionDoc(response.sessionId)
         doc.collection("responses")
             .document(response.id.ifBlank { doc.collection("responses").document().id })
-            .set(response.copy(ts = Time.now()))
+            .set(response.copy(timestamp = Time.now()))
             .await()
     }
 
@@ -62,8 +63,7 @@ class LiveRepo @Inject constructor(
         db.document(sessionPath)
 
     private fun responseFromSnapshot(snapshot: DocumentSnapshot): LiveResponse =
-        snapshot.toObject(LiveResponse::class.java)?.copy(id = snapshot.id)
-            ?: LiveResponse(id = snapshot.id, sessionId = "", questionId = "", userId = "")
+        snapshot.toObject(LiveResponse::class.java)!!
 
     private fun parseClassPath(path: String): Pair<String, String> {
         val segments = path.split("/")
