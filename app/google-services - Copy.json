@@ -9,7 +9,7 @@
       "client_info": {
         "mobilesdk_app_id": "1:413574793093:android:5a2988ef7a94e32dc366ec",
         "android_client_info": {
-          "package_name": "com.acme.lms"
+          "package_name": "com.classroom.quizmaster"
         }
       },
       "oauth_client": [],

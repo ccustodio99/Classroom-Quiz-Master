@@ -10,12 +10,12 @@ plugins {
 }
 
 android {
-    namespace = "com.acme.lms"
+    namespace = "com.classroom.quizmaster"
     compileSdk = 36
 
     defaultConfig {
         applicationId = "com.classroom.quizmaster"
-        minSdk = 24
+        minSdk = 26
         targetSdk = 36
         versionCode = 1
         versionName = "1.0.0"
@@ -46,9 +46,10 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.14"
+        kotlinCompilerExtensionVersion = "1.6.10"
     }
 
     packaging {
@@ -59,12 +60,12 @@ android {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2023.03.00")
+    val composeBom = platform("androidx.compose:compose-bom:2024.08.00")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
-    implementation("androidx.core:core-ktx:1.13.1")
-    implementation("androidx.activity:activity-compose:1.11.0")
+    implementation("androidx.core:core-ktx:1.15.0")
+    implementation("androidx.activity:activity-compose:1.9.0")
     implementation("androidx.compose.material3:material3")
     implementation("androidx.compose.material:material-icons-extended")
     implementation("androidx.navigation:navigation-compose:2.9.5")
@@ -76,17 +77,18 @@ dependencies {
     implementation("androidx.hilt:hilt-work:1.2.0")
     kapt("androidx.hilt:hilt-compiler:1.2.0")
 
-    // Firebase (explicitly defined versions to resolve "could not find" errors)
-    // implementation(platform("com.google.firebase:firebase-bom:34.5.0")) // Removed temporarily
-    implementation("com.google.firebase:firebase-auth-ktx:23.2.1")
-    implementation("com.google.firebase:firebase-firestore-ktx:25.1.4")
-    implementation("com.google.firebase:firebase-database-ktx:21.0.0")
-    implementation("com.google.firebase:firebase-analytics-ktx:22.5.0")
-    implementation("com.google.firebase:firebase-storage-ktx:21.0.2")
+    // Firebase: Using BOM for version consistency
+    implementation(platform("com.google.firebase:firebase-bom:33.16.0"))
+    androidTestImplementation(platform("com.google.firebase:firebase-bom:33.16.0"))
+    implementation("com.google.firebase:firebase-auth-ktx")
+    implementation("com.google.firebase:firebase-firestore-ktx")
+    implementation("com.google.firebase:firebase-database-ktx")
+    implementation("com.google.firebase:firebase-analytics-ktx")
+    implementation("com.google.firebase:firebase-storage-ktx")
 
     // Hilt
-    implementation("com.google.dagger:hilt-android:2.52")
-    kapt("com.google.dagger:hilt-compiler:2.52")
+    implementation("com.google.dagger:hilt-android:2.57.2")
+    kapt("com.google.dagger:hilt-compiler:2.57.2")
 
     // WebRTC / LAN helpers
     implementation("io.github.webrtc-sdk:android:137.7151.04")
@@ -96,9 +98,9 @@ dependencies {
     implementation("com.google.zxing:core:3.5.3")
 
     // Coroutines + serialization
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.10.2")
-    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-play-services:1.9.0")
+    implementation("org.jetbrains.kotlinx:kotlinx-serialization-json:1.7.3")
     implementation("com.jakewharton.timber:timber:5.0.1")
 
     testImplementation("junit:junit:4.13.2")

@@ -43,13 +43,13 @@ interface ClassworkAgent {
 ## 3) AssessmentAgent
 **Responsibility:** Deliver assessments, manage timing, and score responses against keys.  
 **Triggers:** Learner starts a `Classwork` item of type `PRETEST`, `POSTTEST`, or `QUIZ`.  
-**Inputs:** `Classwork` ID, `User` ID.  
+**Inputs:** `Class` ID, `Classwork` ID, `User` ID.  
 **Outputs:** `Attempt` records with answers and timestamps.  
 **Core Entities:** `Attempt`, `Question`, `Submission`
 
 ```kotlin
 interface AssessmentAgent {
-  suspend fun start(classworkId: String, userId: String): Attempt
+  suspend fun start(classId: String, classworkId: String, userId: String): Attempt
   suspend fun submit(attempt: Attempt): Result<Submission>
 }
 ```
@@ -59,14 +59,14 @@ interface AssessmentAgent {
 ## 4) LiveSessionAgent
 **Responsibility:** Manage real-time in-class activities (Kahoot-style). Prioritises LAN/WebRTC, with Firestore fallback.  
 **Triggers:** Instructor starts `LIVE` classwork.  
-**Inputs:** `Classwork` (live), host settings.  
+**Inputs:** `Class` ID, `Classwork` (live), host settings.  
 **Outputs:** `LiveSession` state and `LiveResponse` records.  
 **Notes:** Handles host failover and presence tracking.  
 **Core Entities:** `LiveSession`, `LiveResponse`
 
 ```kotlin
 interface LiveSessionAgent {
-  suspend fun startSession(classworkId: String, hostId: String): LiveSession
+  suspend fun startSession(classId: String, classworkId: String, hostId: String): LiveSession
   suspend fun joinSession(joinCode: String, userId: String): Result<Unit>
   suspend fun submitResponse(response: LiveResponse): Result<Unit>
 }
