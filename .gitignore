@@ -1,19 +1,19 @@
+# Gradle
 .gradle/
 build/
-*.log
-android-commandlinetools.zip
-gradle-8.5/
-# Track the Gradle wrapper so contributors use the vetted version
-# (see https://docs.gradle.org/current/userguide/gradle_wrapper.html)
-# The bootstrap JAR is generated locally via `gradle wrapper` and should not
-# be committed to the repository.
-gradle/wrapper/gradle-wrapper.jar
+*/build/
+!gradle/wrapper/gradle-wrapper.jar
+
+# IDEs
+.idea/
+*.iml
+
+# Android Studio
 local.properties
+.cxx/
+.externalNativeBuild/
+.cordova/
 
-app/build/
-*.apk
-functions/node_modules/
-functions/lib/
-firebase/serviceAccount*.json
-app/src/main/google-services.json
-
+# OS
+.DS_Store
+Thumbs.db

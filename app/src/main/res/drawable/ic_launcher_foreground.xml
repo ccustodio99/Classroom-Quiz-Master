@@ -4,12 +4,15 @@
     android:height="108dp"
     android:viewportWidth="108"
     android:viewportHeight="108">
-    <group android:translateX="14" android:translateY="14">
+    <group
+        android:name="quiz"
+        android:pivotX="54"
+        android:pivotY="54">
         <path
-            android:fillColor="@color/white"
-            android:pathData="M64,10L64,60L10,60L10,10z" />
+            android:fillColor="#FFFFFF"
+            android:pathData="M32,24h44a4,4 0 0 1 4,4v40a4,4 0 0 1 -4,4H46l-14,12v-12h-4a4,4 0 0 1 -4,-4V28a4,4 0 0 1 4,-4z" />
         <path
-            android:fillColor="@color/purple_700"
-            android:pathData="M18,20h38v8h-38zM18,32h30v8h-30zM18,44h22v8h-22z" />
+            android:fillColor="#6750A4"
+            android:pathData="M48,36a10,10 0 1 1 12,9.8V52a2,2 0 0 1 -2,2h-4v-4h2v-4.2A10,10 0 0 1 48,36zM55,66a3,3 0 1 1 0,6 3,3 0 0 1 0,-6z" />
     </group>
 </vector>

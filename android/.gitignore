@@ -1,7 +1,0 @@
-/build/
-/captures/
-/.idea/
-/local.properties
-/.gradle/
-.DS_Store
-gradle/wrapper/gradle-wrapper.jar

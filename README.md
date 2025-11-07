@@ -1,100 +1,36 @@
-# Mobile LMS (Kotlin + Firestore)
+﻿# Classroom Quiz Master (Android)
 
-This repository provides a production-ready Android baseline that maps directly to the **Functional Agents** blueprint in `AGENTS.md`. It is configured for Firebase Firestore (offline-first), Firebase Auth, Storage, Functions hooks, and a LAN/WebRTC live-activity layer.
+A minimal Android app written in Kotlin + Jetpack Compose that showcases a "role alignment" flow for the Classroom Quiz Master project. The current build focuses on a single screen that lets facilitators, students, or observers pick their workflow before starting a quiz session.
 
-## Project Layout
+## Highlights
 
-```
-mobile-lms/
-├─ README.md
-├─ build.gradle.kts
-├─ settings.gradle.kts
-├─ gradle.properties
-├─ app/
-│  ├─ build.gradle.kts
-│  ├─ proguard-rules.pro
-│  └─ src/main/
-│     ├─ AndroidManifest.xml
-│     └─ java/com/acme/lms/
-│        ├─ LmsApp.kt
-│        ├─ di/AppModule.kt
-│        ├─ agents/
-│        │  ├─ ClassroomAgent.kt (+ impl/)
-│        │  └─ …
-│        ├─ data/
-│        │  ├─ model/ (User, Class, Roster, Classwork, Attempt…)
-│        │  ├─ repo/ (AuthRepo, ClassRepo, ClassworkRepo, LiveRepo, AnalyticsRepo)
-│        │  ├─ net/lan + net/webrtc (LAN broadcast + WebRTC stubs)
-│        │  └─ util/ (Firestore extensions, Time)
-│        └─ ui/
-│           ├─ MainActivity.kt, navigation/NavGraph.kt
-│           ├─ screens/{home,learn,classroom,activity,profile,lesson}
-│           └─ viewmodel/{HomeViewModel,…}
-├─ firebase/
-│  ├─ firestore.rules
-│  ├─ firestore.indexes.json
-│  ├─ storage.rules
-│  └─ emulators.json
-├─ functions/ (Firebase Cloud Functions – TypeScript)
-└─ scripts/ (CI helpers, Firestore seed)
-```
-
-> Firebase configuration files (`google-services.json`, service account secrets) are not committed. Add them locally before building.
-
-## Key Features
-
-- **Jetpack Compose + Material 3** UI with Navigation Compose and MVVM (Hilt-injected view models).
-- **Hilt DI** modules wiring every agent to its implementation.
-- **Firestore offline persistence** enabled globally in `LmsApp.kt`.
-- **Functional agents** (Classroom, Classwork, Assessment, Live Session, Scoring Analytics, Report Export, Data Sync, Presence) with injectable facades and Firestore-based repositories.
-- **LAN/WebRTC live activities** via `LanBroadcaster` and `WebRtcHost` stubs, with Firestore fallback for session state.
-- **Firebase Analytics / Crashlytics** ready through the platform BOM (33.5.1).
-
-## Firestore Data Model
-
-```
-/orgs/{orgId}
-  users/{userId}
-  classes/{classId}
-    roster/{userId}
-    classwork/{workId}
-      submissions/{submissionId}
-        attempts/{attemptId}
-    liveSessions/{sessionId}
-      responses/{responseId}
-  presence/{userId}
-  counters/{counterId}
-```
-
-Composite indexes, sharded counters, and RBAC rules are provided under `firebase/`.
+- **Modern stack** - Android Gradle Plugin 8.3, Kotlin 1.9, Material 3, and Jetpack Compose.
+- **Composable UI** - `QuizDashboard` demonstrates state handling, previews, and theming.
+- **Ready for IDE import** - Includes Gradle wrapper, instrumentation/unit test stubs, and baseline resources/icons.
 
 ## Getting Started
 
-1. **Clone** the repo and open the `mobile-lms` root in Android Studio (Ladybug+).
-2. **Add Firebase config**: download `google-services.json` from the Firebase console and drop it into `app/src/main/`.
-3. **Install dependencies**: the Gradle configuration uses Android Gradle Plugin 8.6.0 and Kotlin 2.0.20. No additional steps are required beyond a Gradle sync.
-4. **Deploy Firebase artifacts** (optional):
+1. Install Android Studio Iguana+ (or the latest stable) with the Android SDK 34 platform and JDK 17.
+2. Clone this repository and open it in Android Studio (`File > Open`).
+3. Let Gradle sync. If you prefer the command line, run `./gradlew tasks` from the project root once JDK 17 is available.
+4. Choose a device/emulator running Android 7.0 (API 24) or newer and press **Run**.
 
-   ```bash
-   firebase deploy --only firestore:rules,firestore:indexes,storage
-   cd functions && npm install && npm run build && firebase deploy --only functions
-   ```
+## Project Structure
 
-5. **Run the app**:
+```
+Classroom-Quiz-Master/
+|- app/                 # Android application module
+|  |- src/main/java    # Kotlin sources (MainActivity + Compose UI)
+|  |- src/main/res     # Resources, themes, icons, and strings
+|  |- src/test         # JVM unit test stubs
+|  |- src/androidTest  # Instrumented test stubs
+|- gradle/              # Gradle wrapper metadata
+|- build.gradle.kts     # Top-level Gradle configuration
+|- settings.gradle.kts  # Module inclusion + repositories
+```
 
-   ```bash
-   ./gradlew :app:installDebug
-   ```
+## Next Ideas
 
-   or use Android Studio’s “Run” button after selecting an emulator/device.
-
-## Testing & CI
-
-Use the bundled script `./gradlew lintDebug testDebugUnitTest assembleDebug` (or the CI workflow under `.github/workflows/android.yml`) to verify the build. Cloud Functions, Firestore rules, and emulators remain optional but are ready for integration.
-
-## Next Steps
-
-- Implement LAN discovery and WebRTC signaling inside the stubs under `data/net`.
-- Extend `ReportExportAgentImpl` with real PDF/CSV generation and storage.
-- Flesh out view models and Compose screens with real data flows once Firebase configs are linked.
-*** End Patch
+- Hook the role selection to real navigation flows once backend pieces are in place.
+- Add persistence (e.g., DataStore) so the previously selected role is remembered.
+- Extend the UI with sample quiz cards or live session summaries.
