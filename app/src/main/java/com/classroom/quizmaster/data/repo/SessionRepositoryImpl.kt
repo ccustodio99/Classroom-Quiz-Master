@@ -18,9 +18,11 @@ import com.classroom.quizmaster.data.lan.LanServiceDescriptor
 import com.classroom.quizmaster.data.lan.NsdHelper
 import com.classroom.quizmaster.data.lan.WireMessage
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
+import com.classroom.quizmaster.data.local.dao.LanSessionDao
 import com.classroom.quizmaster.data.local.dao.OpLogDao
 import com.classroom.quizmaster.data.local.dao.SessionDao
 import com.classroom.quizmaster.data.local.entity.AttemptLocalEntity
+import com.classroom.quizmaster.data.local.entity.LanSessionMetaEntity
 import com.classroom.quizmaster.data.local.entity.OpLogEntity
 import com.classroom.quizmaster.data.local.entity.ParticipantLocalEntity
 import com.classroom.quizmaster.data.local.entity.SessionLocalEntity
@@ -42,6 +44,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -72,6 +76,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     private val sessionDao: SessionDao = db.sessionDao()
     private val opLogDao: OpLogDao = db.opLogDao()
+    private val lanSessionDao: LanSessionDao = db.lanSessionDao()
     private val workManager = WorkManager.getInstance(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -85,8 +90,14 @@ class SessionRepositoryImpl @Inject constructor(
         sessionDao.observeCurrentSession().map { it?.toDomain() }
 
     override val participants: Flow<List<Participant>> =
-        sessionDao.observeParticipants().map { list ->
-            list.map { it.toDomain() }
+        sessionDao.observeCurrentSession().flatMapLatest { session ->
+            if (session == null) {
+                flowOf(emptyList())
+            } else {
+                sessionDao.observeParticipants(session.id).map { list ->
+                    list.map { it.toDomain() }
+                }
+            }
         }
 
     override val pendingOpCount = opLogDao.observePendingCount()
@@ -101,12 +112,18 @@ class SessionRepositoryImpl @Inject constructor(
                     }
                     is WireMessage.Leaderboard -> runCatching {
                         val list = json.decodeFromString<List<Participant>>(message.leaderboardJson)
-                        sessionDao.upsertParticipants(list.map { it.toEntity() })
+                        val sessionId = sessionDao.currentSession()?.id ?: return@runCatching
+                        sessionDao.upsertParticipants(list.map { it.toEntity(sessionId) })
                     }
                     else -> {
                         // No-op for now; additional message types handled elsewhere.
                     }
                 }
+            }
+        }
+        scope.launch {
+            lanSessionDao.observeLatest().collectLatest { entity ->
+                lanMetaState.value = entity?.toDomain()
             }
         }
     }
@@ -137,6 +154,7 @@ class SessionRepositoryImpl @Inject constructor(
             entity,
             listOf(
                 ParticipantLocalEntity(
+                    sessionId = entity.id,
                     uid = "host",
                     nickname = normalizedHost,
                     avatar = "teacher",
@@ -158,6 +176,16 @@ class SessionRepositoryImpl @Inject constructor(
             port = boundPort,
             startedAt = Clock.System.now()
         )
+        lanSessionDao.upsert(
+            LanSessionMetaEntity(
+                sessionId = session.id,
+                token = token,
+                hostIp = hostIp,
+                port = boundPort,
+                startedAt = lanMetaState.value!!.startedAt.toEpochMilliseconds(),
+                rotationCount = 0
+            )
+        )
         session
     }
 
@@ -168,8 +196,8 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun submitAttemptLocally(attempt: Attempt) = withContext(Dispatchers.IO) {
-        db.attemptDao().upsertAttempt(attempt.toEntity(json))
         val currentSession = sessionDao.currentSession() ?: return@withContext
+        db.attemptDao().upsertAttempt(attempt.toEntity(json, currentSession.id))
         val shouldSyncToCloud = isTeacherAccount()
         val op = if (shouldSyncToCloud) {
             val pendingPayload = PendingAttemptPayload(
@@ -181,7 +209,8 @@ class SessionRepositoryImpl @Inject constructor(
                 type = OP_TYPE_ATTEMPT,
                 payloadJson = json.encodeToString(pendingPayload),
                 ts = Clock.System.now().toEpochMilliseconds(),
-                synced = false
+                synced = false,
+                retryCount = 0
             ).also { entry ->
                 opLogDao.enqueue(entry)
                 triggerImmediateSync()
@@ -225,7 +254,9 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun kickParticipant(uid: String) = withContext(Dispatchers.IO) {
         lanHostManager.kick(uid)
-        sessionDao.deleteParticipant(uid)
+        sessionDao.currentSession()?.let { session ->
+            sessionDao.deleteParticipant(session.id, uid)
+        }
     }
 
     override suspend fun syncPending() = withContext(Dispatchers.IO) {
@@ -242,6 +273,7 @@ class SessionRepositoryImpl @Inject constructor(
                         syncedIds += op.id
                     } else {
                         result.exceptionOrNull()?.let { Timber.w(it, "Attempt sync failed") }
+                        opLogDao.incrementRetry(op.id)
                     }
                 }
 
@@ -261,12 +293,13 @@ class SessionRepositoryImpl @Inject constructor(
         lanClient.disconnect()
         joinedEndpoint = null
         studentNickname = null
+        lanSessionDao.clear()
         context.stopService(
             Intent(context, com.classroom.quizmaster.lan.QuizMasterLanHostService::class.java).apply {
                 action = com.classroom.quizmaster.lan.QuizMasterLanHostService.ACTION_STOP
             }
         )
-        sessionDao.clearSession()
+        sessionDao.clearSessions()
         sessionDao.clearParticipants()
         db.attemptDao().clear()
     }
@@ -293,6 +326,7 @@ class SessionRepositoryImpl @Inject constructor(
         val request = OneTimeWorkRequestBuilder<FirestoreSyncWorker>()
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
+            .setIdempotent(true)
             .build()
         workManager.enqueueUniqueWork(
             "${FirestoreSyncWorker.UNIQUE_NAME}_now",
@@ -312,6 +346,8 @@ class SessionRepositoryImpl @Inject constructor(
         reveal = reveal,
         hideLeaderboard = hideLeaderboard,
         lockAfterQ1 = lockAfterQ1,
+        startedAt = startedAt?.toEpochMilliseconds(),
+        endedAt = null,
         updatedAt = Clock.System.now().toEpochMilliseconds()
     )
 
@@ -323,7 +359,7 @@ class SessionRepositoryImpl @Inject constructor(
         status = SessionStatus.valueOf(status),
         currentIndex = currentIndex,
         reveal = reveal,
-        startedAt = Instant.fromEpochMilliseconds(updatedAt),
+        startedAt = startedAt?.let(Instant::fromEpochMilliseconds),
         teacherId = teacherId,
         hideLeaderboard = hideLeaderboard,
         lockAfterQ1 = lockAfterQ1
@@ -338,7 +374,8 @@ class SessionRepositoryImpl @Inject constructor(
         joinedAt = Instant.fromEpochMilliseconds(joinedAt)
     )
 
-    private fun Participant.toEntity() = ParticipantLocalEntity(
+    private fun Participant.toEntity(sessionId: String) = ParticipantLocalEntity(
+        sessionId = sessionId,
         uid = uid,
         nickname = nickname,
         avatar = avatar,
@@ -347,8 +384,9 @@ class SessionRepositoryImpl @Inject constructor(
         joinedAt = joinedAt.toEpochMilliseconds()
     )
 
-    private fun Attempt.toEntity(json: Json) = AttemptLocalEntity(
+    private fun Attempt.toEntity(json: Json, sessionId: String) = AttemptLocalEntity(
         id = id,
+        sessionId = sessionId,
         uid = uid,
         questionId = questionId,
         selectedJson = json.encodeToString(selected),
@@ -356,7 +394,9 @@ class SessionRepositoryImpl @Inject constructor(
         correct = correct,
         points = points,
         late = late,
-        createdAt = createdAt.toEpochMilliseconds()
+        createdAt = createdAt.toEpochMilliseconds(),
+        syncedAt = null,
+        sequenceNumber = createdAt.toEpochMilliseconds()
     )
 
     private fun Attempt.toWire(json: Json) = WireMessage.AttemptSubmit(
@@ -389,4 +429,12 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     private fun isTeacherAccount(): Boolean = firebaseAuth.currentUser?.isAnonymous != true
+
+    private fun LanSessionMetaEntity.toDomain() = LanMeta(
+        sessionId = sessionId,
+        token = token,
+        hostIp = hostIp,
+        port = port,
+        startedAt = Instant.fromEpochMilliseconds(startedAt)
+    )
 }

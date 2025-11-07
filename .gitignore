@@ -17,3 +17,7 @@ local.properties
 # OS
 .DS_Store
 Thumbs.db
+
+# Functions
+functions/node_modules/
+functions/coverage/

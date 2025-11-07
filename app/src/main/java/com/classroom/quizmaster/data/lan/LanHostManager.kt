@@ -56,12 +56,17 @@ class LanHostManager @Inject constructor(
     }
 
     fun start(token: String, port: Int = BuildConfig.LAN_DEFAULT_PORT): Int {
-        if (server != null) return port
-        server = embeddedServer(CIO, port = port, host = BuildConfig.LAN_DEFAULT_HOST) {
+        if (server != null) {
+            return server?.environment?.connectors?.firstOrNull()?.port ?: port
+        }
+        val engine = embeddedServer(CIO, port = port, host = BuildConfig.LAN_DEFAULT_HOST) {
             configureServer(token)
-        }.also { it.start() }
-        Timber.i("LAN host started on port $port")
-        return port
+        }
+        engine.start()
+        server = engine
+        val boundPort = engine.environment.connectors.firstOrNull()?.port ?: port
+        Timber.i("LAN host started on port $boundPort")
+        return boundPort
     }
 
     fun stop() {

@@ -1,9 +1,56 @@
 package com.classroom.quizmaster.data.local.entity
 
+import androidx.room.ColumnInfo
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "sessions")
+@Entity(
+    tableName = "quizzes",
+    indices = [
+        Index(value = ["teacherId"]),
+        Index(value = ["createdAt"])
+    ]
+)
+data class QuizEntity(
+    @PrimaryKey val id: String,
+    val teacherId: String,
+    val title: String,
+    val defaultTimePerQ: Int,
+    val shuffle: Boolean,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+@Entity(
+    tableName = "questions",
+    indices = [
+        Index(value = ["quizId"]),
+        Index(value = ["type"])
+    ]
+)
+data class QuestionEntity(
+    @PrimaryKey val id: String,
+    val quizId: String,
+    val type: String,
+    val stem: String,
+    @ColumnInfo(name = "choicesJson") val choicesJson: String,
+    @ColumnInfo(name = "answerKeyJson") val answerKeyJson: String,
+    val explanation: String,
+    val mediaType: String?,
+    val mediaUrl: String?,
+    val timeLimitSeconds: Int,
+    val position: Int,
+    val updatedAt: Long
+)
+
+@Entity(
+    tableName = "sessions",
+    indices = [
+        Index(value = ["teacherId"]),
+        Index(value = ["joinCode"], unique = true)
+    ]
+)
 data class SessionLocalEntity(
     @PrimaryKey val id: String,
     val quizId: String,
@@ -15,12 +62,22 @@ data class SessionLocalEntity(
     val reveal: Boolean,
     val hideLeaderboard: Boolean,
     val lockAfterQ1: Boolean,
+    val startedAt: Long?,
+    val endedAt: Long?,
     val updatedAt: Long
 )
 
-@Entity(tableName = "participants")
+@Entity(
+    tableName = "participants",
+    primaryKeys = ["sessionId", "uid"],
+    indices = [
+        Index(value = ["sessionId", "totalPoints"]),
+        Index(value = ["sessionId", "totalTimeMs"])
+    ]
+)
 data class ParticipantLocalEntity(
-    @PrimaryKey val uid: String,
+    val sessionId: String,
+    val uid: String,
     val nickname: String,
     val avatar: String,
     val totalPoints: Int,
@@ -28,9 +85,17 @@ data class ParticipantLocalEntity(
     val joinedAt: Long
 )
 
-@Entity(tableName = "attempts")
+@Entity(
+    tableName = "attempts",
+    indices = [
+        Index(value = ["sessionId"]),
+        Index(value = ["questionId"]),
+        Index(value = ["uid"])
+    ]
+)
 data class AttemptLocalEntity(
     @PrimaryKey val id: String,
+    val sessionId: String,
     val uid: String,
     val questionId: String,
     val selectedJson: String,
@@ -38,7 +103,9 @@ data class AttemptLocalEntity(
     val correct: Boolean,
     val points: Int,
     val late: Boolean,
-    val createdAt: Long
+    val createdAt: Long,
+    val syncedAt: Long?,
+    val sequenceNumber: Long
 )
 
 @Entity(tableName = "oplog")
@@ -47,5 +114,53 @@ data class OpLogEntity(
     val type: String,
     val payloadJson: String,
     val ts: Long,
-    val synced: Boolean
+    val synced: Boolean,
+    val retryCount: Int
+)
+
+@Entity(
+    tableName = "assignments",
+    indices = [
+        Index(value = ["classroomId"]),
+        Index(value = ["quizId"]),
+        Index(value = ["openAt"])
+    ]
+)
+data class AssignmentLocalEntity(
+    @PrimaryKey val id: String,
+    val quizId: String,
+    val classroomId: String,
+    val openAt: Long,
+    val closeAt: Long,
+    val attemptsAllowed: Int,
+    val revealAfterSubmit: Boolean,
+    val createdAt: Long,
+    val updatedAt: Long
+)
+
+@Entity(
+    tableName = "submissions",
+    primaryKeys = ["assignmentId", "uid"],
+    indices = [
+        Index(value = ["assignmentId", "bestScore"]),
+        Index(value = ["assignmentId", "updatedAt"])
+    ]
+)
+data class SubmissionLocalEntity(
+    val assignmentId: String,
+    val uid: String,
+    val bestScore: Int,
+    val lastScore: Int,
+    val attempts: Int,
+    val updatedAt: Long
+)
+
+@Entity(tableName = "lan_session_meta")
+data class LanSessionMetaEntity(
+    @PrimaryKey val sessionId: String,
+    val token: String,
+    val hostIp: String,
+    val port: Int,
+    val startedAt: Long,
+    val rotationCount: Int
 )

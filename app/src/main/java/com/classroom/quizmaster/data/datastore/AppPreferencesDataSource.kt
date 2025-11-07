@@ -5,7 +5,9 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
+import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
@@ -24,6 +26,12 @@ class AppPreferencesDataSource @Inject constructor(
         val HIGH_CONTRAST = booleanPreferencesKey("high_contrast")
         val LARGE_TEXT = booleanPreferencesKey("large_text")
         val LAST_TEACHER_ID = stringPreferencesKey("last_teacher_id")
+        val OFFLINE_BANNER_DISMISSED = booleanPreferencesKey("offline_banner_dismissed")
+        val PREFERRED_AVATAR = stringPreferencesKey("preferred_avatar")
+        val PREFERRED_NICKNAME = stringPreferencesKey("preferred_nickname")
+        val FEATURE_FLAGS = stringSetPreferencesKey("feature_flags")
+        val LAST_SYNC_EPOCH = longPreferencesKey("last_sync_epoch")
+        val LAN_AUTO_JOIN = booleanPreferencesKey("lan_auto_join")
     }
 
     val highContrastEnabled: Flow<Boolean> =
@@ -34,6 +42,24 @@ class AppPreferencesDataSource @Inject constructor(
 
     val lastTeacherId: Flow<String?> =
         context.prefStore.data.map { it[Keys.LAST_TEACHER_ID] }
+
+    val offlineBannerDismissed: Flow<Boolean> =
+        context.prefStore.data.map { it[Keys.OFFLINE_BANNER_DISMISSED] ?: false }
+
+    val preferredAvatar: Flow<String?> =
+        context.prefStore.data.map { it[Keys.PREFERRED_AVATAR] }
+
+    val preferredNickname: Flow<String?> =
+        context.prefStore.data.map { it[Keys.PREFERRED_NICKNAME] }
+
+    val featureFlags: Flow<Set<String>> =
+        context.prefStore.data.map { it[Keys.FEATURE_FLAGS] ?: emptySet() }
+
+    val lastSuccessfulSyncEpoch: Flow<Long> =
+        context.prefStore.data.map { it[Keys.LAST_SYNC_EPOCH] ?: 0L }
+
+    val lanAutoJoinEnabled: Flow<Boolean> =
+        context.prefStore.data.map { it[Keys.LAN_AUTO_JOIN] ?: false }
 
     suspend fun setHighContrast(enabled: Boolean) {
         context.prefStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
@@ -47,5 +73,33 @@ class AppPreferencesDataSource @Inject constructor(
         context.prefStore.edit {
             if (id == null) it.remove(Keys.LAST_TEACHER_ID) else it[Keys.LAST_TEACHER_ID] = id
         }
+    }
+
+    suspend fun setOfflineBannerDismissed(dismissed: Boolean) {
+        context.prefStore.edit { it[Keys.OFFLINE_BANNER_DISMISSED] = dismissed }
+    }
+
+    suspend fun setPreferredAvatar(avatar: String?) {
+        context.prefStore.edit {
+            if (avatar == null) it.remove(Keys.PREFERRED_AVATAR) else it[Keys.PREFERRED_AVATAR] = avatar
+        }
+    }
+
+    suspend fun setPreferredNickname(nickname: String?) {
+        context.prefStore.edit {
+            if (nickname == null) it.remove(Keys.PREFERRED_NICKNAME) else it[Keys.PREFERRED_NICKNAME] = nickname
+        }
+    }
+
+    suspend fun setFeatureFlags(flags: Set<String>) {
+        context.prefStore.edit { it[Keys.FEATURE_FLAGS] = flags }
+    }
+
+    suspend fun updateLastSuccessfulSync(epochMillis: Long) {
+        context.prefStore.edit { it[Keys.LAST_SYNC_EPOCH] = epochMillis }
+    }
+
+    suspend fun setLanAutoJoin(enabled: Boolean) {
+        context.prefStore.edit { it[Keys.LAN_AUTO_JOIN] = enabled }
     }
 }
