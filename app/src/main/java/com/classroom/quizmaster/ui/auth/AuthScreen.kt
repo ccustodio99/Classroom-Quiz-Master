@@ -151,9 +151,21 @@ fun AuthScreen(
                     value = state.nickname,
                     onValueChange = onNicknameChange,
                     modifier = Modifier.fillMaxWidth(),
-                    label = { Text("Nickname") }
+                    label = { Text("Nickname") },
+                    isError = state.nicknameError != null,
+                    supportingText = {
+                        state.nicknameError?.let {
+                            Text(
+                                text = it,
+                                color = MaterialTheme.colorScheme.error
+                            )
+                        }
+                    }
                 )
-                Button(onClick = onStudentContinue, enabled = !state.loading) {
+                Button(
+                    onClick = onStudentContinue,
+                    enabled = !state.loading && state.nicknameError == null
+                ) {
                     Text("Continue as Student")
                 }
             }

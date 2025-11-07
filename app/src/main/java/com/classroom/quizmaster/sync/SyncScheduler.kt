@@ -21,6 +21,7 @@ class SyncScheduler @Inject constructor(
     fun schedule() {
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
+            .setRequiresBatteryNotLow(true)
             .build()
         val request = PeriodicWorkRequestBuilder<FirestoreSyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(constraints)

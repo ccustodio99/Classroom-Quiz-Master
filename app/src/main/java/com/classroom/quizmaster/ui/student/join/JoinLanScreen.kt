@@ -1,4 +1,5 @@
 package com.classroom.quizmaster.ui.student.join
+
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -65,7 +66,16 @@ fun JoinLanScreen(
             modifier = Modifier.fillMaxWidth(),
             value = state.nickname,
             onValueChange = onNicknameChange,
-            label = { Text("Nickname") }
+            label = { Text("Nickname") },
+            isError = state.nicknameError != null,
+            supportingText = {
+                state.nicknameError?.let {
+                    Text(
+                        text = it,
+                        color = MaterialTheme.colorScheme.error
+                    )
+                }
+            }
         )
         Button(onClick = onDiscover, enabled = !state.isDiscovering) {
             Text("Discover hosts")
@@ -76,7 +86,7 @@ fun JoinLanScreen(
                 horizontalArrangement = Arrangement.spacedBy(12.dp)
             ) {
                 CircularProgressIndicator()
-                Text("Scanning LAN for quiz hosts…", style = MaterialTheme.typography.bodyMedium)
+                Text("Scanning LAN for quiz hosts...", style = MaterialTheme.typography.bodyMedium)
             }
         }
         if (state.timedOut) {
@@ -101,7 +111,7 @@ fun JoinLanScreen(
                         Button(
                             modifier = Modifier.padding(top = 8.dp),
                             onClick = { onJoin(service) },
-                            enabled = !state.isJoining
+                            enabled = !state.isJoining && state.nicknameError == null
                         ) {
                             Text("Join")
                         }
@@ -117,11 +127,11 @@ fun JoinLanScreen(
             modifier = Modifier.fillMaxWidth(),
             value = state.manualUri,
             onValueChange = onManualUriChange,
-            label = { Text("ws://host:port/ws?token=…") }
+            label = { Text("ws://host:port/ws?token=...") }
         )
         Button(
             onClick = onManualJoin,
-            enabled = state.manualUri.isNotBlank()
+            enabled = state.manualUri.isNotBlank() && state.nicknameError == null
         ) {
             Text("Join via QR URL")
         }

@@ -16,3 +16,4 @@ dependencyResolutionManagement {
 
 rootProject.name = "ClassroomQuizMaster"
 include(":app")
+include(":macrobenchmark")

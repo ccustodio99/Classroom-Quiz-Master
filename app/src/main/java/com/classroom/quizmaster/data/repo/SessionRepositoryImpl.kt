@@ -33,6 +33,7 @@ import com.classroom.quizmaster.domain.model.SessionStatus
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.sync.FirestoreSyncWorker
 import com.classroom.quizmaster.util.JoinCodeGenerator
+import com.classroom.quizmaster.util.NicknamePolicy
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -116,6 +117,10 @@ class SessionRepositoryImpl @Inject constructor(
         hostNickname: String
     ): Session = withContext(Dispatchers.IO) {
         val token = UUID.randomUUID().toString().replace("-", "")
+        val normalizedHost = NicknamePolicy.sanitize(
+            hostNickname.ifBlank { "Host" },
+            firebaseAuth.currentUser?.uid.orEmpty()
+        )
         val session = Session(
             id = UUID.randomUUID().toString(),
             quizId = quizId,
@@ -133,7 +138,7 @@ class SessionRepositoryImpl @Inject constructor(
             listOf(
                 ParticipantLocalEntity(
                     uid = "host",
-                    nickname = hostNickname,
+                    nickname = normalizedHost,
                     avatar = "teacher",
                     totalPoints = 0,
                     totalTimeMs = 0,
@@ -201,10 +206,12 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun joinLanHost(service: LanServiceDescriptor, nickname: String): Result<Unit> =
         runCatching {
-            val sanitized = nickname.ifBlank { "Student" }
+            val uid = firebaseAuth.currentUser?.uid
+                ?: "guest-${service.joinCode}-${System.currentTimeMillis()}"
+            val sanitized = NicknamePolicy.sanitize(nickname.ifBlank { "Student" }, uid)
             joinedEndpoint = service
             studentNickname = sanitized
-            lanClient.connect(service, sanitized)
+            lanClient.connect(service, uid)
         }
 
     override suspend fun kickParticipant(uid: String) = withContext(Dispatchers.IO) {

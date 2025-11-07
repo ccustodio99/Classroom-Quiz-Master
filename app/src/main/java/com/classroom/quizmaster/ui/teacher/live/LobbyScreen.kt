@@ -24,7 +24,7 @@ fun LobbyScreen(
     onToggleLeaderboard: (Boolean) -> Unit
 ) {
     Column(modifier = Modifier.padding(16.dp)) {
-        Text("Lobby — Join code: ${session?.joinCode ?: "---"}")
+        Text("Lobby - Join code: ${session?.joinCode ?: "---"}")
         Switch(
             checked = session?.hideLeaderboard ?: false,
             onCheckedChange = onToggleLeaderboard
@@ -48,3 +48,4 @@ fun LobbyScreen(
         }
     }
 }
+

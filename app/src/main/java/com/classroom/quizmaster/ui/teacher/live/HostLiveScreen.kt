@@ -91,7 +91,7 @@ private fun ParticipantList(
                         horizontalArrangement = Arrangement.SpaceBetween,
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("${participant.nickname} • ${participant.totalPoints} pts")
+                        Text("${participant.nickname} - ${participant.totalPoints} pts")
                         TextButton(onClick = { onKick(participant.uid) }) {
                             Text("Kick")
                         }
@@ -113,3 +113,5 @@ private fun generateQr(meta: LanMeta): Bitmap {
     }
     return bmp
 }
+
+

@@ -75,7 +75,8 @@ class LanHostManager @Inject constructor(
 
     suspend fun broadcast(message: WireMessage) {
         clients.values.forEach { channel ->
-            channel.send(message)
+            runCatching { channel.send(message) }
+                .onFailure { channel.close() }
         }
     }
 
@@ -93,7 +94,7 @@ class LanHostManager @Inject constructor(
             contentConverter = KotlinxWebsocketSerializationConverter(json)
             pingPeriodMillis = 15_000
             timeoutMillis = 30_000
-            maxFrameSize = Long.MAX_VALUE
+            maxFrameSize = 64 * 1024L
         }
         install(CallLogging)
         install(ContentNegotiation) {
@@ -121,6 +122,16 @@ class LanHostManager @Inject constructor(
                     while (true) {
                         val message = receiveDeserialized<WireMessage>()
                         if (message is WireMessage.AttemptSubmit) {
+                            if (message.selectedJson.length > MAX_SELECTION_BYTES) {
+                                sendSerialized(
+                                    WireMessage.Ack(
+                                        message.attemptId,
+                                        accepted = false,
+                                        reason = "payload_too_large"
+                                    )
+                                )
+                                continue
+                            }
                             if (isDuplicate(message.attemptId)) {
                                 sendSerialized(WireMessage.Ack(message.attemptId, accepted = false, reason = "duplicate"))
                             } else {
@@ -152,5 +163,9 @@ class LanHostManager @Inject constructor(
     private fun pruneAttempts() {
         val cutoff = System.currentTimeMillis() - 5 * 60_000
         processedAttempts.entries.removeIf { it.value < cutoff }
+    }
+
+    companion object {
+        private const val MAX_SELECTION_BYTES = 2_048
     }
 }

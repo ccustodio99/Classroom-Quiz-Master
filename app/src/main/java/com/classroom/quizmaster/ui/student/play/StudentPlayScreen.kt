@@ -32,7 +32,6 @@ fun StudentPlayRoute(
         onSubmit = { answers ->
             val session = state.session ?: return@StudentPlayScreen
             viewModel.submitAnswer(
-                uid = "local",
                 questionId = "q${session.currentIndex}",
                 choices = answers,
                 correct = listOf("A"),

@@ -40,3 +40,38 @@ export const scoreAssignmentAttempt = functions.https.onCall(async (data, contex
     }, {merge: true});
   return {score};
 });
+
+export const exportSessionReport = functions.https.onCall(async (data, context) => {
+  if (!context.auth || context.auth.token.firebase?.sign_in_provider === "anonymous") {
+    throw new functions.https.HttpsError("permission-denied", "Teacher authentication required");
+  }
+  const {sessionId} = data;
+  if (!sessionId) {
+    throw new functions.https.HttpsError("invalid-argument", "sessionId required");
+  }
+  const attemptsSnap = await db.collection("sessions").doc(sessionId).collection("attempts").get();
+  const header = ["uid", "questionId", "selected", "timeMs", "late", "createdAt"];
+  const rows = attemptsSnap.docs.map((doc) => {
+    const attempt = doc.data();
+    return [
+      attempt.uid ?? "",
+      attempt.questionId ?? "",
+      JSON.stringify(attempt.selected ?? []),
+      attempt.timeMs ?? 0,
+      attempt.late ?? false,
+      attempt.createdAt ?? "",
+    ].join(",");
+  });
+  const csv = [header.join(","), ...rows].join("\n");
+  const filePath = `reports/${sessionId}/session-report-${Date.now()}.csv`;
+  const bucket = admin.storage().bucket();
+  await bucket.file(filePath).save(csv, {
+    contentType: "text/csv",
+    gzip: true,
+  });
+  const [url] = await bucket.file(filePath).getSignedUrl({
+    action: "read",
+    expires: Date.now() + 1000 * 60 * 60, // 1 hour
+  });
+  return {url};
+});

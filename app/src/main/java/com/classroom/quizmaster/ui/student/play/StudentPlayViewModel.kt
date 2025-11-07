@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.domain.model.Session
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.domain.usecase.SubmitAnswerUseCase
+import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
@@ -22,7 +23,8 @@ data class StudentPlayUiState(
 @HiltViewModel
 class StudentPlayViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
-    private val submitAnswerUseCase: SubmitAnswerUseCase
+    private val submitAnswerUseCase: SubmitAnswerUseCase,
+    private val firebaseAuth: FirebaseAuth
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentPlayUiState())
@@ -40,7 +42,6 @@ class StudentPlayViewModel @Inject constructor(
     }
 
     fun submitAnswer(
-        uid: String,
         questionId: String,
         choices: List<String>,
         correct: List<String>,
@@ -50,6 +51,7 @@ class StudentPlayViewModel @Inject constructor(
         reveal: Boolean
     ) {
         viewModelScope.launch {
+            val uid = firebaseAuth.currentUser?.uid ?: "guest-${System.currentTimeMillis()}"
             submitAnswerUseCase(
                 uid = uid,
                 questionId = questionId,

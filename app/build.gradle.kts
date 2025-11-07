@@ -44,6 +44,12 @@ android {
             )
             signingConfig = signingConfigs.getByName("debug")
         }
+        create("benchmark") {
+            initWith(getByName("release"))
+            matchingFallbacks += listOf("release")
+            signingConfig = signingConfigs.getByName("debug")
+            isDebuggable = false
+        }
     }
 
     compileOptions {
@@ -54,11 +60,8 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += listOf(
-            "-opt-in=kotlinx.coroutines.ExperimentalCoroutinesApi",
-            "-opt-in=kotlinx.coroutines.FlowPreview",
-            "-Xcontext-receivers"
-        )
+        allWarningsAsErrors = true
+        freeCompilerArgs += listOf("-Xjsr305=strict")
     }
 
     buildFeatures {
@@ -67,7 +70,7 @@ android {
     }
 
     composeOptions {
-        kotlinCompilerExtensionVersion = "1.5.15"
+        kotlinCompilerExtensionVersion = "1.7.3"
     }
 
     packaging {
@@ -98,15 +101,7 @@ android {
 
     lint {
         checkAllWarnings = true
-        warningsAsErrors = false
-    }
-
-    applicationVariants.configureEach {
-        val variantName = name
-        outputs.forEach { output ->
-            (output as? com.android.build.gradle.internal.api.BaseVariantOutputImpl)?.outputFileName =
-                "quizmaster-${variantName}-${versionName}.apk"
-        }
+        warningsAsErrors = true
     }
 }
 
@@ -121,7 +116,7 @@ kapt {
 }
 
 dependencies {
-    val composeBom = platform("androidx.compose:compose-bom:2024.10.01")
+    val composeBom = platform("androidx.compose:compose-bom:2024.09.01")
     implementation(composeBom)
     androidTestImplementation(composeBom)
 
@@ -188,6 +183,7 @@ dependencies {
 
     implementation("com.google.accompanist:accompanist-permissions:0.34.0")
     implementation("com.google.accompanist:accompanist-systemuicontroller:0.34.0")
+    implementation("androidx.profileinstaller:profileinstaller:1.4.0")
 
     implementation("com.jakewharton.timber:timber:5.0.1")
     implementation("com.google.zxing:core:3.5.3")

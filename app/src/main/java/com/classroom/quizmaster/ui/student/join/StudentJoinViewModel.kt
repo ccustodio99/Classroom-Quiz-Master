@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
 import com.classroom.quizmaster.domain.repository.SessionRepository
+import com.classroom.quizmaster.util.NicknamePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.net.URI
 import javax.inject.Inject
@@ -21,7 +22,8 @@ data class StudentJoinUiState(
     val timedOut: Boolean = false,
     val nickname: String = "",
     val manualUri: String = "",
-    val isJoining: Boolean = false
+    val isJoining: Boolean = false,
+    val nicknameError: String? = null
 )
 
 @HiltViewModel
@@ -74,7 +76,10 @@ class StudentJoinViewModel @Inject constructor(
     fun retryDiscovery() = discoverLanHosts()
 
     fun updateNickname(value: String) {
-        _uiState.value = _uiState.value.copy(nickname = value)
+        _uiState.value = _uiState.value.copy(
+            nickname = value,
+            nicknameError = NicknamePolicy.validationError(value)
+        )
     }
 
     fun updateManualUri(value: String) {
@@ -82,10 +87,19 @@ class StudentJoinViewModel @Inject constructor(
     }
 
     fun join(service: LanServiceDescriptor, onSuccess: () -> Unit = {}) {
-        val nickname = _uiState.value.nickname.ifBlank { "Student" }
+        val current = _uiState.value
+        val violation = NicknamePolicy.validationError(current.nickname)
+        if (violation != null) {
+            _uiState.value = current.copy(nicknameError = violation)
+            return
+        }
+        val sanitized = NicknamePolicy.sanitize(
+            current.nickname.ifBlank { "Student" },
+            service.joinCode + service.timestamp.toString()
+        )
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(isJoining = true, error = null)
-            sessionRepository.joinLanHost(service, nickname)
+            _uiState.value = _uiState.value.copy(isJoining = true, error = null, nicknameError = null)
+            sessionRepository.joinLanHost(service, sanitized)
                 .onSuccess {
                     _uiState.value = _uiState.value.copy(isJoining = false)
                     onSuccess()
@@ -110,7 +124,7 @@ class StudentJoinViewModel @Inject constructor(
     }
 
     fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
+        _uiState.value = _uiState.value.copy(error = null, nicknameError = null)
     }
 
     private fun parseDescriptor(uriString: String): LanServiceDescriptor {

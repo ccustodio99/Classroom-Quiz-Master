@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.domain.model.AuthState
 import com.classroom.quizmaster.domain.model.UserRole
 import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.util.NicknamePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,7 +20,8 @@ data class AuthUiState(
     val displayName: String = "",
     val nickname: String = "Student",
     val loading: Boolean = false,
-    val error: String? = null
+    val error: String? = null,
+    val nicknameError: String? = null
 )
 
 @HiltViewModel
@@ -46,7 +48,10 @@ class AuthViewModel @Inject constructor(
     }
 
     fun onNicknameChange(value: String) {
-        _uiState.value = _uiState.value.copy(nickname = value)
+        _uiState.value = _uiState.value.copy(
+            nickname = value,
+            nicknameError = NicknamePolicy.validationError(value)
+        )
     }
 
     fun signInTeacher() = launchWithProgress {
@@ -61,9 +66,18 @@ class AuthViewModel @Inject constructor(
         )
     }
 
-    fun continueAsStudent(onSuccess: () -> Unit) = launchWithProgress {
-        authRepository.signInAnonymously(_uiState.value.nickname)
-        onSuccess()
+    fun continueAsStudent(onSuccess: () -> Unit) {
+        val current = _uiState.value
+        val violation = NicknamePolicy.validationError(current.nickname)
+        if (violation != null) {
+            _uiState.value = current.copy(nicknameError = violation)
+            return
+        }
+        launchWithProgress {
+            val sanitized = NicknamePolicy.sanitize(current.nickname, current.email)
+            authRepository.signInAnonymously(sanitized)
+            onSuccess()
+        }
     }
 
     fun handleGoogleToken(idToken: String) = launchWithProgress {
