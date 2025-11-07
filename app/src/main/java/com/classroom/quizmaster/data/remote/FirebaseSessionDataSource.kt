@@ -57,6 +57,8 @@ class FirebaseSessionDataSource @Inject constructor(
         "questionId" to questionId,
         "selected" to json.encodeToString(selected),
         "timeMs" to timeMs,
+        "points" to points,
+        "correct" to correct,
         "late" to late,
         "createdAt" to createdAt.toEpochMilliseconds()
     )

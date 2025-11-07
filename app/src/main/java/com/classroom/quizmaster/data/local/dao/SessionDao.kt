@@ -39,6 +39,12 @@ interface SessionDao {
     )
     fun observeParticipants(sessionId: String): Flow<List<ParticipantLocalEntity>>
 
+    @Query("SELECT * FROM participants WHERE sessionId = :sessionId AND uid = :uid LIMIT 1")
+    suspend fun getParticipant(sessionId: String, uid: String): ParticipantLocalEntity?
+
+    @Query("SELECT * FROM participants WHERE sessionId = :sessionId ORDER BY totalPoints DESC, totalTimeMs ASC")
+    suspend fun listParticipants(sessionId: String): List<ParticipantLocalEntity>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertParticipant(participant: ParticipantLocalEntity)
 

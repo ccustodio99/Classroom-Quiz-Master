@@ -7,6 +7,7 @@ import androidx.work.BackoffPolicy
 import androidx.work.Constraints
 import androidx.work.ExistingWorkPolicy
 import androidx.work.NetworkType
+import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.classroom.quizmaster.BuildConfig
@@ -36,6 +37,7 @@ import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.sync.FirestoreSyncWorker
 import com.classroom.quizmaster.util.JoinCodeGenerator
 import com.classroom.quizmaster.util.NicknamePolicy
+import com.classroom.quizmaster.util.ScoreCalculator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -77,6 +79,8 @@ class SessionRepositoryImpl @Inject constructor(
     private val sessionDao: SessionDao = db.sessionDao()
     private val opLogDao: OpLogDao = db.opLogDao()
     private val lanSessionDao: LanSessionDao = db.lanSessionDao()
+    private val attemptDao = db.attemptDao()
+    private val quizDao = db.quizDao()
     private val workManager = WorkManager.getInstance(context)
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -124,6 +128,12 @@ class SessionRepositoryImpl @Inject constructor(
         scope.launch {
             lanSessionDao.observeLatest().collectLatest { entity ->
                 lanMetaState.value = entity?.toDomain()
+            }
+        }
+        scope.launch {
+            lanHostManager.attemptSubmissions.collect { submission ->
+                runCatching { handleIncomingAttempt(submission) }
+                    .onFailure { Timber.e(it, "Failed to handle LAN attempt") }
             }
         }
     }
@@ -186,6 +196,7 @@ class SessionRepositoryImpl @Inject constructor(
                 rotationCount = 0
             )
         )
+        broadcastLeaderboardSnapshot(session.id)
         session
     }
 
@@ -197,7 +208,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun submitAttemptLocally(attempt: Attempt) = withContext(Dispatchers.IO) {
         val currentSession = sessionDao.currentSession() ?: return@withContext
-        db.attemptDao().upsertAttempt(attempt.toEntity(json, currentSession.id))
+        attemptDao.upsertAttempt(attempt.toEntity(json, currentSession.id))
         val shouldSyncToCloud = isTeacherAccount()
         val op = if (shouldSyncToCloud) {
             val pendingPayload = PendingAttemptPayload(
@@ -219,8 +230,12 @@ class SessionRepositoryImpl @Inject constructor(
             null
         }
         joinedEndpoint?.let { endpoint ->
+            val nickname = NicknamePolicy.sanitize(
+                studentNickname ?: "Student",
+                firebaseAuth.currentUser?.uid ?: attempt.uid
+            )
             scope.launch {
-                lanClient.sendAttempt(endpoint, attempt.toWire(json))
+                lanClient.sendAttempt(endpoint, attempt.toWire(json, nickname))
             }
         }
         if (shouldSyncToCloud) {
@@ -252,10 +267,13 @@ class SessionRepositoryImpl @Inject constructor(
             lanClient.connect(service, uid)
         }
 
-    override suspend fun kickParticipant(uid: String) = withContext(Dispatchers.IO) {
-        lanHostManager.kick(uid)
-        sessionDao.currentSession()?.let { session ->
-            sessionDao.deleteParticipant(session.id, uid)
+    override suspend fun kickParticipant(uid: String) {
+        withContext(Dispatchers.IO) {
+            lanHostManager.kick(uid)
+            sessionDao.currentSession()?.let { session ->
+                sessionDao.deleteParticipant(session.id, uid)
+                broadcastLeaderboardSnapshot(session.id)
+            }
         }
     }
 
@@ -323,7 +341,7 @@ class SessionRepositoryImpl @Inject constructor(
         val constraints = Constraints.Builder()
             .setRequiredNetworkType(NetworkType.CONNECTED)
             .build()
-        val request = OneTimeWorkRequestBuilder<FirestoreSyncWorker>()
+        val request: OneTimeWorkRequest = OneTimeWorkRequestBuilder<FirestoreSyncWorker>()
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
             .setIdempotent(true)
@@ -399,11 +417,105 @@ class SessionRepositoryImpl @Inject constructor(
         sequenceNumber = createdAt.toEpochMilliseconds()
     )
 
-    private fun Attempt.toWire(json: Json) = WireMessage.AttemptSubmit(
+    private suspend fun handleIncomingAttempt(message: WireMessage.AttemptSubmit) {
+        if (!isTeacherAccount()) return
+        val session = sessionDao.currentSession() ?: return
+        val attemptId = message.attemptId.ifBlank { return }
+        val alreadyProcessed = attemptDao.findById(attemptId)
+        if (alreadyProcessed != null) {
+            Timber.d("Attempt %s already processed", message.attemptId)
+            return
+        }
+        val question = quizDao.getQuestion(message.questionId)
+        if (question == null) {
+            Timber.w("Question %s not found for attempt %s", message.questionId, message.attemptId)
+            return
+        }
+        val selected = runCatching {
+            json.decodeFromString<List<String>>(message.selectedJson)
+        }.getOrElse {
+            Timber.e(it, "Failed to decode attempt payload")
+            return
+        }
+        val answerKey = runCatching {
+            json.decodeFromString<List<String>>(question.answerKeyJson)
+        }.getOrElse {
+            Timber.e(it, "Failed to decode answer key")
+            return
+        }
+        val normalizedSelected = selected.map(String::lowercase).sorted()
+        val normalizedAnswers = answerKey.map(String::lowercase).sorted()
+        val correct = normalizedSelected == normalizedAnswers
+        val timeLimitMs = question.timeLimitSeconds.coerceAtLeast(1) * 1_000L
+        val elapsed = message.timeMs.coerceAtLeast(0L)
+        val points = ScoreCalculator.score(
+            correct = correct,
+            timeLeftMillis = (timeLimitMs - elapsed).coerceAtLeast(0L),
+            timeLimitMillis = timeLimitMs
+        )
+        val attempt = Attempt(
+            id = attemptId,
+            uid = message.uid,
+            questionId = message.questionId,
+            selected = selected,
+            timeMs = elapsed,
+            correct = correct,
+            points = points,
+            late = session.reveal || session.status != SessionStatus.ACTIVE,
+            createdAt = Clock.System.now()
+        )
+        submitAttemptLocally(attempt)
+        upsertParticipantFromAttempt(session.id, attempt, message.nickname)
+        broadcastLeaderboardSnapshot(session.id)
+    }
+
+    private suspend fun upsertParticipantFromAttempt(
+        sessionId: String,
+        attempt: Attempt,
+        nicknameRaw: String
+    ) {
+        val sanitized = NicknamePolicy.sanitize(nicknameRaw.ifBlank { "Student" }, attempt.uid)
+        val existing = sessionDao.getParticipant(sessionId, attempt.uid)
+        val now = Clock.System.now().toEpochMilliseconds()
+        val updated = if (existing == null) {
+            ParticipantLocalEntity(
+                sessionId = sessionId,
+                uid = attempt.uid,
+                nickname = sanitized,
+                avatar = "student",
+                totalPoints = attempt.points,
+                totalTimeMs = attempt.timeMs,
+                joinedAt = now
+            )
+        } else {
+            existing.copy(
+                nickname = sanitized,
+                totalPoints = existing.totalPoints + attempt.points,
+                totalTimeMs = existing.totalTimeMs + attempt.timeMs
+            )
+        }
+        sessionDao.upsertParticipant(updated)
+    }
+
+    private suspend fun broadcastLeaderboardSnapshot(sessionId: String) {
+        val participantsSnapshot = sessionDao.listParticipants(sessionId).map { it.toDomain() }
+        if (lanToken != null) {
+            lanHostManager.broadcast(
+                WireMessage.Leaderboard(
+                    leaderboardJson = json.encodeToString(participantsSnapshot)
+                )
+            )
+        }
+        firebaseSessionDataSource.publishParticipants(sessionId, participantsSnapshot)
+            .onFailure { Timber.w(it, "Failed to publish participant snapshot") }
+    }
+
+    private fun Attempt.toWire(json: Json, nickname: String) = WireMessage.AttemptSubmit(
         attemptId = id,
         uid = uid,
         questionId = questionId,
         selectedJson = json.encodeToString(selected),
+        nickname = nickname,
         timeMs = timeMs,
         nonce = id
     )

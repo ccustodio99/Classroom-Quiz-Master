@@ -15,6 +15,9 @@ interface AttemptDao {
     )
     suspend fun getAttempt(sessionId: String, uid: String, questionId: String): AttemptLocalEntity?
 
+    @Query("SELECT * FROM attempts WHERE id = :attemptId LIMIT 1")
+    suspend fun findById(attemptId: String): AttemptLocalEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAttempt(attempt: AttemptLocalEntity)
 

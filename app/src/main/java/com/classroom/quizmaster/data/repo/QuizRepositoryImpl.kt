@@ -18,7 +18,6 @@ import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
-import kotlinx.datetime.toEpochMilliseconds
 import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
@@ -50,7 +49,6 @@ class QuizRepositoryImpl @Inject constructor(
     }
 
     override suspend fun upsert(quiz: Quiz) {
-        firebaseQuizDataSource.upsertQuiz(quiz)
         val now = Clock.System.now().toEpochMilliseconds()
         val resolvedId = quiz.id.takeIf { it.isNotBlank() } ?: "local-$now"
         val localQuiz = if (quiz.id == resolvedId) quiz else quiz.copy(id = resolvedId)
@@ -60,7 +58,7 @@ class QuizRepositoryImpl @Inject constructor(
                 question.toEntity(resolvedId, index)
             }
         )
-        firebaseQuizDataSource.upsertQuiz(quiz)
+        firebaseQuizDataSource.upsertQuiz(localQuiz)
         if (quiz.id.isBlank()) {
             refresh()
         }

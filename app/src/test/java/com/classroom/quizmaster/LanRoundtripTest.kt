@@ -36,6 +36,7 @@ class LanRoundtripTest {
                 uid = "student",
                 questionId = "q1",
                 selectedJson = json.encodeToString(listOf("A")),
+                nickname = "Student",
                 timeMs = 1_000L,
                 nonce = "n1"
             )

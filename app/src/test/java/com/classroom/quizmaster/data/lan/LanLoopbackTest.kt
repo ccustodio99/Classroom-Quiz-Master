@@ -42,6 +42,7 @@ class LanLoopbackTest {
             uid = "user-1",
             questionId = "q1",
             selectedJson = json.encodeToString(listOf("A")),
+            nickname = "Tester",
             timeMs = 1_500,
             nonce = "nonce"
         )

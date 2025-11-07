@@ -9,6 +9,7 @@ import io.ktor.server.engine.ApplicationEngine
 import io.ktor.server.engine.embeddedServer
 import io.ktor.server.plugins.callloging.CallLogging
 import io.ktor.server.plugins.contentnegotiation.ContentNegotiation
+import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.request.receive
@@ -152,6 +153,11 @@ class LanHostManager @Inject constructor(
                 }
             }
             post("/broadcast") {
+                val headerToken = call.request.headers[AUTH_HEADER]
+                if (headerToken != token) {
+                    call.respond(HttpStatusCode.Forbidden, mapOf("ok" to false))
+                    return@post
+                }
                 val payload = call.receive<String>()
                 val wire = json.decodeFromString(WireMessage.serializer(), payload)
                 broadcast(wire)
@@ -171,6 +177,7 @@ class LanHostManager @Inject constructor(
     }
 
     companion object {
+        private const val AUTH_HEADER = "X-Session-Token"
         private const val MAX_SELECTION_BYTES = 2_048
     }
 }

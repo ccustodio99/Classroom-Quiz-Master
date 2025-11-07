@@ -37,6 +37,7 @@ sealed interface WireMessage {
         val uid: String,
         val questionId: String,
         val selectedJson: String,
+        val nickname: String,
         val timeMs: Long,
         val nonce: String
     ) : WireMessage {

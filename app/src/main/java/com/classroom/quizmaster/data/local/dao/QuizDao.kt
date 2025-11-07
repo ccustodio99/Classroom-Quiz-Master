@@ -22,6 +22,9 @@ interface QuizDao {
     @Query("SELECT * FROM quizzes WHERE id = :id LIMIT 1")
     suspend fun getQuiz(id: String): QuizWithQuestions?
 
+    @Query("SELECT * FROM questions WHERE id = :questionId LIMIT 1")
+    suspend fun getQuestion(questionId: String): QuestionEntity?
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertQuiz(quiz: QuizEntity)
 
