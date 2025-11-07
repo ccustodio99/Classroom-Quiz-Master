@@ -1,4 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Classroom Quiz Master</string>
+    <string name="notification_discovery">Searching for nearby hosts</string>
+    <string name="notification_hosting">Hosting live quiz</string>
+    <string name="google_web_client_id">REPLACE_WITH_CLIENT_ID</string>
 </resources>

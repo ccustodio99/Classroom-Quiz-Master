@@ -1,0 +1,53 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isTeacher() {
+      return request.auth != null && request.auth.token.role == 'teacher';
+    }
+
+    function isStudent() {
+      return request.auth != null && request.auth.token.role == 'student';
+    }
+
+    function noScoreFields() {
+      return !('points' in request.resource.data) && !('correct' in request.resource.data);
+    }
+
+    match /quizzes/{quizId} {
+      allow read, write: if isTeacher() &&
+        request.auth.uid == (request.resource.data.teacherId ?? resource.data.teacherId);
+    }
+
+    match /sessions/{sessionId} {
+      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid)
+        || (isStudent() && resource.data.status in ['lobby', 'active']);
+      allow create, update, delete: if isTeacher() &&
+        request.auth.uid == request.resource.data.teacherId;
+
+      match /participants/{participantId} {
+        allow read: if isTeacher() || isStudent();
+        allow create: if isStudent() && request.auth.uid == participantId && noScoreFields();
+        allow update: if isTeacher() && request.auth.uid == resource.data.teacherId;
+        allow delete: if isTeacher() && request.auth.uid == resource.data.teacherId;
+      }
+
+      match /attempts/{attemptId} {
+        allow read: if isTeacher() || isStudent();
+        allow create: if isStudent()
+          && request.auth.uid == request.resource.data.uid
+          && noScoreFields();
+        allow update, delete: if false;
+      }
+    }
+
+    match /assignments/{assignmentId} {
+      allow read: if isTeacher() || isStudent();
+      allow write: if isTeacher();
+
+      match /submissions/{uid} {
+        allow read: if request.auth != null && request.auth.uid == uid;
+        allow write: if request.auth != null && request.auth.uid == uid && noScoreFields();
+      }
+    }
+  }
+}
