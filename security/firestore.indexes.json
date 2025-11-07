@@ -15,6 +15,22 @@
         { "fieldPath": "totalPoints", "order": "DESCENDING" },
         { "fieldPath": "totalTimeMs", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "attempts",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "questionId", "order": "ASCENDING" },
+        { "fieldPath": "createdAt", "order": "ASCENDING" }
+      ]
+    },
+    {
+      "collectionGroup": "assignments",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "classroomId", "order": "ASCENDING" },
+        { "fieldPath": "openAt", "order": "ASCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

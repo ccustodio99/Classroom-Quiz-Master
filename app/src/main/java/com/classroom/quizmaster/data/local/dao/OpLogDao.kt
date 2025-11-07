@@ -16,11 +16,14 @@ interface OpLogDao {
     @Query("SELECT * FROM oplog WHERE synced = 0 ORDER BY ts ASC LIMIT :limit")
     suspend fun pending(limit: Int = 50): List<OpLogEntity>
 
-    @Query("UPDATE oplog SET synced = 1 WHERE id IN (:ids)")
+    @Query("UPDATE oplog SET synced = 1, retryCount = 0 WHERE id IN (:ids)")
     suspend fun markSynced(ids: List<String>)
 
     @Query("DELETE FROM oplog WHERE synced = 1")
     suspend fun deleteSynced()
+
+    @Query("UPDATE oplog SET retryCount = retryCount + 1 WHERE id = :id")
+    suspend fun incrementRetry(id: String)
 
     @Query("SELECT COUNT(*) FROM oplog WHERE synced = 0")
     fun observePendingCount(): Flow<Int>

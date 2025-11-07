@@ -12,27 +12,35 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface SessionDao {
 
-    @Query("SELECT * FROM sessions LIMIT 1")
+    @Query("SELECT * FROM sessions ORDER BY updatedAt DESC LIMIT 1")
     fun observeCurrentSession(): Flow<SessionLocalEntity?>
 
-    @Query("SELECT * FROM sessions LIMIT 1")
+    @Query("SELECT * FROM sessions ORDER BY updatedAt DESC LIMIT 1")
     suspend fun currentSession(): SessionLocalEntity?
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSession(session: SessionLocalEntity)
 
     @Query("DELETE FROM sessions")
-    suspend fun clearSession()
+    suspend fun clearSessions()
 
     @Transaction
     suspend fun replaceSession(session: SessionLocalEntity, participants: List<ParticipantLocalEntity>) {
+        clearSessions()
         clearParticipants()
         upsertSession(session)
-        upsertParticipants(participants)
+        if (participants.isNotEmpty()) {
+            upsertParticipants(participants)
+        }
     }
 
-    @Query("SELECT * FROM participants ORDER BY totalPoints DESC, totalTimeMs ASC")
-    fun observeParticipants(): Flow<List<ParticipantLocalEntity>>
+    @Query(
+        "SELECT * FROM participants WHERE sessionId = :sessionId ORDER BY totalPoints DESC, totalTimeMs ASC"
+    )
+    fun observeParticipants(sessionId: String): Flow<List<ParticipantLocalEntity>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertParticipant(participant: ParticipantLocalEntity)
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertParticipants(participants: List<ParticipantLocalEntity>)
@@ -40,6 +48,6 @@ interface SessionDao {
     @Query("DELETE FROM participants")
     suspend fun clearParticipants()
 
-    @Query("DELETE FROM participants WHERE uid = :uid")
-    suspend fun deleteParticipant(uid: String)
+    @Query("DELETE FROM participants WHERE sessionId = :sessionId AND uid = :uid")
+    suspend fun deleteParticipant(sessionId: String, uid: String)
 }

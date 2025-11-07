@@ -54,24 +54,28 @@ macrobenchmark // Macrobenchmark + startup timing tests
 - `adb shell dumpsys wifi` confirms NSD availability (location permission required on Android 13+).
 - Timber logging plus StrictMode (debug only) surfaces slow I/O or leaked resources early.
 
-## Testing & CI
+## Backend Runbook
 
 | Command | Purpose |
 | --- | --- |
-| `./gradlew clean ktlintCheck detekt lint test assembleDebug` | Default CI verification (also run by `.github/workflows/android-ci.yml`). |
-| `./gradlew connectedDebugAndroidTest` | Compose instrumentation tests (executed on the emulator job). |
+| `./gradlew clean detekt ktlintCheck lintDebug testDebugUnitTest assembleDebug` | Full backend verification (lint, static analysis, JVM tests, APK). |
+| `./gradlew connectedDebugAndroidTest` | Compose instrumentation tests on an emulator. |
 | `./gradlew :macrobenchmark:connectedCheck` | Macrobenchmark & startup timing validation. |
-| `./gradlew generateBaselineProfile` | Refreshes `app/src/main/baseline-prof.txt` using macrobenchmarks. |
+| `firebase emulators:start --only firestore,functions,storage` | Launch Firebase emulators for rules/function tests. |
+| `npm --prefix functions test` | Execute Cloud Functions unit tests (Jest + ts-jest). |
 
-CI now runs two jobs: **build** (lint/style/tests/assemble) and **instrumentation** (emulator + connected tests + macrobenchmark).
+CI (`.github/workflows/android-backend-ci.yml`) runs parallel jobs:
+
+- **build-and-test** – Gradle lint/detekt/ktlint, unit tests, APK packaging, and report artifacts.
+- **functions-test** – `npm ci`, Jest unit tests, and TypeScript compilation for Cloud Functions.
 
 ## Firebase Security & Cloud
 
 - Firestore rules (`security/firestore.rules`) gate session ownership, block students from writing score fields, respect `lockAfterQ1`, and restrict participant/attempt writes to the authenticated student.
 - Storage rules keep uploads teacher-only under `quiz_media/`, while students retain read access for classroom devices.
 - Cloud Functions (`functions/src/index.ts`) expose:
-  - `scoreAssignmentAttempt` – Callable scoring for assignments.
-  - `exportSessionReport` – Callable CSV export stored at `reports/<sessionId>/session-report-<timestamp>.csv` with a signed download URL.
+  - `scoreAttempt` – Firestore trigger that validates attempts, computes scores idempotently, and rolls totals into `submissions/{uid}` within a transaction.
+  - `exportReport` – Callable CSV+PDF export stored under `reports/<sessionId>/…` with signed download URLs (valid ≤ 7 days).
 
 ## LAN-only Demo Script
 
