@@ -4,6 +4,7 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
+import com.classroom.quizmaster.data.lan.NearbyFallbackManager
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.util.NicknamePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -28,7 +29,8 @@ data class StudentJoinUiState(
 
 @HiltViewModel
 class StudentJoinViewModel @Inject constructor(
-    private val sessionRepository: SessionRepository
+    private val sessionRepository: SessionRepository,
+    private val nearbyFallbackManager: NearbyFallbackManager
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentJoinUiState(nickname = "Student"))
@@ -67,6 +69,7 @@ class StudentJoinViewModel @Inject constructor(
                             timedOut = true,
                             isDiscovering = false
                         )
+                        launchFallbackDiscovery()
                     }
                 }
             }
@@ -146,5 +149,25 @@ class StudentJoinViewModel @Inject constructor(
             joinCode = "",
             timestamp = System.currentTimeMillis()
         )
+    }
+
+    private fun launchFallbackDiscovery() {
+        viewModelScope.launch {
+            nearbyFallbackManager.discover().collectLatest { event ->
+                when (event) {
+                    is LanDiscoveryEvent.ServiceFound -> {
+                        val updated = (_uiState.value.services + event.descriptor)
+                            .distinctBy { it.serviceName }
+                        _uiState.value = _uiState.value.copy(services = updated)
+                    }
+
+                    is LanDiscoveryEvent.Error -> {
+                        _uiState.value = _uiState.value.copy(error = event.message)
+                    }
+
+                    LanDiscoveryEvent.Timeout -> Unit
+                }
+            }
+        }
     }
 }

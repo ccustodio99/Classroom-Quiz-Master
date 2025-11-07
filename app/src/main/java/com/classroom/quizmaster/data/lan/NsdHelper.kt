@@ -3,6 +3,8 @@ package com.classroom.quizmaster.data.lan
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
+import android.os.Build
+import androidx.core.content.ContextCompat
 import com.classroom.quizmaster.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.channels.awaitClose
@@ -11,6 +13,7 @@ import kotlinx.coroutines.flow.callbackFlow
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import java.net.Inet4Address
 import javax.inject.Inject
 import javax.inject.Singleton
 
@@ -107,7 +110,7 @@ class NsdHelper @Inject constructor(
             }
 
             override fun onServiceFound(serviceInfo: NsdServiceInfo) {
-                nsdManager.resolveService(serviceInfo, object : NsdManager.ResolveListener {
+                val listener = object : NsdManager.ResolveListener {
                     override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
                         val message = "Resolve failed $errorCode"
                         Timber.e(message)
@@ -120,11 +123,12 @@ class NsdHelper @Inject constructor(
                         val token = attributes["token"]?.decodeToString().orEmpty()
                         val join = attributes["join"]?.decodeToString().orEmpty()
                         val ts = attributes["ts"]?.decodeToString()?.toLongOrNull() ?: 0L
+                        val hostAddress = serviceInfo.primaryHostAddress()
                         trySend(
                             LanDiscoveryEvent.ServiceFound(
                                 LanServiceDescriptor(
                                     serviceInfo.serviceName,
-                                    serviceInfo.host.hostAddress ?: "",
+                                    hostAddress,
                                     serviceInfo.port,
                                     token = token,
                                     joinCode = join,
@@ -133,7 +137,18 @@ class NsdHelper @Inject constructor(
                             )
                         )
                     }
-                })
+                }
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    @Suppress("DEPRECATION")
+                    nsdManager.resolveService(
+                        serviceInfo,
+                        ContextCompat.getMainExecutor(context),
+                        listener
+                    )
+                } else {
+                    @Suppress("DEPRECATION")
+                    nsdManager.resolveService(serviceInfo, listener)
+                }
             }
 
             override fun onServiceLost(serviceInfo: NsdServiceInfo) {
@@ -144,6 +159,18 @@ class NsdHelper @Inject constructor(
         awaitClose {
             timeoutJob.cancel()
             nsdManager.stopServiceDiscovery(discoveryListener)
+        }
+    }
+
+    private fun NsdServiceInfo.primaryHostAddress(): String {
+        return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+            hostAddresses
+                .firstOrNull { it is Inet4Address }
+                ?.hostAddress
+                .orEmpty()
+        } else {
+            @Suppress("DEPRECATION")
+            host?.hostAddress.orEmpty()
         }
     }
 }

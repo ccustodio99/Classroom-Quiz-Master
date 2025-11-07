@@ -1,10 +1,14 @@
 package com.classroom.quizmaster.data.lan
 
 import android.annotation.SuppressLint
+import android.net.ConnectivityManager
+import android.net.LinkAddress
+import android.net.NetworkCapabilities
 import android.net.wifi.WifiManager
-import android.text.format.Formatter
+import android.os.Build
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.Inet4Address
+import java.net.InetAddress
 import java.net.NetworkInterface
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -15,12 +19,42 @@ class LanNetworkInfo @Inject constructor(
 ) {
 
     @SuppressLint("MissingPermission")
-    fun ipv4(): String = runCatching {
-        val wifiManager = context.getSystemService(WifiManager::class.java)
-        val ipAddress = wifiManager?.connectionInfo?.ipAddress
-        if (ipAddress != null && ipAddress != 0) {
-            return@runCatching Formatter.formatIpAddress(ipAddress)
-        }
+    fun ipv4(): String =
+        findFromConnectivityManager()
+            ?: findFromLegacyWifi()
+            ?: findFromNetworkInterfaces()
+            ?: DEFAULT_HOST
+
+    private fun findFromConnectivityManager(): String? {
+        val connectivity = context.getSystemService(ConnectivityManager::class.java) ?: return null
+        val active = connectivity.activeNetwork ?: return null
+        val capabilities = connectivity.getNetworkCapabilities(active) ?: return null
+        if (!capabilities.hasTransport(NetworkCapabilities.TRANSPORT_WIFI)) return null
+        val linkAddresses: List<LinkAddress> =
+            connectivity.getLinkProperties(active)?.linkAddresses ?: return null
+        return linkAddresses
+            .firstOrNull { it.address is Inet4Address }
+            ?.address
+            ?.hostAddress
+    }
+
+    @Suppress("DEPRECATION")
+    private fun findFromLegacyWifi(): String? {
+        val wifiManager = context.getSystemService(WifiManager::class.java) ?: return null
+        val wifiInfo = wifiManager.connectionInfo ?: return null
+        val ipAddress = wifiInfo.ipAddress
+        if (ipAddress == 0) return null
+        return java.net.InetAddress.getByAddress(
+            byteArrayOf(
+                (ipAddress and 0xff).toByte(),
+                (ipAddress shr 8 and 0xff).toByte(),
+                (ipAddress shr 16 and 0xff).toByte(),
+                (ipAddress shr 24 and 0xff).toByte()
+            )
+        ).hostAddress
+    }
+
+    private fun findFromNetworkInterfaces(): String? {
         val interfaces = NetworkInterface.getNetworkInterfaces()
         while (interfaces.hasMoreElements()) {
             val iface = interfaces.nextElement()
@@ -28,12 +62,12 @@ class LanNetworkInfo @Inject constructor(
             while (addresses.hasMoreElements()) {
                 val addr = addresses.nextElement()
                 if (!addr.isLoopbackAddress && addr is Inet4Address) {
-                    return@runCatching addr.hostAddress ?: DEFAULT_HOST
+                    return addr.hostAddress
                 }
             }
         }
-        DEFAULT_HOST
-    }.getOrElse { DEFAULT_HOST }
+        return null
+    }
 
     companion object {
         private const val DEFAULT_HOST = "0.0.0.0"

@@ -1,4 +1,4 @@
-﻿# Classroom Quiz Master
+# Classroom Quiz Master
 
 Classroom Quiz Master is a LAN-first quiz experience built with Kotlin, Jetpack Compose, Room, WorkManager, Hilt, and Firebase. Teachers host realtime sessions that keep running on a school LAN while WorkManager syncs data to Firebase when a WAN connection returns. Students can join over Wi-Fi as guests and still earn points, leaderboards, and take-home reports.
 
@@ -10,6 +10,8 @@ Classroom Quiz Master is a LAN-first quiz experience built with Kotlin, Jetpack 
 - **Resilient sync** – `FirestoreSyncWorker` (scheduled with battery/network constraints) drains the op-log; App Check + StrictMode guard bad actors during development.
 - **Firebase surface area** – Firestore, Storage, Analytics, Crashlytics, and App Check are wired via the BoM. Cloud Functions cover assignment scoring and CSV exports.
 - **Performance & quality** – Baseline profile file, dedicated macrobenchmark module, CI with lint/ktlint/detekt/unit/instrumented tests, and tightened ProGuard rules.
+- **Student-safe sync** – Anonymous guests keep attempts local/LAN-only; only authenticated teachers enqueue Firestore writes so security rules can deny score tampering.
+- **Nearby fallback stub** – When NSD times out, a helper surfaces guidance (and future Wi-Fi Direct hooks) so classes can still scan QR/manual URLs.
 
 ## Architecture at a Glance
 

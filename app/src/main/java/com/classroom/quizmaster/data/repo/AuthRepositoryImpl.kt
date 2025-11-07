@@ -6,7 +6,7 @@ import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.auth.FirebaseUser
 import com.google.firebase.auth.GoogleAuthProvider
-import com.google.firebase.auth.ktx.userProfileChangeRequest
+import com.google.firebase.auth.userProfileChangeRequest
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.channels.awaitClose

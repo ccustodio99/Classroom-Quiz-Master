@@ -1,3 +1,5 @@
+@file:Suppress("DEPRECATION")
+
 package com.classroom.quizmaster.ui.auth
 
 import androidx.activity.compose.rememberLauncherForActivityResult

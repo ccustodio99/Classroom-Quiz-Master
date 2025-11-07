@@ -170,32 +170,41 @@ class SessionRepositoryImpl @Inject constructor(
     override suspend fun submitAttemptLocally(attempt: Attempt) = withContext(Dispatchers.IO) {
         db.attemptDao().upsertAttempt(attempt.toEntity(json))
         val currentSession = sessionDao.currentSession() ?: return@withContext
-        val pendingPayload = PendingAttemptPayload(
-            sessionId = currentSession.id,
-            attempt = attempt
-        )
-        val op = OpLogEntity(
-            id = attempt.id,
-            type = OP_TYPE_ATTEMPT,
-            payloadJson = json.encodeToString(pendingPayload),
-            ts = Clock.System.now().toEpochMilliseconds(),
-            synced = false
-        )
-        opLogDao.enqueue(op)
-        triggerImmediateSync()
+        val shouldSyncToCloud = isTeacherAccount()
+        val op = if (shouldSyncToCloud) {
+            val pendingPayload = PendingAttemptPayload(
+                sessionId = currentSession.id,
+                attempt = attempt
+            )
+            OpLogEntity(
+                id = attempt.id,
+                type = OP_TYPE_ATTEMPT,
+                payloadJson = json.encodeToString(pendingPayload),
+                ts = Clock.System.now().toEpochMilliseconds(),
+                synced = false
+            ).also { entry ->
+                opLogDao.enqueue(entry)
+                triggerImmediateSync()
+            }
+        } else {
+            null
+        }
         joinedEndpoint?.let { endpoint ->
             scope.launch {
                 lanClient.sendAttempt(endpoint, attempt.toWire(json))
             }
         }
-        firebaseSessionDataSource.publishAttempt(currentSession.id, attempt)
-            .onSuccess {
-                opLogDao.markSynced(listOf(op.id))
-                opLogDao.deleteSynced()
-            }
+        if (shouldSyncToCloud) {
+            firebaseSessionDataSource.publishAttempt(currentSession.id, attempt)
+                .onSuccess {
+                    op?.let { entry -> opLogDao.markSynced(listOf(entry.id)) }
+                    opLogDao.deleteSynced()
+                }
+        }
     }
 
     override suspend fun mirrorAttempt(attempt: Attempt) {
+        if (!isTeacherAccount()) return
         sessionDao.currentSession()?.let {
             firebaseSessionDataSource.publishAttempt(it.id, attempt)
         }
@@ -220,6 +229,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun syncPending() = withContext(Dispatchers.IO) {
+        if (!isTeacherAccount()) return@withContext
         val pending = opLogDao.pending()
         if (pending.isEmpty()) return@withContext
         val syncedIds = mutableListOf<String>()
@@ -377,4 +387,6 @@ class SessionRepositoryImpl @Inject constructor(
     companion object {
         private const val OP_TYPE_ATTEMPT = "attempt"
     }
+
+    private fun isTeacherAccount(): Boolean = firebaseAuth.currentUser?.isAnonymous != true
 }

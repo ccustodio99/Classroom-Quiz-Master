@@ -18,7 +18,9 @@ android {
     experimentalProperties["android.experimental.self-instrumenting"] = true
 
     buildTypes {
-        release {
+        val debug = getByName("debug")
+        create("release") {
+            initWith(debug)
             isMinifyEnabled = false
         }
     }
