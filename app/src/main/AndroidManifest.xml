@@ -9,23 +9,20 @@
     <uses-permission android:name="android.permission.CHANGE_WIFI_MULTICAST_STATE" />
     <uses-permission android:name="android.permission.ACCESS_FINE_LOCATION" />
     <uses-permission android:name="android.permission.ACCESS_COARSE_LOCATION" />
+    <uses-permission android:name="android.permission.NEARBY_WIFI_DEVICES"
+        android:usesPermissionFlags="neverForLocation"
+        tools:targetApi="33" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"
+        tools:targetApi="34" />
     <uses-permission android:name="android.permission.WAKE_LOCK" />
     <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"
+        tools:targetApi="33" />
     <uses-permission android:name="android.permission.USE_FULL_SCREEN_INTENT" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="android.permission.REQUEST_IGNORE_BATTERY_OPTIMIZATIONS" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
-    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_DATA_SYNC" />
-    <uses-permission
-        android:name="android.permission.FOREGROUND_SERVICE_CONNECTED_DEVICE"
-        tools:targetApi="34" />
-    <uses-permission
-        android:name="android.permission.NEARBY_WIFI_DEVICES"
-        android:usesPermissionFlags="neverForLocation"
-        tools:targetApi="33" />
-    <uses-permission
-        android:name="android.permission.POST_NOTIFICATIONS"
-        tools:targetApi="33" />
 
     <uses-feature
         android:name="android.hardware.wifi.direct"
@@ -73,16 +70,38 @@
         </provider>
 
         <service
-            android:name=".lan.NsdDiscoveryService"
+            android:name=".lan.service.LanDiscoveryService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync|connectedDevice" />
 
         <service
-            android:name=".lan.QuizMasterLanHostService"
+            android:name=".lan.service.LanHostForegroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync|connectedDevice" />
+
+        <service
+            android:name="androidx.work.impl.background.systemjob.SystemJobService"
+            android:permission="android.permission.BIND_JOB_SERVICE"
+            android:exported="false"
+            tools:node="merge" />
+
+        <receiver
+            android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
+            android:exported="false"
+            android:enabled="true"
+            tools:node="merge" />
+
+        <receiver
+            android:name=".sync.BootCompletedReceiver"
+            android:enabled="true"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.LOCKED_BOOT_COMPLETED" />
+            </intent-filter>
+        </receiver>
     </application>
 
 </manifest>
