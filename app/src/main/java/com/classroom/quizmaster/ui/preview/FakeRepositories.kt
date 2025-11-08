@@ -22,6 +22,10 @@ import com.classroom.quizmaster.ui.student.entry.StudentEntryUiState
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyUiState
 import com.classroom.quizmaster.ui.student.play.StudentPlayUiState
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsUiState
+import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
+import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
+import com.classroom.quizmaster.ui.teacher.home.ACTION_LAUNCH_SESSION
+import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
 import com.classroom.quizmaster.ui.teacher.home.QuickStat
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeUiState
@@ -57,6 +61,38 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
             quickStats = listOf(
                 QuickStat("Active classes", "5", "+1 this week", true),
                 QuickStat("Avg score", "83%", "+4 since Mon", true)
+            ),
+            actionCards = listOf(
+                HomeActionCard(
+                    id = ACTION_CREATE_QUIZ,
+                    title = "Create a quiz",
+                    description = "Build standards-aligned quizzes with templates.",
+                    route = ACTION_CREATE_QUIZ,
+                    ctaLabel = "Create quiz",
+                    primary = true
+                ),
+                HomeActionCard(
+                    id = ACTION_LAUNCH_SESSION,
+                    title = "Launch live",
+                    description = "Open a LAN lobby and start hosting.",
+                    route = ACTION_LAUNCH_SESSION,
+                    ctaLabel = "Launch lobby",
+                    primary = true
+                ),
+                HomeActionCard(
+                    id = ACTION_ASSIGNMENTS,
+                    title = "Assignments",
+                    description = "Schedule asynchronous practice.",
+                    route = ACTION_ASSIGNMENTS,
+                    ctaLabel = "Manage"
+                ),
+                HomeActionCard(
+                    id = ACTION_REPORTS,
+                    title = "Reports",
+                    description = "Review insights and export data.",
+                    route = ACTION_REPORTS,
+                    ctaLabel = "View reports"
+                )
             ),
             recentQuizzes = listOf(
                 QuizOverviewUi("1", "Fractions review", "4", "Math", 12, 78, "2h ago", false),

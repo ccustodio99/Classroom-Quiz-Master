@@ -28,6 +28,7 @@ import com.classroom.quizmaster.ui.components.ConnectivityBanner
 import com.classroom.quizmaster.ui.components.JoinCodeCard
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
+import com.classroom.quizmaster.ui.components.TagChip
 import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.model.PlayerLobbyUi
 import com.classroom.quizmaster.ui.model.StatusChipType
@@ -93,17 +94,24 @@ fun LaunchLobbyScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text("Lobby (${state.players.size})", style = MaterialTheme.typography.titleLarge)
-                LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                    items(state.players, key = { it.id }) { player ->
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Column {
-                                Text(player.nickname, style = MaterialTheme.typography.titleMedium)
-                                player.tag?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                if (state.players.isEmpty()) {
+                    TagChip(
+                        text = "Waiting for students to join",
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                } else {
+                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                        items(state.players, key = { it.id }) { player ->
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween
+                            ) {
+                                Column {
+                                    Text(player.nickname, style = MaterialTheme.typography.titleMedium)
+                                    player.tag?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                }
+                                TextButton(onClick = { onKick(player.id) }) { Text("Kick") }
                             }
-                            TextButton(onClick = { onKick(player.id) }) { Text("Kick") }
                         }
                     }
                 }
