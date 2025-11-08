@@ -1,8 +1,6 @@
 package com.classroom.quizmaster.data.repo
 
 import android.content.Context
-import android.content.Intent
-import androidx.core.content.ContextCompat
 import androidx.room.withTransaction
 import androidx.work.BackoffPolicy
 import androidx.work.Constraints
@@ -12,6 +10,7 @@ import androidx.work.OneTimeWorkRequest
 import androidx.work.OneTimeWorkRequestBuilder
 import androidx.work.WorkManager
 import com.classroom.quizmaster.data.lan.LanClient
+import com.classroom.quizmaster.data.lan.LanHostForegroundService
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
 import com.classroom.quizmaster.data.lan.LanHostServer
 import com.classroom.quizmaster.data.lan.LanNetworkInfo
@@ -318,9 +317,7 @@ class SessionRepositoryImpl @Inject constructor(
         lanClient.disconnect()
         joinedEndpoint = null
         studentNickname = null
-        context.stopService(Intent(context, com.classroom.quizmaster.lan.QuizMasterLanHostService::class.java).apply {
-            action = com.classroom.quizmaster.lan.QuizMasterLanHostService.ACTION_STOP
-        })
+        LanHostForegroundService.stop(context)
         database.withTransaction {
             lanSessionDao.clear()
             sessionDao.clearParticipants()
@@ -473,13 +470,13 @@ class SessionRepositoryImpl @Inject constructor(
     )
 
     private fun startHostService(session: Session, token: String, port: Int) {
-        val intent = Intent(context, com.classroom.quizmaster.lan.QuizMasterLanHostService::class.java).apply {
-            putExtra(com.classroom.quizmaster.lan.QuizMasterLanHostService.EXTRA_TOKEN, token)
-            putExtra(com.classroom.quizmaster.lan.QuizMasterLanHostService.EXTRA_SERVICE_NAME, "Quiz-${session.joinCode}")
-            putExtra(com.classroom.quizmaster.lan.QuizMasterLanHostService.EXTRA_JOIN_CODE, session.joinCode)
-            putExtra(com.classroom.quizmaster.lan.QuizMasterLanHostService.EXTRA_PORT, port)
-        }
-        ContextCompat.startForegroundService(context, intent)
+        LanHostForegroundService.start(
+            context = context,
+            token = token,
+            joinCode = session.joinCode,
+            serviceName = "Quiz-${session.joinCode}",
+            port = port
+        )
     }
 
     private fun triggerImmediateSync() {

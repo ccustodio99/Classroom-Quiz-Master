@@ -70,13 +70,7 @@
         </provider>
 
         <service
-            android:name=".lan.service.LanDiscoveryService"
-            android:enabled="true"
-            android:exported="false"
-            android:foregroundServiceType="dataSync|connectedDevice" />
-
-        <service
-            android:name=".lan.service.LanHostForegroundService"
+            android:name=".data.lan.LanHostForegroundService"
             android:enabled="true"
             android:exported="false"
             android:foregroundServiceType="dataSync|connectedDevice" />
