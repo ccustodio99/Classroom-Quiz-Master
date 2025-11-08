@@ -6,6 +6,37 @@ import androidx.room.Index
 import androidx.room.PrimaryKey
 
 @Entity(
+    tableName = "teachers",
+    indices = [
+        Index(value = ["email"], unique = true),
+        Index(value = ["createdAt"])
+    ]
+)
+data class TeacherEntity(
+    @PrimaryKey val id: String,
+    val displayName: String,
+    val email: String,
+    val createdAt: Long
+)
+
+@Entity(
+    tableName = "classrooms",
+    indices = [
+        Index(value = ["teacherId"]),
+        Index(value = ["teacherId", "name"], unique = true),
+        Index(value = ["createdAt"])
+    ]
+)
+data class ClassroomEntity(
+    @PrimaryKey val id: String,
+    val teacherId: String,
+    val name: String,
+    val grade: String,
+    val subject: String,
+    val createdAt: Long
+)
+
+@Entity(
     tableName = "quizzes",
     indices = [
         Index(value = ["teacherId"]),
@@ -49,7 +80,9 @@ data class QuestionEntity(
     tableName = "sessions",
     indices = [
         Index(value = ["teacherId"]),
-        Index(value = ["joinCode"], unique = true)
+        Index(value = ["classroomId"]),
+        Index(value = ["joinCode"], unique = true),
+        Index(value = ["joinCode", "status"])
     ]
 )
 data class SessionLocalEntity(
@@ -72,8 +105,7 @@ data class SessionLocalEntity(
     tableName = "participants",
     primaryKeys = ["sessionId", "uid"],
     indices = [
-        Index(value = ["sessionId", "totalPoints"]),
-        Index(value = ["sessionId", "totalTimeMs"])
+        Index(value = ["sessionId", "totalPoints", "totalTimeMs"])
     ]
 )
 data class ParticipantLocalEntity(
@@ -91,7 +123,8 @@ data class ParticipantLocalEntity(
     indices = [
         Index(value = ["sessionId"]),
         Index(value = ["questionId"]),
-        Index(value = ["uid"])
+        Index(value = ["uid"]),
+        Index(value = ["sessionId", "questionId"])
     ]
 )
 data class AttemptLocalEntity(
@@ -109,7 +142,13 @@ data class AttemptLocalEntity(
     val sequenceNumber: Long
 )
 
-@Entity(tableName = "oplog")
+@Entity(
+    tableName = "oplog",
+    indices = [
+        Index(value = ["synced"]),
+        Index(value = ["ts"])
+    ]
+)
 data class OpLogEntity(
     @PrimaryKey val id: String,
     val type: String,
