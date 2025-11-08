@@ -1,11 +1,17 @@
 package com.classroom.quizmaster.ui
 
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.outlined.EmojiEvents
+import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
-import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.classroom.quizmaster.ui.auth.AuthRoute
 import com.classroom.quizmaster.ui.student.end.StudentEndRoute
@@ -41,103 +47,135 @@ sealed class AppRoute(val route: String) {
 }
 
 @Composable
-fun AppNav(modifier: Modifier = Modifier) {
-    val navController = rememberNavController()
-    NavHost(
-        navController = navController,
-        startDestination = AppRoute.Auth.route,
-        modifier = modifier
-    ) {
-        composable(AppRoute.Auth.route) {
-            AuthRoute(
-                onTeacherAuthenticated = {
-                    navController.navigate(AppRoute.TeacherHome.route) {
-                        popUpTo(AppRoute.Auth.route) { inclusive = true }
-                    }
-                },
-                onStudentContinue = { _ ->
-                    navController.navigate(AppRoute.StudentEntry.route)
-                }
-            )
+fun AppNav(
+    modifier: Modifier = Modifier,
+    appState: QuizMasterAppState = rememberQuizMasterAppState()
+) {
+    val navController = appState.navController
+
+    val studentBottomItems = remember {
+        listOf(
+            BottomNavItem(AppRoute.StudentEntry.route, Icons.Outlined.Home, "Join"),
+            BottomNavItem(AppRoute.StudentLobby.route, Icons.Outlined.Groups, "Lobby"),
+            BottomNavItem(AppRoute.StudentPlay.route, Icons.Outlined.EmojiEvents, "Play")
+        )
+    }
+
+    DisposableEffect(navController) {
+        val listener = NavController.OnDestinationChangedListener { _, destination, _ ->
+            appState.updateShellForRoute(destination.route)
         }
-        composable(AppRoute.TeacherHome.route) {
-            TeacherHomeRoute(
-                onCreateQuiz = { navController.navigate(AppRoute.TeacherQuizCreate.route) },
-                onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.route) },
-                onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
-                onReports = { navController.navigate(AppRoute.TeacherReports.route) }
-            )
+        navController.addOnDestinationChangedListener(listener)
+        navController.currentDestination?.let { appState.updateShellForRoute(it.route) }
+        onDispose { navController.removeOnDestinationChangedListener(listener) }
+    }
+
+    QuizMasterRootScaffold(
+        appState = appState,
+        modifier = modifier,
+        studentBottomItems = studentBottomItems,
+        onStudentDestinationSelected = { route ->
+            if (route != navController.currentDestination?.route) {
+                appState.navigateToBottomRoute(route)
+            }
         }
-        composable(AppRoute.TeacherQuizCreate.route) {
-            QuizEditorRoute(
-                onSaved = { navController.popBackStack() },
-                onDiscarded = { navController.popBackStack() }
-            )
-        }
-        composable(
-            route = AppRoute.TeacherQuizEdit.route,
-            arguments = listOf(navArgument("quizId") { type = NavType.StringType })
+    ) { contentModifier ->
+        NavHost(
+            navController = navController,
+            startDestination = AppRoute.Auth.route,
+            modifier = contentModifier
         ) {
-            QuizEditorRoute(
-                onSaved = { navController.popBackStack() },
-                onDiscarded = { navController.popBackStack() }
-            )
-        }
-        composable(AppRoute.TeacherLaunch.route) {
-            LaunchLobbyRoute(
-                onHostStarted = { navController.navigate(AppRoute.TeacherHost.route) },
-                onHostEnded = { navController.popBackStack() }
-            )
-        }
-        composable(AppRoute.TeacherHost.route) {
-            HostLiveRoute(
-                onSessionEnded = {
-                    navController.navigate(AppRoute.TeacherHome.route) {
-                        popUpTo(AppRoute.TeacherHome.route) { inclusive = false }
+            composable(AppRoute.Auth.route) {
+                AuthRoute(
+                    onTeacherAuthenticated = {
+                        navController.navigate(AppRoute.TeacherHome.route) {
+                            popUpTo(AppRoute.Auth.route) { inclusive = true }
+                        }
+                    },
+                    onStudentContinue = { _ ->
+                        navController.navigate(AppRoute.StudentEntry.route)
                     }
-                }
-            )
-        }
-        composable(AppRoute.TeacherReports.route) {
-            ReportsRoute()
-        }
-        composable(AppRoute.TeacherAssignments.route) {
-            AssignmentsRoute()
-        }
-        composable(AppRoute.StudentEntry.route) {
-            StudentEntryRoute(
-                onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
-            )
-        }
-        composable(AppRoute.StudentJoinLan.route) {
-            StudentEntryRoute(
-                initialTab = EntryTab.Lan,
-                onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
-            )
-        }
-        composable(AppRoute.StudentJoinCode.route) {
-            StudentEntryRoute(
-                initialTab = EntryTab.Code,
-                onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
-            )
-        }
-        composable(AppRoute.StudentLobby.route) {
-            StudentLobbyRoute(
-                onReady = { navController.navigate(AppRoute.StudentPlay.route) }
-            )
-        }
-        composable(AppRoute.StudentPlay.route) {
-            StudentPlayRoute()
-        }
-        composable(AppRoute.StudentEnd.route) {
-            StudentEndRoute(
-                onPlayAgain = { navController.popBackStack(AppRoute.StudentEntry.route, false) },
-                onLeave = {
-                    navController.navigate(AppRoute.Auth.route) {
-                        popUpTo(AppRoute.Auth.route) { inclusive = true }
+                )
+            }
+            composable(AppRoute.TeacherHome.route) {
+                TeacherHomeRoute(
+                    onCreateQuiz = { navController.navigate(AppRoute.TeacherQuizCreate.route) },
+                    onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.route) },
+                    onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
+                    onReports = { navController.navigate(AppRoute.TeacherReports.route) }
+                )
+            }
+            composable(AppRoute.TeacherQuizCreate.route) {
+                QuizEditorRoute(
+                    onSaved = { navController.popBackStack() },
+                    onDiscarded = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = AppRoute.TeacherQuizEdit.route,
+                arguments = listOf(navArgument("quizId") { type = NavType.StringType })
+            ) {
+                QuizEditorRoute(
+                    onSaved = { navController.popBackStack() },
+                    onDiscarded = { navController.popBackStack() }
+                )
+            }
+            composable(AppRoute.TeacherLaunch.route) {
+                LaunchLobbyRoute(
+                    onHostStarted = { navController.navigate(AppRoute.TeacherHost.route) },
+                    onHostEnded = { navController.popBackStack() }
+                )
+            }
+            composable(AppRoute.TeacherHost.route) {
+                HostLiveRoute(
+                    onSessionEnded = {
+                        navController.navigate(AppRoute.TeacherHome.route) {
+                            popUpTo(AppRoute.TeacherHome.route) { inclusive = false }
+                        }
                     }
-                }
-            )
+                )
+            }
+            composable(AppRoute.TeacherReports.route) {
+                ReportsRoute()
+            }
+            composable(AppRoute.TeacherAssignments.route) {
+                AssignmentsRoute()
+            }
+            composable(AppRoute.StudentEntry.route) {
+                StudentEntryRoute(
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                )
+            }
+            composable(AppRoute.StudentJoinLan.route) {
+                StudentEntryRoute(
+                    initialTab = EntryTab.Lan,
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                )
+            }
+            composable(AppRoute.StudentJoinCode.route) {
+                StudentEntryRoute(
+                    initialTab = EntryTab.Code,
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                )
+            }
+            composable(AppRoute.StudentLobby.route) {
+                StudentLobbyRoute(
+                    onReady = { navController.navigate(AppRoute.StudentPlay.route) }
+                )
+            }
+            composable(AppRoute.StudentPlay.route) {
+                StudentPlayRoute()
+            }
+            composable(AppRoute.StudentEnd.route) {
+                StudentEndRoute(
+                    onPlayAgain = { navController.popBackStack(AppRoute.StudentEntry.route, false) },
+                    onLeave = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            popUpTo(AppRoute.Auth.route) { inclusive = true }
+                        }
+                    }
+                )
+            }
         }
     }
 }
