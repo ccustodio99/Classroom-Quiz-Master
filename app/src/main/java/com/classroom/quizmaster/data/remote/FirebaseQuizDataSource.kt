@@ -2,8 +2,8 @@ package com.classroom.quizmaster.data.remote
 
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.Quiz
-import com.google.firebase.auth.FirebaseAuth
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -16,14 +16,14 @@ import javax.inject.Singleton
 
 @Singleton
 class FirebaseQuizDataSource @Inject constructor(
-    private val auth: FirebaseAuth,
+    private val authDataSource: FirebaseAuthDataSource,
     private val firestore: FirebaseFirestore,
     private val json: Json
 ) {
 
     private fun quizCollection() = firestore.collection("quizzes")
 
-    fun currentTeacherId(): String? = auth.currentUser?.takeIf { it.isAnonymous.not() }?.uid
+    fun currentTeacherId(): String? = authDataSource.currentUserId()
 
     suspend fun loadQuizzes(): List<Quiz> = runCatching {
         val teacherId = currentTeacherId() ?: return emptyList()
@@ -40,7 +40,7 @@ class FirebaseQuizDataSource @Inject constructor(
 
     suspend fun upsertQuiz(quiz: Quiz) = runCatching {
         val document = if (quiz.id.isBlank()) quizCollection().document() else quizCollection().document(quiz.id)
-        document.set(FirestoreQuiz.fromDomain(quiz, json)).await()
+        document.set(FirestoreQuiz.fromDomain(quiz, json), SetOptions.merge()).await()
     }.onFailure { Timber.e(it, "Failed to upsert quiz") }
 
     suspend fun deleteQuiz(id: String) = runCatching {

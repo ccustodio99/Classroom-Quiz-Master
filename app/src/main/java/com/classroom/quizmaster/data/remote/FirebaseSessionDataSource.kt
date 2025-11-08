@@ -49,7 +49,10 @@ class FirebaseSessionDataSource @Inject constructor(
         "status" to status.name.lowercase(),
         "currentIndex" to currentIndex,
         "reveal" to reveal,
-        "startedAt" to startedAt?.toEpochMilliseconds()
+        "startedAt" to startedAt?.toEpochMilliseconds(),
+        "lockAfterQ1" to lockAfterQ1,
+        "hideLeaderboard" to hideLeaderboard,
+        "endedAt" to endedAt?.toEpochMilliseconds()
     )
 
     private fun Attempt.toMap(): Map<String, Any?> = mapOf(
