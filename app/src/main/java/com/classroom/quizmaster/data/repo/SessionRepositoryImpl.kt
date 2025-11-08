@@ -41,13 +41,12 @@ import com.classroom.quizmaster.util.ScoreCalculator
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -93,22 +92,16 @@ class SessionRepositoryImpl @Inject constructor(
     override val session: Flow<Session?> =
         sessionDao.observeCurrentSession().map { it?.toDomain() }
 
-    override val participants: Flow<List<Participant>> =
-        sessionDao.observeCurrentSession().flatMapLatest { session ->
-            if (session == null) {
-                flowOf(emptyList())
-            } else {
-                sessionDao.observeParticipants(session.id).map { list ->
-                    list.map { it.toDomain() }
-                }
-            }
-        }
+    private val participantsState = MutableStateFlow<List<Participant>>(emptyList())
+    override val participants: Flow<List<Participant>> = participantsState.asStateFlow()
 
     override val pendingOpCount = opLogDao.observePendingCount()
 
+    private var participantsJob: Job? = null
+
     init {
         scope.launch {
-            lanClient.messages.collectLatest { message ->
+            lanClient.messages.collect { message ->
                 when (message) {
                     is WireMessage.SessionState -> runCatching {
                         val decoded = json.decodeFromString<Session>(message.payload)
@@ -126,8 +119,22 @@ class SessionRepositoryImpl @Inject constructor(
             }
         }
         scope.launch {
-            lanSessionDao.observeLatest().collectLatest { entity ->
+            lanSessionDao.observeLatest().collect { entity ->
                 lanMetaState.value = entity?.toDomain()
+            }
+        }
+        scope.launch {
+            sessionDao.observeCurrentSession().collect { current ->
+                participantsJob?.cancel()
+                if (current == null) {
+                    participantsState.value = emptyList()
+                } else {
+                    participantsJob = launch {
+                        sessionDao.observeParticipants(current.id).collect { list ->
+                            participantsState.value = list.map { it.toDomain() }
+                        }
+                    }
+                }
             }
         }
         scope.launch {
@@ -344,7 +351,6 @@ class SessionRepositoryImpl @Inject constructor(
         val request: OneTimeWorkRequest = OneTimeWorkRequestBuilder<FirestoreSyncWorker>()
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .setIdempotent(true)
             .build()
         workManager.enqueueUniqueWork(
             "${FirestoreSyncWorker.UNIQUE_NAME}_now",
@@ -420,6 +426,8 @@ class SessionRepositoryImpl @Inject constructor(
     private suspend fun handleIncomingAttempt(message: WireMessage.AttemptSubmit) {
         if (!isTeacherAccount()) return
         val session = sessionDao.currentSession() ?: return
+        val sessionStatus = runCatching { SessionStatus.valueOf(session.status) }
+            .getOrElse { SessionStatus.LOBBY }
         val attemptId = message.attemptId.ifBlank { return }
         val alreadyProcessed = attemptDao.findById(attemptId)
         if (alreadyProcessed != null) {
@@ -461,7 +469,7 @@ class SessionRepositoryImpl @Inject constructor(
             timeMs = elapsed,
             correct = correct,
             points = points,
-            late = session.reveal || session.status != SessionStatus.ACTIVE,
+            late = session.reveal || sessionStatus != SessionStatus.ACTIVE,
             createdAt = Clock.System.now()
         )
         submitAttemptLocally(attempt)

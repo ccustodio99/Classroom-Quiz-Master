@@ -17,7 +17,7 @@ import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.cancel
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import javax.inject.Inject
@@ -52,7 +52,7 @@ class NsdDiscoveryService : Service() {
 
             ACTION_DISCOVER -> {
                 scope.launch {
-                    nsdHelper.discover().collectLatest { event ->
+                    nsdHelper.discover().collect { event ->
                         when (event) {
                             is LanDiscoveryEvent.ServiceFound -> {
                                 val descriptor = event.descriptor

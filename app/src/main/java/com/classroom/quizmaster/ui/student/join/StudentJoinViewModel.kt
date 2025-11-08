@@ -13,7 +13,7 @@ import javax.inject.Inject
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 
 data class StudentJoinUiState(
@@ -46,7 +46,7 @@ class StudentJoinViewModel @Inject constructor(
                 timedOut = false,
                 error = null
             )
-            sessionRepository.discoverHosts().collectLatest { event ->
+            sessionRepository.discoverHosts().collect { event ->
                 when (event) {
                     is LanDiscoveryEvent.ServiceFound -> {
                         val updated = (_uiState.value.services + event.descriptor)
@@ -153,7 +153,7 @@ class StudentJoinViewModel @Inject constructor(
 
     private fun launchFallbackDiscovery() {
         viewModelScope.launch {
-            nearbyFallbackManager.discover().collectLatest { event ->
+            nearbyFallbackManager.discover().collect { event ->
                 when (event) {
                     is LanDiscoveryEvent.ServiceFound -> {
                         val updated = (_uiState.value.services + event.descriptor)

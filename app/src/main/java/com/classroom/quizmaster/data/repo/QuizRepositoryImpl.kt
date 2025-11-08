@@ -14,7 +14,7 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -71,9 +71,10 @@ class QuizRepositoryImpl @Inject constructor(
 
     override suspend fun seedDemoData() {
         if (_quizzes.value.isNotEmpty()) return
+        val teacherId = firebaseQuizDataSource.currentTeacherId() ?: return
         val sampleQuiz = Quiz(
             id = "",
-            teacherId = "demo-teacher",
+            teacherId = teacherId,
             title = "Fractions Fundamentals",
             defaultTimePerQ = 30,
             shuffle = true,
@@ -96,7 +97,7 @@ class QuizRepositoryImpl @Inject constructor(
     init {
         val quizDao = database.quizDao()
         scope.launch {
-            quizDao.observeQuizzes().collectLatest { stored ->
+            quizDao.observeQuizzes().collect { stored ->
                 _quizzes.value = stored.map { it.toDomain() }
             }
         }

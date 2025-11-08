@@ -22,8 +22,10 @@ class FirebaseQuizDataSource @Inject constructor(
 
     private fun quizCollection() = firestore.collection("quizzes")
 
+    fun currentTeacherId(): String? = auth.currentUser?.takeIf { it.isAnonymous.not() }?.uid
+
     suspend fun loadQuizzes(): List<Quiz> = runCatching {
-        val teacherId = auth.currentUser?.uid ?: return emptyList()
+        val teacherId = currentTeacherId() ?: return emptyList()
         quizCollection()
             .whereEqualTo("teacherId", teacherId)
             .get()

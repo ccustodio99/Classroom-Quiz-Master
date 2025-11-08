@@ -19,7 +19,7 @@ fun LeaderboardSheet(
     Column(modifier = Modifier.fillMaxWidth()) {
         Text("Leaderboard")
         participants.forEachIndexed { index, participant ->
-            Text("${index + 1}. ${participant.nickname} – ${participant.totalPoints}")
+            Text("${index + 1}. ${participant.nickname} - ${participant.totalPoints}")
         }
     }
 }

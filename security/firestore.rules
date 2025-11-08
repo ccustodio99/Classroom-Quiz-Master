@@ -1,6 +1,7 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
+
     function isTeacher() {
       return request.auth != null &&
         request.auth.token.firebase != null &&
@@ -13,78 +14,119 @@ service cloud.firestore {
         request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
-    function ownsQuiz(quizId) {
-      return get(/databases/$(database)/documents/quizzes/$(quizId)).data.teacherId == request.auth.uid;
+    function teacherOwnsQuiz(quizId) {
+      return isTeacher() &&
+        quizId != null &&
+        exists(/databases/$(database)/documents/quizzes/$(quizId)) &&
+        get(/databases/$(database)/documents/quizzes/$(quizId)).data.teacherId == request.auth.uid;
     }
 
-    function sessionDoc(sessionId) {
-      return get(/databases/$(database)/documents/sessions/$(sessionId));
+    function sessionOwnedByTeacher(sessionId) {
+      return isTeacher() &&
+        exists(/databases/$(database)/documents/sessions/$(sessionId)) &&
+        get(/databases/$(database)/documents/sessions/$(sessionId)).data.teacherId == request.auth.uid;
     }
 
-    function ownsSession(sessionId) {
-      let session = sessionDoc(sessionId);
-      return session.exists() && session.data.teacherId == request.auth.uid;
+    function lowerStatus(value) {
+      return (value is string) ? value.lower() : '';
     }
 
     function sessionJoinable(sessionId) {
-      let session = sessionDoc(sessionId);
-      return session.exists() &&
-        (session.data.status in ['lobby', 'active']) &&
-        !((session.data.lockAfterQ1 == true) && session.data.currentIndex >= 1);
+      let path = /databases/$(database)/documents/sessions/$(sessionId);
+      return exists(path) &&
+        (lowerStatus(get(path).data.status) in ['lobby', 'active']) &&
+        !(
+          (get(path).data.lockAfterQ1 == true) &&
+          ((get(path).data.currentIndex == null ? 0 : get(path).data.currentIndex) >= 1)
+        );
     }
 
-    function noAttemptScoreFields() {
-      return !('points' in request.resource.data) && !('correct' in request.resource.data) && !('late' in request.resource.data);
+    function cleanAttemptPayload() {
+      return request.resource != null &&
+        !request.resource.data.keys().hasAny([
+          'points',
+          'correct',
+          'late',
+          'syncedAt',
+          'sequenceNumber',
+          'scoredAt'
+        ]);
     }
 
-    function noParticipantScoreFields() {
-      return !('totalPoints' in request.resource.data) && !('totalTimeMs' in request.resource.data);
+    function cleanParticipantPayload() {
+      return request.resource != null &&
+        !request.resource.data.keys().hasAny(['totalPoints', 'totalTimeMs', 'joinedAt']);
+    }
+
+    function assignmentOwnedByTeacher(assignmentId) {
+      let path = /databases/$(database)/documents/assignments/$(assignmentId);
+      return exists(path) && teacherOwnsQuiz(get(path).data.quizId);
     }
 
     match /quizzes/{quizId} {
-      allow read, write: if isTeacher() &&
-        request.auth.uid == (request.resource.data.teacherId ?? resource.data.teacherId);
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow read, update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
 
     match /sessions/{sessionId} {
-      allow read: if (isTeacher() && ownsSession(sessionId)) || (isStudent() && sessionJoinable(sessionId));
-      allow create: if isTeacher() && ownsQuiz(request.resource.data.quizId);
-      allow update, delete: if isTeacher() && ownsSession(sessionId);
+      allow read: if sessionOwnedByTeacher(sessionId) || (isStudent() && sessionJoinable(sessionId));
+      allow create: if isTeacher() &&
+        request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if sessionOwnedByTeacher(sessionId);
 
       match /participants/{participantId} {
-        allow read: if isTeacher() && ownsSession(sessionId);
-        allow create: if isStudent() &&
-          request.auth.uid == participantId &&
-          sessionJoinable(sessionId) &&
-          noParticipantScoreFields();
-        allow update, delete: if isTeacher() && ownsSession(sessionId);
+        allow read: if sessionOwnedByTeacher(sessionId) ||
+          (isStudent() && sessionJoinable(sessionId) && request.auth.uid == participantId);
+        allow create: if
+          sessionOwnedByTeacher(sessionId) ||
+          (
+            isStudent() &&
+            sessionJoinable(sessionId) &&
+            request.auth.uid == participantId &&
+            cleanParticipantPayload()
+          );
+        allow update, delete: if sessionOwnedByTeacher(sessionId);
       }
 
       match /attempts/{attemptId} {
-        allow read: if isTeacher() && ownsSession(sessionId);
-        allow create: if isStudent() &&
-          request.auth.uid == request.resource.data.uid &&
-          noAttemptScoreFields();
-        allow update, delete: if false;
+        allow read: if sessionOwnedByTeacher(sessionId);
+        allow create: if
+          sessionOwnedByTeacher(sessionId) ||
+          (
+            isStudent() &&
+            sessionJoinable(sessionId) &&
+            request.resource.data.uid == request.auth.uid &&
+            cleanAttemptPayload()
+          );
+        allow update: if sessionOwnedByTeacher(sessionId);
+        allow delete: if false;
       }
     }
 
     match /assignments/{assignmentId} {
-      allow read: if (isTeacher() && ownsQuiz(resource.data.quizId ?? request.resource.data.quizId)) || isStudent();
-      allow create, update, delete: if isTeacher() && ownsQuiz(request.resource.data.quizId ?? resource.data.quizId);
+      allow read: if isStudent() || (isTeacher() && assignmentOwnedByTeacher(assignmentId));
+      allow create: if isTeacher() &&
+        request.resource.data.quizId != null &&
+        teacherOwnsQuiz(request.resource.data.quizId);
+      allow update, delete: if isTeacher() && assignmentOwnedByTeacher(assignmentId);
 
       match /attempts/{attemptId} {
         allow create: if isStudent() &&
-          request.auth.uid == request.resource.data.uid &&
-          noAttemptScoreFields();
-        allow read: if isTeacher() && ownsQuiz((resource.data.quizId ?? request.resource.data.quizId));
+          request.resource.data.uid == request.auth.uid &&
+          cleanAttemptPayload();
+        allow read: if isTeacher() && assignmentOwnedByTeacher(assignmentId);
         allow update, delete: if false;
       }
 
       match /submissions/{uid} {
-        allow read: if request.auth != null && (request.auth.uid == uid || isTeacher());
+        allow read: if (isTeacher() && assignmentOwnedByTeacher(assignmentId)) ||
+          (request.auth != null && request.auth.uid == uid);
         allow write: if false;
       }
+    }
+
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

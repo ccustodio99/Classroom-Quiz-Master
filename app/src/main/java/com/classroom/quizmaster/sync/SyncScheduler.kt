@@ -26,7 +26,6 @@ class SyncScheduler @Inject constructor(
         val request = PeriodicWorkRequestBuilder<FirestoreSyncWorker>(15, TimeUnit.MINUTES)
             .setConstraints(constraints)
             .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .setIdempotent(true)
             .build()
         workManager.enqueueUniquePeriodicWork(
             FirestoreSyncWorker.UNIQUE_NAME,

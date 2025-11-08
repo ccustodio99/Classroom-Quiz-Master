@@ -1,0 +1,89 @@
+package com.classroom.quizmaster.ui.model
+
+import androidx.compose.ui.graphics.Color
+
+data class AvatarOption(
+    val id: String,
+    val label: String,
+    val colors: List<Color>,
+    val iconName: String
+)
+
+data class LeaderboardRowUi(
+    val rank: Int,
+    val displayName: String,
+    val score: Int,
+    val delta: Int,
+    val avatar: AvatarOption,
+    val isYou: Boolean = false
+)
+
+data class DistributionBar(
+    val label: String,
+    val value: Float,
+    val isCorrect: Boolean = false
+)
+
+enum class QuestionTypeUi { MultipleChoice, TrueFalse, FillIn, Match }
+
+data class AnswerOptionUi(
+    val id: String,
+    val label: String,
+    val text: String,
+    val correct: Boolean = false,
+    val selected: Boolean = false,
+    val percentage: Float = 0f
+)
+
+data class QuestionDraftUi(
+    val id: String,
+    val stem: String,
+    val type: QuestionTypeUi,
+    val answers: List<AnswerOptionUi>,
+    val explanation: String,
+    val mediaThumb: String? = null,
+    val timeLimitSeconds: Int = 45
+)
+
+data class QuizOverviewUi(
+    val id: String,
+    val title: String,
+    val grade: String,
+    val subject: String,
+    val questionCount: Int,
+    val averageScore: Int,
+    val updatedAgo: String,
+    val isDraft: Boolean
+)
+
+data class PlayerLobbyUi(
+    val id: String,
+    val nickname: String,
+    val avatar: AvatarOption,
+    val ready: Boolean,
+    val tag: String? = null
+)
+
+enum class StatusChipType { Lan, Cloud, Offline }
+
+data class StatusChipUi(
+    val id: String,
+    val label: String,
+    val type: StatusChipType
+)
+
+data class AssignmentCardUi(
+    val id: String,
+    val title: String,
+    val dueIn: String,
+    val submissions: Int,
+    val total: Int,
+    val statusLabel: String
+)
+
+data class ReportRowUi(
+    val question: String,
+    val pValue: Float,
+    val topDistractor: String,
+    val distractorRate: Float
+)

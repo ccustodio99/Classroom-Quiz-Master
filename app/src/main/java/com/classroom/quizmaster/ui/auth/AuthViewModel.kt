@@ -2,105 +2,135 @@ package com.classroom.quizmaster.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
-import com.classroom.quizmaster.domain.model.AuthState
-import com.classroom.quizmaster.domain.model.UserRole
-import com.classroom.quizmaster.domain.repository.AuthRepository
-import com.classroom.quizmaster.util.NicknamePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
+import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 
-data class AuthUiState(
+data class LoginFormState(
     val email: String = "",
-    val password: String = "",
-    val displayName: String = "",
-    val nickname: String = "Student",
-    val loading: Boolean = false,
-    val error: String? = null,
-    val nicknameError: String? = null
+    val password: String = ""
 )
 
+data class SignupFormState(
+    val email: String = "",
+    val password: String = "",
+    val confirmPassword: String = "",
+    val acceptedTerms: Boolean = false
+)
+
+data class AuthUiState(
+    val login: LoginFormState = LoginFormState(),
+    val signup: SignupFormState = SignupFormState(),
+    val nickname: String = "",
+    val loading: Boolean = false,
+    val bannerMessage: String? = null,
+    val errorMessage: String? = null,
+    val demoModeEnabled: Boolean = false
+)
+
+sealed interface AuthEffect {
+    data object TeacherAuthenticated : AuthEffect
+    data class StudentContinue(val nickname: String) : AuthEffect
+    data object DemoMode : AuthEffect
+    data class Error(val message: String) : AuthEffect
+}
+
 @HiltViewModel
-class AuthViewModel @Inject constructor(
-    private val authRepository: AuthRepository
-) : ViewModel() {
+class AuthViewModel @Inject constructor() : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState
 
-    val authState: StateFlow<AuthState> = authRepository.authState
-        .stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AuthState())
+    private val _effects = MutableSharedFlow<AuthEffect>()
+    val effects: SharedFlow<AuthEffect> = _effects
 
-    fun onEmailChange(value: String) {
-        _uiState.value = _uiState.value.copy(email = value)
+    fun updateLoginEmail(value: String) {
+        _uiState.value = _uiState.value.copy(login = _uiState.value.login.copy(email = value))
     }
 
-    fun onPasswordChange(value: String) {
-        _uiState.value = _uiState.value.copy(password = value)
+    fun updateLoginPassword(value: String) {
+        _uiState.value = _uiState.value.copy(login = _uiState.value.login.copy(password = value))
     }
 
-    fun onDisplayNameChange(value: String) {
-        _uiState.value = _uiState.value.copy(displayName = value)
+    fun updateSignupEmail(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(email = value))
     }
 
-    fun onNicknameChange(value: String) {
-        _uiState.value = _uiState.value.copy(
-            nickname = value,
-            nicknameError = NicknamePolicy.validationError(value)
-        )
+    fun updateSignupPassword(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(password = value))
+    }
+
+    fun updateSignupConfirm(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(confirmPassword = value))
+    }
+
+    fun toggleTerms(value: Boolean) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(acceptedTerms = value))
+    }
+
+    fun updateNickname(value: String) {
+        _uiState.value = _uiState.value.copy(nickname = value)
     }
 
     fun signInTeacher() = launchWithProgress {
-        authRepository.signInWithEmail(_uiState.value.email, _uiState.value.password)
+        val login = _uiState.value.login
+        if (!login.email.contains("@") || login.password.length < 6) {
+            emitError("Enter a valid email and 6+ char password.")
+            return@launchWithProgress
+        }
+        delay(500)
+        _effects.emit(AuthEffect.TeacherAuthenticated)
     }
 
-    fun createTeacher() = launchWithProgress {
-        authRepository.signUpWithEmail(
-            email = _uiState.value.email,
-            password = _uiState.value.password,
-            displayName = _uiState.value.displayName.ifBlank { _uiState.value.email.substringBefore("@") }
+    fun signUpTeacher() = launchWithProgress {
+        val signup = _uiState.value.signup
+        when {
+            !signup.email.contains("@") -> emitError("Use a school email.")
+            signup.password.length < 8 -> emitError("Password must be at least 8 characters.")
+            signup.password != signup.confirmPassword -> emitError("Passwords do not match.")
+            !signup.acceptedTerms -> emitError("Accept the terms to continue.")
+            else -> {
+                delay(600)
+                _effects.emit(AuthEffect.TeacherAuthenticated)
+            }
+        }
+    }
+
+    fun continueOfflineDemo() = launchWithProgress {
+        delay(300)
+        _uiState.value = _uiState.value.copy(
+            demoModeEnabled = true,
+            bannerMessage = "Demo lessons unlocked offline"
         )
+        _effects.emit(AuthEffect.DemoMode)
     }
 
-    fun continueAsStudent(onSuccess: () -> Unit) {
-        val current = _uiState.value
-        val violation = NicknamePolicy.validationError(current.nickname)
-        if (violation != null) {
-            _uiState.value = current.copy(nicknameError = violation)
-            return
+    fun continueAsStudent() = launchWithProgress {
+        val nickname = _uiState.value.nickname.ifBlank { "Guest" }
+        delay(200)
+        _effects.emit(AuthEffect.StudentContinue(nickname))
+    }
+
+    private fun emitError(message: String) {
+        viewModelScope.launch {
+            _uiState.value = _uiState.value.copy(errorMessage = message, loading = false)
+            _effects.emit(AuthEffect.Error(message))
         }
-        launchWithProgress {
-            val sanitized = NicknamePolicy.sanitize(current.nickname, current.email)
-            authRepository.signInAnonymously(sanitized)
-            onSuccess()
-        }
-    }
-
-    fun handleGoogleToken(idToken: String) = launchWithProgress {
-        authRepository.signInWithGoogle(idToken)
-    }
-
-    fun clearError() {
-        _uiState.value = _uiState.value.copy(error = null)
     }
 
     private fun launchWithProgress(block: suspend () -> Unit) {
         viewModelScope.launch {
-            _uiState.value = _uiState.value.copy(loading = true, error = null)
+            _uiState.value = _uiState.value.copy(loading = true, errorMessage = null)
             runCatching { block() }
-                .onFailure { throwable ->
-                    _uiState.value = _uiState.value.copy(
-                        error = throwable.message ?: "Authentication failed",
-                        loading = false
-                    )
+                .onFailure {
+                    emitError(it.message ?: "Something went wrong")
                 }
-                .onSuccess {
-                    _uiState.value = _uiState.value.copy(loading = false)
-                }
+            _uiState.value = _uiState.value.copy(loading = false)
         }
     }
 }

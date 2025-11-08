@@ -25,7 +25,7 @@ class QuizMasterDatabaseMigrationsTest {
     }
 
     @Test
-    fun `migrates from v1 to v5`() {
+    fun `migrates from v1 to v6 and preserves session indexes`() {
         helper.createDatabase(dbName, 1).apply {
             execSQL("INSERT INTO sessions (id, quizId, teacherId, classroomId, joinCode, status, currentIndex, reveal, hideLeaderboard, lockAfterQ1, updatedAt) VALUES ('s1','q1','t1','c1','ABC123','LOBBY',0,0,0,0,0)")
             execSQL("INSERT INTO participants (uid, nickname, avatar, totalPoints, totalTimeMs, joinedAt) VALUES ('u1','Demo','avatar',0,0,0)")
@@ -33,12 +33,18 @@ class QuizMasterDatabaseMigrationsTest {
             close()
         }
 
-        helper.runMigrationsAndValidate(dbName, 5, true, *QuizMasterMigrations.ALL)
+        helper.runMigrationsAndValidate(dbName, 6, true, *QuizMasterMigrations.ALL)
 
-        helper.openDatabase(dbName, 5).use { db ->
-            db.query("SELECT name FROM sqlite_master WHERE type='table' AND name='quizzes'").use { cursor ->
-                assertTrue(cursor.moveToFirst())
+        helper.openDatabase(dbName, 6).use { db ->
+            val indexes = mutableSetOf<String>()
+            db.query("PRAGMA index_list('sessions')").use { cursor ->
+                val nameIndex = cursor.getColumnIndex("name")
+                while (cursor.moveToNext()) {
+                    indexes += cursor.getString(nameIndex)
+                }
             }
+            assertTrue(indexes.contains("index_sessions_joinCode"))
+            assertTrue(indexes.contains("index_sessions_teacherId"))
         }
     }
 }

@@ -1,0 +1,17 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Classroom Quiz Master</string>
+    <string name="auth_teacher_login">Pag-login ng guro</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_confirm_password">Kumpirmahin ang password</string>
+    <string name="auth_sign_in">Mag-sign in</string>
+    <string name="auth_google">Magpatuloy gamit ang Google</string>
+    <string name="auth_demo">Subukan offline na demo</string>
+    <string name="auth_signup_header">Gumawa ng account</string>
+    <string name="auth_terms">Sumasang-ayon ako sa mga tuntunin</string>
+    <string name="auth_create_account">Lumikha ng account</string>
+    <string name="auth_student_heading">Mabilisang pagpasok ng estudyante</string>
+    <string name="auth_continue_student">Magpatuloy bilang estudyante</string>
+    <string name="google_placeholder">Hindi pa naka-setup ang Google sign-in sa demo</string>
+</resources>

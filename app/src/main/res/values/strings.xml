@@ -1,7 +1,19 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Classroom Quiz Master</string>
-    <string name="notification_discovery">Searching for nearby hosts</string>
-    <string name="notification_hosting">Hosting live quiz</string>
-    <string name="google_web_client_id">REPLACE_WITH_CLIENT_ID</string>
+    <string name="notification_discovery">Searching for nearby LAN sessions</string>
+    <string name="notification_hosting">Hosting a LAN quiz</string>
+    <string name="auth_teacher_login">Teacher sign in</string>
+    <string name="auth_email">Email</string>
+    <string name="auth_password">Password</string>
+    <string name="auth_confirm_password">Confirm password</string>
+    <string name="auth_sign_in">Sign in</string>
+    <string name="auth_google">Continue with Google</string>
+    <string name="auth_demo">Continue offline demo</string>
+    <string name="auth_signup_header">Create account</string>
+    <string name="auth_terms">I agree to the Terms of Use</string>
+    <string name="auth_create_account">Create account</string>
+    <string name="auth_student_heading">Student quick entry</string>
+    <string name="auth_continue_student">Continue as student</string>
+    <string name="google_placeholder">Google sign-in not configured in demo</string>
 </resources>

@@ -1,0 +1,324 @@
+package com.classroom.quizmaster.ui.teacher.quiz_editor
+
+import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ArrowDownward
+import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
+import androidx.compose.material3.Slider
+import androidx.compose.material3.Surface
+import androidx.compose.material3.Switch
+import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
+import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
+import androidx.compose.ui.unit.dp
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.classroom.quizmaster.ui.components.PrimaryButton
+import com.classroom.quizmaster.ui.components.SecondaryButton
+import com.classroom.quizmaster.ui.components.TagChip
+import com.classroom.quizmaster.ui.components.ToggleChip
+import com.classroom.quizmaster.ui.components.SaveChangesDialog
+import com.classroom.quizmaster.ui.components.DiscardDraftDialog
+import com.classroom.quizmaster.ui.model.AnswerOptionUi
+import com.classroom.quizmaster.ui.model.QuestionDraftUi
+import com.classroom.quizmaster.ui.model.QuestionTypeUi
+import com.classroom.quizmaster.ui.preview.QuizPreviews
+import com.classroom.quizmaster.ui.theme.QuizMasterTheme
+
+@Composable
+fun QuizEditorRoute(
+    onSaved: () -> Unit,
+    onDiscarded: () -> Unit,
+    viewModel: QuizEditorViewModel = hiltViewModel()
+) {
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    QuizEditorScreen(
+        state = state,
+        onTitleChange = viewModel::updateTitle,
+        onGradeChange = viewModel::updateGrade,
+        onSubjectChange = viewModel::updateSubject,
+        onTimeChange = viewModel::updateTimePerQuestion,
+        onShuffleChange = viewModel::toggleShuffle,
+        onAddQuestion = viewModel::addQuestion,
+        onQuestionStem = viewModel::updateQuestionStem,
+        onAnswerChange = viewModel::updateAnswerText,
+        onToggleCorrect = viewModel::toggleCorrectAnswer,
+        onExplanationChange = viewModel::updateExplanation,
+        onReorderQuestion = viewModel::reorderQuestion,
+        onSaveClick = { viewModel.showSaveDialog(true) },
+        onDiscardClick = { viewModel.showDiscardDialog(true) },
+        onDiscardConfirmed = {
+            viewModel.showDiscardDialog(false)
+            onDiscarded()
+        },
+        onConfirmSave = {
+            viewModel.persist(onSaved)
+        },
+        onDismissSaveDialog = { viewModel.showSaveDialog(false) },
+        onDismissDiscardDialog = { viewModel.showDiscardDialog(false) }
+    )
+}
+
+@Composable
+fun QuizEditorScreen(
+    state: QuizEditorUiState,
+    onTitleChange: (String) -> Unit,
+    onGradeChange: (String) -> Unit,
+    onSubjectChange: (String) -> Unit,
+    onTimeChange: (Int) -> Unit,
+    onShuffleChange: (Boolean) -> Unit,
+    onAddQuestion: (QuestionTypeUi) -> Unit,
+    onQuestionStem: (String, String) -> Unit,
+    onAnswerChange: (String, String, String) -> Unit,
+    onToggleCorrect: (String, String) -> Unit,
+    onExplanationChange: (String, String) -> Unit,
+    onReorderQuestion: (Int, Int) -> Unit,
+    onSaveClick: () -> Unit,
+    onDiscardClick: () -> Unit,
+    onDiscardConfirmed: () -> Unit,
+    onConfirmSave: () -> Unit,
+    onDismissSaveDialog: () -> Unit,
+    onDismissDiscardDialog: () -> Unit
+) {
+    Column(
+        modifier = Modifier
+            .fillMaxSize()
+            .verticalScroll(rememberScrollState())
+            .padding(16.dp),
+        verticalArrangement = Arrangement.spacedBy(16.dp)
+    ) {
+        Text(text = if (state.isNewQuiz) "Create quiz" else "Edit quiz", style = MaterialTheme.typography.headlineMedium)
+        OutlinedTextField(
+            value = state.title,
+            onValueChange = onTitleChange,
+            label = { Text("Title") },
+            modifier = Modifier.fillMaxWidth()
+        )
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            OutlinedTextField(
+                value = state.grade,
+                onValueChange = onGradeChange,
+                label = { Text("Grade") },
+                modifier = Modifier.weight(1f)
+            )
+            OutlinedTextField(
+                value = state.subject,
+                onValueChange = onSubjectChange,
+                label = { Text("Subject") },
+                modifier = Modifier.weight(1f)
+            )
+        }
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text("Time/question: ${state.timePerQuestionSeconds}s")
+            Slider(
+                value = state.timePerQuestionSeconds.toFloat(),
+                onValueChange = { onTimeChange(it.toInt()) },
+                valueRange = 15f..120f,
+                modifier = Modifier.weight(1f)
+            )
+        }
+        ToggleChip(
+            label = "Shuffle questions",
+            checked = state.shuffleQuestions,
+            onCheckedChange = onShuffleChange,
+            description = "Randomize order per student"
+        )
+        Text(text = "Questions", style = MaterialTheme.typography.titleLarge)
+        QuestionList(
+            questions = state.questions,
+            onStemChange = onQuestionStem,
+            onAnswerChange = onAnswerChange,
+            onToggleCorrect = onToggleCorrect,
+            onExplanationChange = onExplanationChange,
+            onReorderQuestion = onReorderQuestion
+        )
+        AddQuestionRow(onAddQuestion = onAddQuestion)
+        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+            PrimaryButton(text = "Save", onClick = onSaveClick)
+            SecondaryButton(text = "Discard", onClick = onDiscardClick)
+        }
+        SaveChangesDialog(
+            open = state.showSaveDialog,
+            onDismiss = onDismissSaveDialog,
+            onSave = onConfirmSave,
+            onDiscard = onDiscardConfirmed
+        )
+        DiscardDraftDialog(
+            open = state.showDiscardDialog,
+            onDismiss = onDismissDiscardDialog,
+            onConfirm = onDiscardConfirmed
+        )
+    }
+}
+
+@Composable
+private fun QuestionList(
+    questions: List<QuestionDraftUi>,
+    onStemChange: (String, String) -> Unit,
+    onAnswerChange: (String, String, String) -> Unit,
+    onToggleCorrect: (String, String) -> Unit,
+    onExplanationChange: (String, String) -> Unit,
+    onReorderQuestion: (Int, Int) -> Unit
+) {
+    if (questions.isEmpty()) {
+        TagChip(text = "No questions yet")
+    } else {
+        questions.forEachIndexed { index, question ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 2.dp
+            ) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(text = "Q${index + 1}: ${question.type.name}", style = MaterialTheme.typography.titleMedium)
+                        Row {
+                            IconButton(
+                                onClick = { onReorderQuestion(index, index - 1) },
+                                enabled = index > 0
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowUpward,
+                                    contentDescription = "Move question up"
+                                )
+                            }
+                            IconButton(
+                                onClick = { onReorderQuestion(index, index + 1) },
+                                enabled = index < questions.lastIndex
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.ArrowDownward,
+                                    contentDescription = "Move question down"
+                                )
+                            }
+                        }
+                    }
+                    OutlinedTextField(
+                        value = question.stem,
+                        onValueChange = { onStemChange(question.id, it) },
+                        label = { Text("Question") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    question.answers.forEach { answer ->
+                        AnswerRow(
+                            questionId = question.id,
+                            answer = answer,
+                            onAnswerChange = onAnswerChange,
+                            onToggleCorrect = onToggleCorrect
+                        )
+                    }
+                    OutlinedTextField(
+                        value = question.explanation,
+                        onValueChange = { onExplanationChange(question.id, it) },
+                        label = { Text("Explanation (shown after reveal)") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    TextButton(onClick = { /* media picker placeholder */ }) {
+                        Text("Attach media (UI only)")
+                    }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun AnswerRow(
+    questionId: String,
+    answer: AnswerOptionUi,
+    onAnswerChange: (String, String, String) -> Unit,
+    onToggleCorrect: (String, String) -> Unit
+) {
+    Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+        Switch(
+            checked = answer.correct,
+            onCheckedChange = { onToggleCorrect(questionId, answer.id) }
+        )
+        OutlinedTextField(
+            value = answer.text,
+            onValueChange = { onAnswerChange(questionId, answer.id, it) },
+            label = { Text("Answer ${answer.label}") },
+            modifier = Modifier.weight(1f)
+        )
+    }
+}
+
+@Composable
+private fun AddQuestionRow(onAddQuestion: (QuestionTypeUi) -> Unit) {
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text(text = "Add question", style = MaterialTheme.typography.titleMedium)
+        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+            QuestionTypeUi.values().forEach { type ->
+                SecondaryButton(text = "+ ${type.name}", onClick = { onAddQuestion(type) })
+            }
+        }
+    }
+}
+
+@QuizPreviews
+@Composable
+private fun QuizEditorPreview() {
+    QuizMasterTheme {
+        QuizEditorScreen(
+            state = QuizEditorUiState(
+                title = "Fractions review",
+                grade = "4",
+                subject = "Math",
+                questions = listOf(
+                    QuestionDraftUi(
+                        id = "q1",
+                        stem = "What is 1/2 + 1/4?",
+                        type = QuestionTypeUi.MultipleChoice,
+                        answers = listOf(
+                            AnswerOptionUi("a1", "A", "3/4", true),
+                            AnswerOptionUi("a2", "B", "2/4", false)
+                        ),
+                        explanation = "Convert to like denominators."
+                    )
+                )
+            ),
+            onTitleChange = {},
+            onGradeChange = {},
+            onSubjectChange = {},
+            onTimeChange = {},
+            onShuffleChange = {},
+            onAddQuestion = {},
+            onQuestionStem = { _, _ -> },
+            onAnswerChange = { _, _, _ -> },
+            onToggleCorrect = { _, _ -> },
+            onExplanationChange = { _, _ -> },
+            onReorderQuestion = { _, _ -> },
+            onSaveClick = {},
+            onDiscardClick = {},
+            onDiscardConfirmed = {},
+            onConfirmSave = {},
+            onDismissSaveDialog = {},
+            onDismissDiscardDialog = {}
+        )
+    }
+}

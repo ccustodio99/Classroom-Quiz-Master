@@ -2,15 +2,14 @@ package com.classroom.quizmaster
 
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
+import com.classroom.quizmaster.data.lan.NearbyFallbackManager
 import com.classroom.quizmaster.domain.model.Attempt
-import com.classroom.quizmaster.domain.model.LanMeta
 import com.classroom.quizmaster.domain.model.LanMeta
 import com.classroom.quizmaster.domain.model.Participant
 import com.classroom.quizmaster.domain.model.Session
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.ui.student.join.StudentJoinViewModel
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.test.runTest
@@ -25,7 +24,7 @@ class StudentJoinViewModelTest {
     @Test
     fun `discover updates services`() = runTest {
         val repo = FakeSessionRepository()
-        val viewModel = StudentJoinViewModel(repo)
+        val viewModel = StudentJoinViewModel(repo, NearbyFallbackManager())
         viewModel.discoverLanHosts()
         assertEquals(1, viewModel.uiState.value.services.size)
     }
