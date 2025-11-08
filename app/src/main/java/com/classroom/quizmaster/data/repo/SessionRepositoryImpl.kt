@@ -2,13 +2,6 @@ package com.classroom.quizmaster.data.repo
 
 import android.content.Context
 import androidx.room.withTransaction
-import androidx.work.BackoffPolicy
-import androidx.work.Constraints
-import androidx.work.ExistingWorkPolicy
-import androidx.work.NetworkType
-import androidx.work.OneTimeWorkRequest
-import androidx.work.OneTimeWorkRequestBuilder
-import androidx.work.WorkManager
 import com.classroom.quizmaster.data.lan.LanClient
 import com.classroom.quizmaster.data.lan.LanHostForegroundService
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
@@ -34,6 +27,7 @@ import com.classroom.quizmaster.domain.model.Session
 import com.classroom.quizmaster.domain.model.SessionStatus
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.sync.FirestoreSyncWorker
+import com.classroom.quizmaster.sync.SyncScheduler
 import com.classroom.quizmaster.util.JoinCodeGenerator
 import com.classroom.quizmaster.util.NicknamePolicy
 import com.classroom.quizmaster.util.ScoreCalculator
@@ -66,7 +60,6 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.util.UUID
-import java.util.concurrent.TimeUnit
 
 @Singleton
 class SessionRepositoryImpl @Inject constructor(
@@ -79,6 +72,7 @@ class SessionRepositoryImpl @Inject constructor(
     private val lanNetworkInfo: LanNetworkInfo,
     private val json: Json,
     private val firebaseAuth: FirebaseAuth,
+    private val syncScheduler: SyncScheduler,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : SessionRepository {
 
@@ -87,8 +81,6 @@ class SessionRepositoryImpl @Inject constructor(
     private val lanSessionDao: LanSessionDao = database.lanSessionDao()
     private val attemptDao = database.attemptDao()
     private val quizDao = database.quizDao()
-    private val workManager: WorkManager = WorkManager.getInstance(context)
-
     private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
 
     private val lanMetaState = lanSessionDao.observeLatest()
@@ -480,17 +472,9 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     private fun triggerImmediateSync() {
-        val constraints = Constraints.Builder()
-            .setRequiredNetworkType(NetworkType.CONNECTED)
-            .build()
-        val request: OneTimeWorkRequest = OneTimeWorkRequestBuilder<FirestoreSyncWorker>()
-            .setConstraints(constraints)
-            .setBackoffCriteria(BackoffPolicy.EXPONENTIAL, 30, TimeUnit.SECONDS)
-            .build()
-        workManager.enqueueUniqueWork(
-            "${FirestoreSyncWorker.UNIQUE_NAME}_now",
-            ExistingWorkPolicy.REPLACE,
-            request
+        syncScheduler.enqueueNow(
+            reason = FirestoreSyncWorker.REASON_QUEUE_FLUSH,
+            pendingCountHint = 1
         )
     }
 
