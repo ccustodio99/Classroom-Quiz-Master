@@ -16,6 +16,7 @@ class Converters {
     private val json = Json {
         ignoreUnknownKeys = true
         encodeDefaults = true
+        explicitNulls = false
     }
 
     @TypeConverter
@@ -57,19 +58,22 @@ class Converters {
 
     @TypeConverter
     fun toQuestionType(value: String?): QuestionType? =
-        value?.let { runCatching { QuestionType.valueOf(it) }.getOrNull() }
+        parseEnum(value, QuestionType.MCQ)
 
     @TypeConverter
     fun fromSessionStatus(value: SessionStatus?): String? = value?.name
 
     @TypeConverter
     fun toSessionStatus(value: String?): SessionStatus? =
-        value?.let { runCatching { SessionStatus.valueOf(it) }.getOrNull() }
+        parseEnum(value, SessionStatus.LOBBY)
 
     @TypeConverter
     fun fromScoringMode(value: ScoringMode?): String? = value?.name
 
     @TypeConverter
     fun toScoringMode(value: String?): ScoringMode? =
-        value?.let { runCatching { ScoringMode.valueOf(it) }.getOrNull() }
+        parseEnum(value, ScoringMode.BEST)
+
+    private inline fun <reified T : Enum<T>> parseEnum(value: String?, default: T? = null): T? =
+        value?.let { runCatching { enumValueOf<T>(it) }.getOrNull() } ?: default
 }
