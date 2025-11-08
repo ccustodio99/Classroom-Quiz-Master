@@ -48,4 +48,8 @@ class HostLiveViewModel @Inject constructor(
     fun toggleMute(muted: Boolean) {
         viewModelScope.launch { sessionRepositoryUi.updateMuteSfx(muted) }
     }
+
+    fun endSession() {
+        viewModelScope.launch { sessionRepositoryUi.endSession() }
+    }
 }

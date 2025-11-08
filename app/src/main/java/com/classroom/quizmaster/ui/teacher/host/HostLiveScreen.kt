@@ -49,7 +49,10 @@ fun HostLiveRoute(
         onNext = viewModel::next,
         onToggleLeaderboard = viewModel::toggleLeaderboard,
         onToggleMute = viewModel::toggleMute,
-        onEnd = onSessionEnded
+        onEnd = {
+            viewModel.endSession()
+            onSessionEnded()
+        }
     )
 }
 
@@ -69,15 +72,16 @@ fun HostLiveScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        val timeLimit = state.question?.timeLimitSeconds ?: 60
+        val timeLimit = (state.question?.timeLimitSeconds ?: 60).coerceAtLeast(1)
         val progress = (state.timerSeconds.toFloat() / timeLimit.toFloat()).coerceIn(0f, 1f)
+        val totalQuestions = state.totalQuestions.takeIf { it > 0 } ?: (state.questionIndex + 1).coerceAtLeast(1)
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.SpaceBetween
         ) {
             Column {
                 Text(
-                    text = "Question ${state.questionIndex + 1}/${state.totalQuestions}",
+                    text = "Question ${state.questionIndex + 1}/$totalQuestions",
                     style = MaterialTheme.typography.titleLarge
                 )
                 TagChip(text = if (state.isRevealed) "Revealed" else "Live")

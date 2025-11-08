@@ -22,7 +22,9 @@ data class HomeActionCard(
     val id: String,
     val title: String,
     val description: String,
-    val route: String
+    val route: String,
+    val ctaLabel: String = "Open",
+    val primary: Boolean = false
 )
 
 data class TeacherHomeUiState(
@@ -36,6 +38,11 @@ data class TeacherHomeUiState(
     val emptyMessage: String = "",
     val isOfflineDemo: Boolean = false
 )
+
+const val ACTION_CREATE_QUIZ = "teacher_home:create_quiz"
+const val ACTION_LAUNCH_SESSION = "teacher_home:launch_session"
+const val ACTION_ASSIGNMENTS = "teacher_home:assignments"
+const val ACTION_REPORTS = "teacher_home:reports"
 
 @HiltViewModel
 class TeacherHomeViewModel @Inject constructor(
