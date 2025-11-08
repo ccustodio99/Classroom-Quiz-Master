@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.data.repo
 
+import androidx.room.withTransaction
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.local.entity.AssignmentLocalEntity
 import com.classroom.quizmaster.data.local.entity.SubmissionLocalEntity
@@ -8,68 +9,81 @@ import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.ScoringMode
 import com.classroom.quizmaster.domain.model.Submission
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
-import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.map
-import kotlinx.datetime.Instant
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import kotlinx.datetime.Instant
+import timber.log.Timber
 
 @Singleton
 class AssignmentRepositoryImpl @Inject constructor(
     private val remote: FirebaseAssignmentDataSource,
-    private val database: QuizMasterDatabase
+    private val database: QuizMasterDatabase,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : AssignmentRepository {
 
     private val assignmentDao = database.assignmentDao()
 
     override val assignments: Flow<List<Assignment>> =
-        assignmentDao.observeAssignments().map { entities ->
-            entities.map { it.toDomain() }
-        }
+        assignmentDao.observeAssignments()
+            .map { entities -> entities.map { it.toDomain() } }
+            .distinctUntilChanged()
 
     override fun submissions(assignmentId: String): Flow<List<Submission>> =
-        assignmentDao.observeSubmissions(assignmentId).map { rows ->
-            rows.map { it.toDomain() }
-        }
+        assignmentDao.observeSubmissions(assignmentId)
+            .map { entities -> entities.map { it.toDomain() } }
+            .distinctUntilChanged()
 
-    override suspend fun refreshAssignments() {
+    override suspend fun refreshAssignments() = withContext(ioDispatcher) {
         val remoteAssignments = remote.fetchAssignments().getOrElse { emptyList() }
-        if (remoteAssignments.isNotEmpty()) {
-            assignmentDao.upsertAssignments(remoteAssignments.map { it.toEntity() })
+        val remoteSubmissions = remoteAssignments.associate { assignment ->
+            assignment.id to remote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
         }
-        remoteAssignments.forEach { assignment ->
-            val remoteSubmissions = remote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
-            if (remoteSubmissions.isNotEmpty()) {
-                assignmentDao.upsertSubmissions(remoteSubmissions.map { it.toEntity() })
+        database.withTransaction {
+            if (remoteAssignments.isNotEmpty()) {
+                assignmentDao.upsertAssignments(remoteAssignments.map { it.toEntity() })
+            }
+            remoteSubmissions.forEach { (assignmentId, submissions) ->
+                if (submissions.isNotEmpty()) {
+                    assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
+                }
             }
         }
     }
 
-    override suspend fun createAssignment(assignment: Assignment) {
-        assignmentDao.upsertAssignments(listOf(assignment.toEntity()))
+    override suspend fun createAssignment(assignment: Assignment) = withContext(ioDispatcher) {
+        database.withTransaction {
+            assignmentDao.upsertAssignments(listOf(assignment.toEntity()))
+        }
         remote.createAssignment(assignment)
+            .onFailure { Timber.e(it, "Failed to create assignment ${assignment.id}") }
     }
 
-    override suspend fun submitHomework(submission: Submission) {
-        assignmentDao.upsertSubmission(submission.toEntity())
+    override suspend fun submitHomework(submission: Submission) = withContext(ioDispatcher) {
+        database.withTransaction { assignmentDao.upsertSubmission(submission.toEntity()) }
         remote.saveSubmission(submission)
+            .onFailure { Timber.w(it, "Failed to mirror submission ${submission.assignmentId}:${submission.uid}") }
     }
 
-    private fun Assignment.toEntity(): AssignmentLocalEntity =
-        AssignmentLocalEntity(
-            id = id,
-            quizId = quizId,
-            classroomId = classroomId,
-            openAt = openAt.toEpochMilliseconds(),
-            closeAt = closeAt.toEpochMilliseconds(),
-            attemptsAllowed = attemptsAllowed,
-            scoringMode = scoringMode.name,
-            revealAfterSubmit = revealAfterSubmit,
-            createdAt = createdAt.toEpochMilliseconds(),
-            updatedAt = updatedAt.toEpochMilliseconds()
-        )
+    private fun Assignment.toEntity(): AssignmentLocalEntity = AssignmentLocalEntity(
+        id = id,
+        quizId = quizId,
+        classroomId = classroomId,
+        openAt = openAt.toEpochMilliseconds(),
+        closeAt = closeAt.toEpochMilliseconds(),
+        attemptsAllowed = attemptsAllowed,
+        scoringMode = scoringMode.name,
+        revealAfterSubmit = revealAfterSubmit,
+        createdAt = createdAt.toEpochMilliseconds(),
+        updatedAt = updatedAt.toEpochMilliseconds()
+    )
 
-    private fun Submission.toEntity() = SubmissionLocalEntity(
+    private fun Submission.toEntity(): SubmissionLocalEntity = SubmissionLocalEntity(
         assignmentId = assignmentId,
         uid = uid,
         bestScore = bestScore,
