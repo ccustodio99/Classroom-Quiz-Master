@@ -87,3 +87,11 @@ data class ReportRowUi(
     val topDistractor: String,
     val distractorRate: Float
 )
+
+enum class ConnectionQuality {
+    Excellent,
+    Good,
+    Fair,
+    Weak,
+    Offline
+}

@@ -35,7 +35,10 @@ import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 @Composable
 fun LeaderboardList(
     rows: List<LeaderboardRowUi>,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    headline: String = "Leaderboard",
+    showHeader: Boolean = true,
+    compact: Boolean = false
 ) {
     Surface(
         modifier = modifier,
@@ -43,19 +46,21 @@ fun LeaderboardList(
         tonalElevation = 4.dp
     ) {
         Column {
-            Text(
-                text = "Leaderboard",
-                style = MaterialTheme.typography.titleLarge,
-                modifier = Modifier.padding(16.dp)
-            )
+            if (showHeader) {
+                Text(
+                    text = headline,
+                    style = MaterialTheme.typography.titleLarge,
+                    modifier = Modifier.padding(16.dp)
+                )
+            }
             LazyColumn(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .height(240.dp),
+                    .height(if (compact) 160.dp else 240.dp),
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 items(rows, key = { it.rank }) { row ->
-                    LeaderboardRow(row = row)
+                    LeaderboardRow(row = row, compact = compact)
                 }
             }
         }
@@ -63,7 +68,7 @@ fun LeaderboardList(
 }
 
 @Composable
-private fun LeaderboardRow(row: LeaderboardRowUi) {
+private fun LeaderboardRow(row: LeaderboardRowUi, compact: Boolean) {
     val gradientBrush = remember(row.avatar.colors) {
         Brush.horizontalGradient(row.avatar.colors.ifEmpty { listOf(Color.Gray, Color.DarkGray) })
     }
@@ -76,7 +81,10 @@ private fun LeaderboardRow(row: LeaderboardRowUi) {
                 if (row.rank <= 3) MaterialTheme.colorScheme.primaryContainer.copy(alpha = 0.2f)
                 else Color.Transparent
             )
-            .padding(vertical = 12.dp, horizontal = 12.dp),
+            .padding(
+                vertical = if (compact) 8.dp else 12.dp,
+                horizontal = 12.dp
+            ),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.SpaceBetween
     ) {
@@ -87,14 +95,17 @@ private fun LeaderboardRow(row: LeaderboardRowUi) {
                 fontWeight = FontWeight.Bold
             )
             Surface(
-                modifier = Modifier.height(40.dp),
+                modifier = Modifier.height(if (compact) 32.dp else 40.dp),
                 shape = MaterialTheme.shapes.small,
                 tonalElevation = 2.dp
             ) {
                 Row(
                     modifier = Modifier
                         .background(gradientBrush)
-                        .padding(horizontal = 12.dp, vertical = 8.dp),
+                        .padding(
+                            horizontal = if (compact) 10.dp else 12.dp,
+                            vertical = if (compact) 6.dp else 8.dp
+                        ),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     Image(
@@ -115,7 +126,7 @@ private fun LeaderboardRow(row: LeaderboardRowUi) {
                 )
                 Text(
                     text = "${row.score} pts",
-                    style = MaterialTheme.typography.bodyMedium
+                    style = if (compact) MaterialTheme.typography.bodySmall else MaterialTheme.typography.bodyMedium
                 )
             }
         }

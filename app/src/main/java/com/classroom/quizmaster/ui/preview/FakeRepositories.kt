@@ -3,6 +3,7 @@ package com.classroom.quizmaster.ui.preview
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.AssignmentCardUi
 import com.classroom.quizmaster.ui.model.AvatarOption
+import com.classroom.quizmaster.ui.model.ConnectionQuality
 import com.classroom.quizmaster.ui.model.DistributionBar
 import com.classroom.quizmaster.ui.model.LeaderboardRowUi
 import com.classroom.quizmaster.ui.model.PlayerLobbyUi
@@ -21,6 +22,7 @@ import com.classroom.quizmaster.ui.student.entry.LanHostUi
 import com.classroom.quizmaster.ui.student.entry.StudentEntryUiState
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyUiState
 import com.classroom.quizmaster.ui.student.play.StudentPlayUiState
+import com.classroom.quizmaster.ui.student.play.SubmissionStatus
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsUiState
 import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
@@ -175,16 +177,37 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
         )
     )
 
+    private val sampleLanHosts = listOf(
+        LanHostUi(
+            id = "room1",
+            teacherName = "Ms. Lee",
+            subject = "Science Quiz",
+            players = 8,
+            latencyMs = 12,
+            joinCode = "SCILAN",
+            quality = ConnectionQuality.Excellent,
+            lastSeen = "moments ago"
+        ),
+        LanHostUi(
+            id = "room2",
+            teacherName = "Coach Diaz",
+            subject = "History Warmup",
+            players = 4,
+            latencyMs = 18,
+            joinCode = "HIST24",
+            quality = ConnectionQuality.Good,
+            lastSeen = "1 min ago"
+        )
+    )
+
     private val entryFlow = MutableStateFlow(
         StudentEntryUiState(
             tab = EntryTab.Lan,
-            nickname = "",
             avatarOptions = sampleAvatars,
-            lanHosts = listOf(
-                LanHostUi("room1", "Ms. Lee", "Science Quiz", 8, 12),
-                LanHostUi("room2", "Coach Diaz", "History Warmup", 4, 18)
-            ),
-            statusMessage = "LAN connected"
+            lanHosts = sampleLanHosts,
+            statusMessage = "LAN connected",
+            lastSeenHosts = "moments ago",
+            networkAvailable = true
         )
     )
 
@@ -192,9 +215,12 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
         StudentLobbyUiState(
             studentId = "demo-student",
             hostName = "Ms. Navarro",
+            joinCode = sampleLanHosts.first().joinCode,
             joinStatus = "Waiting for host",
-            avatars = sampleAvatars,
-            lockedMessage = "Locked after Q1? No worries, you're in."
+            players = lobbyFlow.value.players,
+            lockedMessage = "Locked after Q1? No worries, you're in.",
+            leaderboardPreview = hostFlow.value.leaderboard,
+            connectionQuality = ConnectionQuality.Excellent
         )
     )
 
@@ -203,7 +229,14 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
             question = hostFlow.value.question,
             timerSeconds = 24,
             progress = 0.6f,
-            reveal = false
+            reveal = false,
+            leaderboard = hostFlow.value.leaderboard,
+            distribution = hostFlow.value.distribution,
+            streak = 2,
+            totalScore = 840,
+            latencyMs = 18,
+            connectionQuality = ConnectionQuality.Good,
+            submissionMessage = "Tap an answer to submit"
         )
     )
 
@@ -212,7 +245,11 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
             stars = 3,
             rank = 4,
             team = "Galaxy Owls",
-            badges = listOf("Fast thinker", "Team captain")
+            badges = listOf("Fast thinker", "Team captain"),
+            totalScore = 1320,
+            improvement = 75,
+            leaderboard = hostFlow.value.leaderboard,
+            summary = "You outscored last game by 75 points!"
         )
     )
 
@@ -240,7 +277,10 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
     }
 
     override suspend fun startSession() {
-        playFlow.value = playFlow.value.copy(feedback = "Game starting")
+        playFlow.value = playFlow.value.copy(
+            submissionStatus = SubmissionStatus.Idle,
+            submissionMessage = "Game starting"
+        )
     }
 
     override suspend fun endSession() {}
@@ -254,6 +294,13 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
             questionIndex = hostFlow.value.questionIndex + 1,
             isRevealed = false
         )
+        playFlow.value = playFlow.value.copy(
+            question = hostFlow.value.question,
+            reveal = false,
+            progress = 0.4f,
+            submissionStatus = SubmissionStatus.Idle,
+            submissionMessage = "Next question"
+        )
     }
 
     override suspend fun kickParticipant(uid: String) {
@@ -263,7 +310,74 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
     }
 
     override suspend fun toggleReady(studentId: String) {
-        lobbyStudent.value = lobbyStudent.value.copy(ready = !lobbyStudent.value.ready)
+        val currentlyReady = lobbyStudent.value.ready
+        lobbyStudent.value = lobbyStudent.value.copy(ready = !currentlyReady)
+        lobbyFlow.value = lobbyFlow.value.copy(
+            players = lobbyFlow.value.players.map {
+                if (it.id == studentId) it.copy(ready = !currentlyReady) else it
+            }
+        )
+    }
+
+    override suspend fun refreshLanHosts() {
+        entryFlow.value = entryFlow.value.copy(isDiscovering = true, statusMessage = "Scanning for hosts...")
+        entryFlow.value = entryFlow.value.copy(
+            isDiscovering = false,
+            lanHosts = sampleLanHosts.mapIndexed { index, host ->
+                host.copy(lastSeen = if (index == 0) "just now" else host.lastSeen)
+            },
+            lastSeenHosts = "just now",
+            statusMessage = "Hosts refreshed"
+        )
+    }
+
+    override suspend fun joinLanHost(hostId: String, nickname: String, avatarId: String?): Result<Unit> {
+        val host = entryFlow.value.lanHosts.firstOrNull { it.id == hostId }
+            ?: return Result.failure(IllegalArgumentException("Host not found"))
+        entryFlow.value = entryFlow.value.copy(isJoining = true, errorMessage = null)
+        lobbyStudent.value = lobbyStudent.value.copy(
+            hostName = host.teacherName,
+            joinStatus = "Joined ${host.subject}",
+            joinCode = host.joinCode,
+            connectionQuality = host.quality,
+            ready = true
+        )
+        entryFlow.value = entryFlow.value.copy(
+            isJoining = false,
+            selectedHostId = hostId,
+            statusMessage = "Joined ${host.teacherName}'s lobby"
+        )
+        playFlow.value = playFlow.value.copy(
+            totalScore = 0,
+            streak = 0,
+            submissionStatus = SubmissionStatus.Idle,
+            submissionMessage = "Waiting for first question"
+        )
+        return Result.success(Unit)
+    }
+
+    override suspend fun joinWithCode(joinCode: String, nickname: String, avatarId: String?): Result<Unit> {
+        val host = entryFlow.value.lanHosts.firstOrNull { it.joinCode.equals(joinCode, ignoreCase = true) }
+            ?: return Result.failure(IllegalArgumentException("Join code not recognized"))
+        return joinLanHost(host.id, nickname, avatarId)
+    }
+
+    override suspend fun submitStudentAnswer(answerIds: List<String>) {
+        playFlow.value = playFlow.value.copy(
+            submissionStatus = SubmissionStatus.Acknowledged,
+            submissionMessage = "Answer received in ${playFlow.value.latencyMs}ms",
+            totalScore = playFlow.value.totalScore + 120,
+            streak = playFlow.value.streak + 1
+        )
+        playFlow.value = playFlow.value.copy(
+            leaderboard = playFlow.value.leaderboard.mapIndexed { index, row ->
+                if (index == 0) row.copy(score = row.score + 120, delta = 18, isYou = true) else row
+            }
+        )
+    }
+
+    override suspend fun clearStudentError() {
+        entryFlow.value = entryFlow.value.copy(errorMessage = null)
     }
 }
 

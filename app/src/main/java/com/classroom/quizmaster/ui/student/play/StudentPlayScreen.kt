@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.student.play
 
+import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
@@ -17,11 +18,16 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.classroom.quizmaster.ui.components.LeaderboardList
 import com.classroom.quizmaster.ui.components.TagChip
 import com.classroom.quizmaster.ui.components.TimerRing
+import com.classroom.quizmaster.ui.components.PrimaryButton
+import com.classroom.quizmaster.ui.components.SecondaryButton
+import com.classroom.quizmaster.ui.components.DistributionBarChart
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
@@ -35,14 +41,18 @@ fun StudentPlayRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     StudentPlayScreen(
         state = state,
-        onAnswerSelected = viewModel::selectAnswer
+        onAnswerSelected = viewModel::selectAnswer,
+        onToggleLeaderboard = viewModel::toggleLeaderboard,
+        onSubmit = viewModel::submitSelection
     )
 }
 
 @Composable
 fun StudentPlayScreen(
     state: StudentPlayUiState,
-    onAnswerSelected: (String) -> Unit
+    onAnswerSelected: (String) -> Unit,
+    onToggleLeaderboard: () -> Unit,
+    onSubmit: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -55,9 +65,12 @@ fun StudentPlayScreen(
             horizontalArrangement = Arrangement.SpaceBetween,
             verticalAlignment = Alignment.CenterVertically
         ) {
-            Column {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(text = "Question", style = MaterialTheme.typography.titleLarge)
-                TagChip(text = if (state.reveal) "Answer revealed" else "Submit now")
+                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    TagChip(text = connectionLabel(state))
+                    TagChip(text = "Score ${state.totalScore}")
+                }
             }
             TimerRing(
                 progress = state.progress,
@@ -66,13 +79,21 @@ fun StudentPlayScreen(
         }
         Surface(
             shape = MaterialTheme.shapes.large,
-            tonalElevation = 2.dp
+            tonalElevation = 3.dp
         ) {
-            Text(
-                text = state.question?.stem ?: "Waiting for host...",
+            Column(
                 modifier = Modifier.padding(16.dp),
-                style = MaterialTheme.typography.headlineSmall
-            )
+                verticalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                Text(
+                    text = state.question?.stem ?: "Waiting for host...",
+                    style = MaterialTheme.typography.headlineSmall,
+                    fontWeight = FontWeight.SemiBold
+                )
+                if (state.submissionMessage.isNotBlank()) {
+                    TagChip(text = state.submissionMessage)
+                }
+            }
         }
         LazyColumn(
             verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -89,15 +110,50 @@ fun StudentPlayScreen(
             }
         }
         if (state.reveal) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                tonalElevation = 1.dp
-            ) {
-                Text(
-                    text = state.question?.explanation ?: "",
-                    modifier = Modifier.padding(16.dp)
+            AnimatedVisibility(visible = state.distribution.isNotEmpty()) {
+                DistributionBarChart(
+                    data = state.distribution,
+                    modifier = Modifier.fillMaxWidth()
                 )
             }
+        }
+        Surface(
+            shape = MaterialTheme.shapes.large,
+            tonalElevation = 2.dp
+        ) {
+            Column(
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .padding(16.dp),
+                verticalArrangement = Arrangement.spacedBy(12.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text("Leaderboard", style = MaterialTheme.typography.titleMedium)
+                    SecondaryButton(
+                        text = if (state.showLeaderboard) "Hide" else "Show",
+                        onClick = onToggleLeaderboard
+                    )
+                }
+                AnimatedVisibility(visible = state.showLeaderboard) {
+                    LeaderboardList(
+                        rows = state.leaderboard,
+                        showHeader = false,
+                        compact = true
+                    )
+                }
+            }
+        }
+        val questionType = state.question?.type
+        if (questionType != null && state.requiresManualSubmit && !state.reveal) {
+            PrimaryButton(
+                text = "Submit answers",
+                onClick = onSubmit,
+                enabled = state.selectedAnswers.isNotEmpty()
+            )
         }
     }
 }
@@ -129,10 +185,16 @@ private fun AnswerCard(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(answer.label, style = MaterialTheme.typography.titleLarge)
-            Text(answer.text, style = MaterialTheme.typography.bodyLarge)
+            Text(
+                text = answer.text,
+                style = MaterialTheme.typography.bodyLarge
+            )
         }
     }
 }
+
+private fun connectionLabel(state: StudentPlayUiState): String =
+    "${state.connectionQuality.name.lowercase().replaceFirstChar { it.uppercase() }} · ${state.latencyMs}ms"
 
 @QuizPreviews
 @Composable
@@ -153,9 +215,15 @@ private fun StudentPlayPreview() {
                 selectedAnswers = setOf("a2"),
                 reveal = true,
                 timerSeconds = 12,
-                progress = 0.3f
+                progress = 0.3f,
+                leaderboard = emptyList(),
+                distribution = emptyList(),
+                totalScore = 540,
+                submissionMessage = "Answer received"
             ),
-            onAnswerSelected = {}
+            onAnswerSelected = {},
+            onToggleLeaderboard = {},
+            onSubmit = {}
         )
     }
 }

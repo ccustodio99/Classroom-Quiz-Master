@@ -49,7 +49,9 @@ class UiComponentTests {
                 tab = EntryTab.Code,
                 avatarOptions = listOf(AvatarOption("1", "Nova", emptyList(), "spark")),
                 lanHosts = emptyList(),
-                canJoin = false
+                canJoin = false,
+                joinCode = "",
+                joinCodeValid = false
             )
         )
         composeRule.setContent {
@@ -58,18 +60,26 @@ class UiComponentTests {
                     state = state,
                     onTabSelect = {},
                     onNicknameChange = {
-                        state = state.copy(nickname = it, canJoin = it.length >= 3)
+                        state = state.copy(nickname = it, nicknameError = null)
                     },
                     onAvatarSelect = {},
                     onJoinCodeChange = {},
+                    onHostSelect = {},
+                    onRefreshLan = {},
                     onJoinLan = {},
-                    onJoinCode = {}
+                    onJoinCode = {},
+                    onClearError = {}
                 )
             }
         }
         composeRule.onNodeWithText("Join session").assertIsNotEnabled()
         composeRule.runOnUiThread {
-            state = state.copy(canJoin = true, nickname = "Ava")
+            state = state.copy(
+                canJoin = true,
+                nickname = "Ava",
+                joinCode = "SCILAN",
+                joinCodeValid = true
+            )
         }
         composeRule.onNodeWithText("Join session").assertIsEnabled()
     }
