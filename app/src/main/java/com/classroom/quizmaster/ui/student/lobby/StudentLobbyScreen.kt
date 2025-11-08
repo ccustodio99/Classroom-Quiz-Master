@@ -4,18 +4,31 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import androidx.lifecycle.viewModelScope
+import com.classroom.quizmaster.ui.components.LeaderboardList
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.TagChip
 import com.classroom.quizmaster.ui.model.AvatarOption
+import com.classroom.quizmaster.ui.model.ConnectionQuality
+import com.classroom.quizmaster.ui.model.LeaderboardRowUi
+import com.classroom.quizmaster.ui.model.PlayerLobbyUi
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.state.SessionRepositoryUi
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
@@ -23,19 +36,21 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
-import androidx.lifecycle.ViewModel
-import androidx.lifecycle.viewModelScope
 
 data class StudentLobbyUiState(
     val studentId: String = "",
     val hostName: String = "",
+    val joinCode: String = "",
     val joinStatus: String = "Waiting for host",
-    val avatars: List<AvatarOption> = emptyList(),
+    val players: List<PlayerLobbyUi> = emptyList(),
     val ready: Boolean = false,
-    val lockedMessage: String? = null
+    val lockedMessage: String? = null,
+    val countdownSeconds: Int = 0,
+    val leaderboardPreview: List<LeaderboardRowUi> = emptyList(),
+    val connectionQuality: ConnectionQuality = ConnectionQuality.Good
 )
 
 @HiltViewModel
@@ -47,7 +62,9 @@ class StudentLobbyViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            sessionRepositoryUi.studentLobby.collect { _uiState.value = it }
+            sessionRepositoryUi.studentLobby.collectLatest { incoming ->
+                _uiState.value = incoming
+            }
         }
     }
 
@@ -67,10 +84,13 @@ fun StudentLobbyRoute(
     viewModel: StudentLobbyViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    StudentLobbyScreen(state = state, onToggleReady = {
-        viewModel.toggleReady()
-        onReady()
-    })
+    StudentLobbyScreen(
+        state = state,
+        onToggleReady = {
+            viewModel.toggleReady()
+            onReady()
+        }
+    )
 }
 
 @Composable
@@ -82,17 +102,49 @@ fun StudentLobbyScreen(
         modifier = Modifier
             .fillMaxWidth()
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text("Host: ${state.hostName}", style = MaterialTheme.typography.titleLarge)
-        Text(state.joinStatus, style = MaterialTheme.typography.bodyMedium)
+        Text(
+            text = "Host: ${state.hostName}",
+            style = MaterialTheme.typography.headlineSmall,
+            fontWeight = FontWeight.SemiBold
+        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(state.joinStatus, style = MaterialTheme.typography.bodyMedium)
+                if (state.lockedMessage != null) {
+                    TagChip(text = state.lockedMessage)
+                }
+            }
+            TagChip(text = "Join code ${state.joinCode}")
+        }
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            state.avatars.forEach {
-                TagChip(text = it.label)
+            TagChip(text = connectionLabel(state.connectionQuality))
+            if (state.countdownSeconds > 0) {
+                TagChip(text = "Starts in ${state.countdownSeconds}s")
             }
         }
-        state.lockedMessage?.let {
-            TagChip(text = it)
+        Text("Players", style = MaterialTheme.typography.titleMedium)
+        if (state.players.isEmpty()) {
+            Text("Waiting for classmates to join", style = MaterialTheme.typography.bodyMedium)
+        } else {
+            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                items(state.players, key = { it.id }) { player ->
+                    PlayerCard(player)
+                }
+            }
+        }
+        if (state.leaderboardPreview.isNotEmpty()) {
+            LeaderboardList(
+                rows = state.leaderboardPreview,
+                modifier = Modifier.fillMaxWidth(),
+                headline = "Top streaks",
+                compact = true
+            )
         }
         PrimaryButton(
             text = if (state.ready) "Ready!" else "Tap when ready",
@@ -101,19 +153,55 @@ fun StudentLobbyScreen(
     }
 }
 
+@Composable
+private fun PlayerCard(player: PlayerLobbyUi) {
+    Surface(
+        modifier = Modifier
+            .height(120.dp)
+            .width(160.dp),
+        tonalElevation = if (player.ready) 6.dp else 2.dp,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(6.dp)
+        ) {
+            Text(player.nickname, style = MaterialTheme.typography.titleMedium)
+            if (player.tag != null) {
+                TagChip(text = player.tag)
+            }
+            Text(if (player.ready) "Ready" else "Getting set", style = MaterialTheme.typography.bodySmall)
+        }
+    }
+}
+
+private fun connectionLabel(quality: ConnectionQuality): String = when (quality) {
+    ConnectionQuality.Excellent -> "LAN excellent"
+    ConnectionQuality.Good -> "LAN good"
+    ConnectionQuality.Fair -> "LAN fair"
+    ConnectionQuality.Weak -> "LAN weak"
+    ConnectionQuality.Offline -> "Offline"
+}
+
 @QuizPreviews
 @Composable
 private fun StudentLobbyPreview() {
     QuizMasterTheme {
         StudentLobbyScreen(
             state = StudentLobbyUiState(
+                studentId = "demo-student",
                 hostName = "Ms. Navarro",
-                joinStatus = "Waiting for 2 more players",
-                avatars = listOf(
-                    AvatarOption("1", "Nova", emptyList(), "spark"),
-                    AvatarOption("2", "Bolt", emptyList(), "atom")
+                joinCode = "SCILAN",
+                joinStatus = "Waiting for host",
+                players = listOf(
+                    PlayerLobbyUi("1", "Nova", AvatarOption("1", "N", emptyList(), "spark"), true, "You"),
+                    PlayerLobbyUi("2", "Bolt", AvatarOption("2", "B", emptyList(), "atom"), false, "New")
                 ),
-                lockedMessage = "Host locked joins after Q1"
+                lockedMessage = "Host will lock after question 1",
+                leaderboardPreview = listOf(
+                    LeaderboardRowUi(1, "Nova", 1200, 25, AvatarOption("1", "N", emptyList(), "spark"), true),
+                    LeaderboardRowUi(2, "Bolt", 980, 10, AvatarOption("2", "B", emptyList(), "atom"), false)
+                )
             ),
             onToggleReady = {}
         )

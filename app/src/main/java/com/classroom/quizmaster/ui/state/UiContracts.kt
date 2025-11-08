@@ -35,6 +35,11 @@ interface SessionRepositoryUi {
     suspend fun nextQuestion()
     suspend fun kickParticipant(uid: String)
     suspend fun toggleReady(studentId: String)
+    suspend fun refreshLanHosts()
+    suspend fun joinLanHost(hostId: String, nickname: String, avatarId: String?): Result<Unit>
+    suspend fun joinWithCode(joinCode: String, nickname: String, avatarId: String?): Result<Unit>
+    suspend fun submitStudentAnswer(answerIds: List<String>)
+    suspend fun clearStudentError()
 }
 
 interface AssignmentRepositoryUi {
