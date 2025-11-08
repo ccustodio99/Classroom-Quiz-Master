@@ -27,6 +27,9 @@ import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 import com.classroom.quizmaster.ui.preview.QuizPreviews
+import androidx.compose.runtime.CompositionLocalProvider
+import androidx.compose.ui.platform.LocalLayoutDirection
+import androidx.compose.ui.unit.LayoutDirection
 
 private val DefaultQrPlaceholder: @Composable () -> Unit = { QRPlaceholder() }
 
@@ -111,10 +114,12 @@ fun QRPlaceholder(
 @QuizPreviews
 @Composable
 private fun JoinCodePreview() {
-    JoinCodeCard(
-        code = "X7Q2",
-        expiresIn = "09:20",
-        peersConnected = 6,
-        onCopy = {}
-    )
+    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+        JoinCodeCard(
+            code = "X7Q2",
+            expiresIn = "09:20",
+            peersConnected = 6,
+            onCopy = {}
+        )
+    }
 }
