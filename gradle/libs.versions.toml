@@ -163,6 +163,7 @@ firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashly
 firebase-firestore = { group = "com.google.firebase", name = "firebase-firestore-ktx" }
 firebase-perf = { group = "com.google.firebase", name = "firebase-perf-ktx" }
 firebase-storage = { group = "com.google.firebase", name = "firebase-storage-ktx" }
+firebase-functions = { group = "com.google.firebase", name = "firebase-functions-ktx" }
 guava = { group = "com.google.guava", name = "guava", version.ref = "guava" }
 hilt-android = { group = "com.google.dagger", name = "hilt-android", version.ref = "hilt" }
 hilt-compiler = { group = "com.google.dagger", name = "hilt-android-compiler", version.ref = "hilt" }
@@ -229,6 +230,7 @@ firebase-core = [
     "firebase-auth",
     "firebase-firestore",
     "firebase-storage",
+    "firebase-functions",
     "firebase-crashlytics",
     "firebase-appcheck-playintegrity",
     "firebase-perf"

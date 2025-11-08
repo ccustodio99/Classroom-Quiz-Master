@@ -4,10 +4,11 @@ import android.app.Application
 import android.os.StrictMode
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
+import com.classroom.quizmaster.data.remote.FirebaseAnalyticsLogger
 import com.classroom.quizmaster.sync.SyncScheduler
-import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
@@ -22,6 +23,15 @@ class QuizMasterApp : Application(), Configuration.Provider {
     @Inject
     lateinit var syncScheduler: SyncScheduler
 
+    @Inject
+    lateinit var firebaseAppCheck: FirebaseAppCheck
+
+    @Inject
+    lateinit var crashlytics: FirebaseCrashlytics
+
+    @Inject
+    lateinit var analyticsLogger: FirebaseAnalyticsLogger
+
     override fun onCreate() {
         super.onCreate()
         initStrictMode()
@@ -31,6 +41,7 @@ class QuizMasterApp : Application(), Configuration.Provider {
             Timber.plant(Timber.DebugTree())
         }
         syncScheduler.schedule()
+        analyticsLogger.logEvent("app_open")
     }
 
     override val workManagerConfiguration: Configuration
@@ -64,10 +75,10 @@ class QuizMasterApp : Application(), Configuration.Provider {
         } else {
             PlayIntegrityAppCheckProviderFactory.getInstance()
         }
-        FirebaseAppCheck.getInstance().installAppCheckProviderFactory(providerFactory)
+        firebaseAppCheck.installAppCheckProviderFactory(providerFactory)
     }
 
     private fun configureCrashlytics() {
-        FirebaseCrashlytics.getInstance().setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
+        crashlytics.setCrashlyticsCollectionEnabled(!BuildConfig.DEBUG)
     }
 }

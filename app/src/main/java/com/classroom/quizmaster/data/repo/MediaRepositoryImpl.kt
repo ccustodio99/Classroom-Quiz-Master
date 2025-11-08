@@ -1,10 +1,8 @@
 package com.classroom.quizmaster.data.repo
 
 import android.content.Context
-import android.net.Uri
+import com.classroom.quizmaster.data.remote.FirebaseStorageDataSource
 import com.classroom.quizmaster.domain.repository.MediaRepository
-import com.google.firebase.storage.FirebaseStorage
-import com.google.firebase.storage.storageMetadata
 import dagger.hilt.android.qualifiers.ApplicationContext
 import java.io.File
 import java.security.MessageDigest
@@ -12,12 +10,11 @@ import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.withContext
-import kotlinx.coroutines.tasks.await
 
 @Singleton
 class MediaRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
-    private val storage: FirebaseStorage
+    private val storageDataSource: FirebaseStorageDataSource
 ) : MediaRepository {
 
     private val cacheDir: File by lazy {
@@ -31,33 +28,31 @@ class MediaRepositoryImpl @Inject constructor(
         mimeType: String
     ): Result<String> = runCatching {
         val sanitizedName = fileName.ifBlank { "asset-${digest(bytes)}" }
-        val ref = storage.reference.child("quiz-media/$quizId/$sanitizedName")
-        val metadata = storageMetadata { contentType = mimeType }
-        withContext(Dispatchers.IO) {
-            ref.putBytes(bytes, metadata).await()
-            ref.downloadUrl.await().toString()
-        }
+        val path = "quiz-media/$quizId/$sanitizedName"
+        storageDataSource.uploadBytes(
+            path = path,
+            bytes = bytes,
+            mimeType = mimeType,
+            customMetadata = mapOf("quizId" to quizId)
+        )
     }
 
     override suspend fun deleteAsset(remoteUrl: String): Result<Unit> = runCatching {
-        withContext(Dispatchers.IO) {
-            storage.getReferenceFromUrl(remoteUrl).delete().await()
-        }
+        storageDataSource.deleteByUrl(remoteUrl)
     }
 
     override suspend fun cacheAsset(remoteUrl: String): Result<File> = runCatching {
         val target = cachedFile(remoteUrl)
         if (target.exists()) return@runCatching target
         withContext(Dispatchers.IO) {
-            target.outputStream().use { stream ->
-                storage.getReferenceFromUrl(remoteUrl).getBytes(MAX_DOWNLOAD_BYTES).await().let(stream::write)
-            }
+            val bytes = storageDataSource.fetchBytes(remoteUrl, MAX_DOWNLOAD_BYTES)
+            target.outputStream().use { stream -> stream.write(bytes) }
         }
         target
     }
 
     private fun cachedFile(remoteUrl: String): File {
-        val name = Uri.parse(remoteUrl).lastPathSegment?.ifBlank { null } ?: digest(remoteUrl.toByteArray())
+        val name = storageDataSource.fileName(remoteUrl).ifBlank { digest(remoteUrl.toByteArray()) }
         return File(cacheDir, name)
     }
 
