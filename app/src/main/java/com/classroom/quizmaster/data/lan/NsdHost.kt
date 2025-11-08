@@ -3,7 +3,6 @@ package com.classroom.quizmaster.data.lan
 import android.content.Context
 import android.net.nsd.NsdManager
 import android.net.nsd.NsdServiceInfo
-import androidx.core.content.ContextCompat
 import com.classroom.quizmaster.BuildConfig
 import dagger.hilt.android.qualifiers.ApplicationContext
 import timber.log.Timber
