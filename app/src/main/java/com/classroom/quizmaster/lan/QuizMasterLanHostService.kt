@@ -11,8 +11,8 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.classroom.quizmaster.BuildConfig
 import com.classroom.quizmaster.R
-import com.classroom.quizmaster.data.lan.LanHostManager
-import com.classroom.quizmaster.data.lan.NsdHelper
+import com.classroom.quizmaster.data.lan.LanHostServer
+import com.classroom.quizmaster.data.lan.NsdHost
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -27,8 +27,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class QuizMasterLanHostService : Service() {
 
-    @Inject lateinit var lanHostManager: LanHostManager
-    @Inject lateinit var nsdHelper: NsdHelper
+    @Inject lateinit var lanHostServer: LanHostServer
+    @Inject lateinit var nsdHost: NsdHost
     @Inject lateinit var json: Json
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
@@ -53,22 +53,22 @@ class QuizMasterLanHostService : Service() {
         val joinCode = intent.getStringExtra(EXTRA_JOIN_CODE) ?: return START_NOT_STICKY
         val serviceName = intent.getStringExtra(EXTRA_SERVICE_NAME) ?: "QuizMasterHost"
         val requestedPort = intent.getIntExtra(EXTRA_PORT, BuildConfig.LAN_DEFAULT_PORT)
-        val port = lanHostManager.start(token, requestedPort)
-        nsdHelper.register(serviceName, port, token, joinCode)
+        val port = lanHostServer.start(token, requestedPort)
+        nsdHost.advertise(serviceName, port, token, joinCode)
         observeAttempts()
         return START_STICKY
     }
 
     override fun onDestroy() {
-        nsdHelper.stopAdvertising()
-        lanHostManager.stop()
+        nsdHost.stop()
+        lanHostServer.stop()
         scope.cancel()
         super.onDestroy()
     }
 
     private fun observeAttempts() {
         scope.launch {
-            lanHostManager.attemptSubmissions.collect {
+            lanHostServer.attemptSubmissions.collect {
                 Timber.i("Attempt from ${it.uid} for ${it.questionId}")
             }
         }

@@ -69,6 +69,9 @@ class QuizRepositoryImpl @Inject constructor(
         database.quizDao().deleteQuiz(id)
     }
 
+    override suspend fun getQuiz(id: String): Quiz? =
+        database.quizDao().getQuiz(id)?.toDomain()
+
     override suspend fun seedDemoData() {
         if (_quizzes.value.isNotEmpty()) return
         val teacherId = firebaseQuizDataSource.currentTeacherId() ?: return
@@ -110,6 +113,7 @@ class QuizRepositoryImpl @Inject constructor(
         title = title,
         defaultTimePerQ = defaultTimePerQ,
         shuffle = shuffle,
+        questionCount = (questionCount.takeIf { it > 0 } ?: questions.size),
         createdAt = createdAt.toEpochMilliseconds(),
         updatedAt = now
     )
@@ -136,6 +140,8 @@ class QuizRepositoryImpl @Inject constructor(
         defaultTimePerQ = quiz.defaultTimePerQ,
         shuffle = quiz.shuffle,
         createdAt = Instant.fromEpochMilliseconds(quiz.createdAt),
+        updatedAt = Instant.fromEpochMilliseconds(quiz.updatedAt),
+        questionCount = quiz.questionCount,
         questions = questions
             .sortedBy { it.position }
             .map { it.toDomain(quiz.id) }

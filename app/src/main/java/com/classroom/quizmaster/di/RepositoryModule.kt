@@ -2,10 +2,12 @@ package com.classroom.quizmaster.di
 
 import com.classroom.quizmaster.data.repo.AssignmentRepositoryImpl
 import com.classroom.quizmaster.data.repo.AuthRepositoryImpl
+import com.classroom.quizmaster.data.repo.MediaRepositoryImpl
 import com.classroom.quizmaster.data.repo.QuizRepositoryImpl
 import com.classroom.quizmaster.data.repo.SessionRepositoryImpl
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.repository.MediaRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import dagger.Binds
@@ -28,4 +30,7 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindAuthRepository(impl: AuthRepositoryImpl): AuthRepository
+
+    @Binds
+    abstract fun bindMediaRepository(impl: MediaRepositoryImpl): MediaRepository
 }

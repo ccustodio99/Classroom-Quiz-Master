@@ -1,15 +1,32 @@
 package com.classroom.quizmaster.util
 
-object ProfanityFilter {
-    private val banned = setOf("badword", "foo", "bar")
+import java.util.Locale
 
-    fun sanitize(input: String): String {
-        val trimmed = input.trim()
-        val replacement = if (trimmed.isBlank()) "Player" else trimmed
-        return if (banned.any { word -> replacement.contains(word, ignoreCase = true) }) {
-            "Player"
-        } else {
-            replacement
-        }
+object ProfanityFilter {
+    private val bannedTokens = setOf(
+        "badword",
+        "foo",
+        "bar",
+        "spam",
+        "egregious",
+        "darn",
+        "heck"
+    )
+
+    private val sanitizeRegex = Regex("[^a-z0-9 ]")
+
+    fun sanitize(input: String, fallback: String = "Player"): String {
+        val candidate = input.trim().ifBlank { fallback }
+        return if (containsProfanity(candidate)) fallback else candidate
     }
+
+    fun containsProfanity(input: String): Boolean =
+        tokens(input).any { it in bannedTokens }
+
+    private fun tokens(value: String): Sequence<String> =
+        value.lowercase(Locale.US)
+            .replace(sanitizeRegex, " ")
+            .split(Regex("\\s+"))
+            .asSequence()
+            .filter { it.isNotBlank() }
 }

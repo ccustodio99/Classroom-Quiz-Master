@@ -7,6 +7,7 @@ import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
@@ -52,17 +53,25 @@ class FirebaseQuizDataSource @Inject constructor(
         val defaultTimePerQ: Int = 30,
         val shuffle: Boolean = false,
         val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
+        val updatedAt: Long = createdAt,
+        val questionCount: Int = 0,
         val questionsJson: String = "[]"
     ) {
-        fun toDomain(id: String, json: Json): Quiz = Quiz(
-            id = id,
-            teacherId = teacherId,
-            title = title,
-            defaultTimePerQ = defaultTimePerQ,
-            shuffle = shuffle,
-            createdAt = Instant.fromEpochMilliseconds(createdAt),
-            questions = json.decodeFromString(questionsJson)
-        )
+        fun toDomain(id: String, json: Json): Quiz {
+            val decodedQuestions: List<Question> = json.decodeFromString(questionsJson)
+            val computedCount = if (questionCount > 0) questionCount else decodedQuestions.size
+            return Quiz(
+                id = id,
+                teacherId = teacherId,
+                title = title,
+                defaultTimePerQ = defaultTimePerQ,
+                shuffle = shuffle,
+                createdAt = Instant.fromEpochMilliseconds(createdAt),
+                updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+                questionCount = computedCount,
+                questions = decodedQuestions
+            )
+        }
 
         companion object {
             fun fromDomain(quiz: Quiz, json: Json) = FirestoreQuiz(
@@ -71,6 +80,8 @@ class FirebaseQuizDataSource @Inject constructor(
                 defaultTimePerQ = quiz.defaultTimePerQ,
                 shuffle = quiz.shuffle,
                 createdAt = quiz.createdAt.toEpochMilliseconds(),
+                updatedAt = quiz.updatedAt.toEpochMilliseconds(),
+                questionCount = if (quiz.questionCount > 0) quiz.questionCount else quiz.questions.size,
                 questionsJson = json.encodeToString(quiz.questions)
             )
         }

@@ -1,6 +1,7 @@
 package com.classroom.quizmaster.domain.model
 
 import kotlinx.datetime.Instant
+import kotlinx.serialization.SerialName
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -29,6 +30,8 @@ data class Quiz(
     val defaultTimePerQ: Int,
     val shuffle: Boolean,
     val createdAt: Instant,
+    val updatedAt: Instant = createdAt,
+    val questionCount: Int = 0,
     val questions: List<Question> = emptyList()
 )
 
@@ -51,9 +54,32 @@ data class MediaAsset(
     val url: String
 )
 
-enum class MediaType { IMAGE, AUDIO, VIDEO }
+@Serializable
+enum class MediaType {
+    @SerialName("image")
+    IMAGE,
 
-enum class QuestionType { MCQ, TF, FILL_IN, MATCHING }
+    @SerialName("audio")
+    AUDIO,
+
+    @SerialName("video")
+    VIDEO
+}
+
+@Serializable
+enum class QuestionType {
+    @SerialName("mcq")
+    MCQ,
+
+    @SerialName("tf")
+    TF,
+
+    @SerialName("fillin")
+    FILL_IN,
+
+    @SerialName("matching")
+    MATCHING
+}
 
 @Serializable
 data class Session(
@@ -62,15 +88,27 @@ data class Session(
     val teacherId: String,
     val classroomId: String,
     val joinCode: String,
-    val status: SessionStatus,
-    val currentIndex: Int,
-    val reveal: Boolean,
+    val status: SessionStatus = SessionStatus.LOBBY,
+    val currentIndex: Int = 0,
+    val reveal: Boolean = false,
     val startedAt: Instant? = null,
+    val endedAt: Instant? = null,
     val lockAfterQ1: Boolean = false,
-    val hideLeaderboard: Boolean = false
+    val hideLeaderboard: Boolean = false,
+    val lanMeta: LanMeta? = null
 )
 
-enum class SessionStatus { LOBBY, ACTIVE, ENDED }
+@Serializable
+enum class SessionStatus {
+    @SerialName("lobby")
+    LOBBY,
+
+    @SerialName("active")
+    ACTIVE,
+
+    @SerialName("ended")
+    ENDED
+}
 
 @Serializable
 data class Participant(
@@ -79,7 +117,8 @@ data class Participant(
     val avatar: String,
     val totalPoints: Int,
     val totalTimeMs: Long,
-    val joinedAt: Instant
+    val joinedAt: Instant,
+    val rank: Int = 0
 )
 
 @Serializable
@@ -103,8 +142,23 @@ data class Assignment(
     val openAt: Instant,
     val closeAt: Instant,
     val attemptsAllowed: Int,
-    val revealAfterSubmit: Boolean
+    val scoringMode: ScoringMode = ScoringMode.BEST,
+    val revealAfterSubmit: Boolean,
+    val createdAt: Instant,
+    val updatedAt: Instant
 )
+
+@Serializable
+enum class ScoringMode {
+    @SerialName("best")
+    BEST,
+
+    @SerialName("last")
+    LAST,
+
+    @SerialName("avg")
+    AVERAGE
+}
 
 @Serializable
 data class Submission(
@@ -116,6 +170,7 @@ data class Submission(
     val updatedAt: Instant
 )
 
+@Serializable
 data class LanMeta(
     val sessionId: String,
     val token: String,

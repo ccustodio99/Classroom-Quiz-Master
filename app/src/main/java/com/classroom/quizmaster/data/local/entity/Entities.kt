@@ -18,6 +18,7 @@ data class QuizEntity(
     val title: String,
     val defaultTimePerQ: Int,
     val shuffle: Boolean,
+    val questionCount: Int,
     val createdAt: Long,
     val updatedAt: Long
 )
@@ -133,6 +134,7 @@ data class AssignmentLocalEntity(
     val openAt: Long,
     val closeAt: Long,
     val attemptsAllowed: Int,
+    val scoringMode: String,
     val revealAfterSubmit: Boolean,
     val createdAt: Long,
     val updatedAt: Long

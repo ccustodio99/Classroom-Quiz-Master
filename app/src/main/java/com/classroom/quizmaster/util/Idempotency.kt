@@ -1,11 +1,19 @@
 package com.classroom.quizmaster.util
 
 import java.security.MessageDigest
+import java.util.Locale
 
 object Idempotency {
-    fun attemptId(uid: String, questionId: String, nonce: String): String {
-        val data = "$uid|$questionId|$nonce"
-        val digest = MessageDigest.getInstance("SHA-1").digest(data.toByteArray())
-        return digest.joinToString("") { "%02x".format(it) }
+    fun attemptId(uid: String, questionId: String, nonce: String): String =
+        digest(uid, questionId, nonce)
+
+    fun payloadSignature(payload: String, salt: String = ""): String =
+        digest(payload, salt)
+
+    fun digest(vararg parts: String): String {
+        val material = parts.joinToString(separator = "|")
+        val messageDigest = MessageDigest.getInstance("SHA-1")
+        val bytes = messageDigest.digest(material.toByteArray())
+        return bytes.joinToString("") { byte -> "%02x".format(Locale.US, byte) }
     }
 }

@@ -11,7 +11,8 @@ import android.os.IBinder
 import androidx.core.app.NotificationCompat
 import com.classroom.quizmaster.R
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
-import com.classroom.quizmaster.data.lan.NsdHelper
+import com.classroom.quizmaster.data.lan.NsdClient
+import com.classroom.quizmaster.data.lan.NsdHost
 import dagger.hilt.android.AndroidEntryPoint
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -25,7 +26,8 @@ import javax.inject.Inject
 @AndroidEntryPoint
 class NsdDiscoveryService : Service() {
 
-    @Inject lateinit var nsdHelper: NsdHelper
+    @Inject lateinit var nsdHost: NsdHost
+    @Inject lateinit var nsdClient: NsdClient
 
     private val scope = CoroutineScope(SupervisorJob() + Dispatchers.IO)
 
@@ -47,12 +49,12 @@ class NsdDiscoveryService : Service() {
                 val port = intent.getIntExtra(EXTRA_PORT, -1)
                 val token = intent.getStringExtra(EXTRA_TOKEN) ?: return START_STICKY
                 val joinCode = intent.getStringExtra(EXTRA_JOIN_CODE) ?: return START_STICKY
-                nsdHelper.register(serviceName, port, token, joinCode)
+                nsdHost.advertise(serviceName, port, token, joinCode)
             }
 
             ACTION_DISCOVER -> {
                 scope.launch {
-                    nsdHelper.discover().collect { event ->
+                    nsdClient.discover().collect { event ->
                         when (event) {
                             is LanDiscoveryEvent.ServiceFound -> {
                                 val descriptor = event.descriptor
@@ -76,7 +78,7 @@ class NsdDiscoveryService : Service() {
     }
 
     override fun onDestroy() {
-        nsdHelper.stopAdvertising()
+        nsdHost.stop()
         scope.cancel()
         super.onDestroy()
     }

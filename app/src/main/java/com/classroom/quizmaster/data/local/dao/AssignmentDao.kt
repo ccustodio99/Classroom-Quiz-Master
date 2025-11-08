@@ -29,6 +29,9 @@ interface AssignmentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSubmission(submission: SubmissionLocalEntity)
 
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun upsertSubmissions(submissions: List<SubmissionLocalEntity>)
+
     @Query("DELETE FROM submissions WHERE assignmentId = :assignmentId AND uid = :uid")
     suspend fun deleteSubmission(assignmentId: String, uid: String)
 }

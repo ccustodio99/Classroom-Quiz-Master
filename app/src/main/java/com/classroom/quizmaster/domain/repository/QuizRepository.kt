@@ -8,5 +8,6 @@ interface QuizRepository {
     suspend fun refresh()
     suspend fun upsert(quiz: Quiz)
     suspend fun delete(id: String)
+    suspend fun getQuiz(id: String): Quiz?
     suspend fun seedDemoData()
 }

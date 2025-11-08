@@ -13,10 +13,10 @@ import androidx.work.WorkManager
 import com.classroom.quizmaster.BuildConfig
 import com.classroom.quizmaster.data.lan.LanClient
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
-import com.classroom.quizmaster.data.lan.LanHostManager
+import com.classroom.quizmaster.data.lan.LanHostServer
 import com.classroom.quizmaster.data.lan.LanNetworkInfo
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
-import com.classroom.quizmaster.data.lan.NsdHelper
+import com.classroom.quizmaster.data.lan.NsdClient
 import com.classroom.quizmaster.data.lan.WireMessage
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.local.dao.LanSessionDao
@@ -46,6 +46,7 @@ import kotlinx.coroutines.SupervisorJob
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.asStateFlow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.collect
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.launch
@@ -67,9 +68,9 @@ class SessionRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val db: QuizMasterDatabase,
     private val firebaseSessionDataSource: FirebaseSessionDataSource,
-    private val lanHostManager: LanHostManager,
+    private val lanHostServer: LanHostServer,
     private val lanClient: LanClient,
-    private val nsdHelper: NsdHelper,
+    private val nsdClient: NsdClient,
     private val lanNetworkInfo: LanNetworkInfo,
     private val json: Json,
     private val firebaseAuth: com.google.firebase.auth.FirebaseAuth
@@ -90,7 +91,9 @@ class SessionRepositoryImpl @Inject constructor(
     override val lanMeta: Flow<LanMeta?> = lanMetaState.asStateFlow()
 
     override val session: Flow<Session?> =
-        sessionDao.observeCurrentSession().map { it?.toDomain() }
+        sessionDao.observeCurrentSession().combine(lanMetaState) { entity, meta ->
+            entity?.toDomain(meta)
+        }
 
     private val participantsState = MutableStateFlow<List<Participant>>(emptyList())
     override val participants: Flow<List<Participant>> = participantsState.asStateFlow()
@@ -131,14 +134,14 @@ class SessionRepositoryImpl @Inject constructor(
                 } else {
                     participantsJob = launch {
                         sessionDao.observeParticipants(current.id).collect { list ->
-                            participantsState.value = list.map { it.toDomain() }
+                            participantsState.value = list.mapIndexed { index, entity -> entity.toDomain(index + 1) }
                         }
                     }
                 }
             }
         }
         scope.launch {
-            lanHostManager.attemptSubmissions.collect { submission ->
+            lanHostServer.attemptSubmissions.collect { submission ->
                 runCatching { handleIncomingAttempt(submission) }
                     .onFailure { Timber.e(it, "Failed to handle LAN attempt") }
             }
@@ -182,7 +185,7 @@ class SessionRepositoryImpl @Inject constructor(
             )
         )
         lanToken = token
-        val boundPort = lanHostManager.start(token)
+        val boundPort = lanHostServer.start(token)
         startHostService(session, token, boundPort)
         firebaseSessionDataSource.publishSession(session)
         val hostIp = lanNetworkInfo.ipv4()
@@ -262,7 +265,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override fun discoverHosts(): Flow<LanDiscoveryEvent> =
-        nsdHelper.discover()
+        nsdClient.discover()
 
     override suspend fun joinLanHost(service: LanServiceDescriptor, nickname: String): Result<Unit> =
         runCatching {
@@ -276,7 +279,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun kickParticipant(uid: String) {
         withContext(Dispatchers.IO) {
-            lanHostManager.kick(uid)
+            lanHostServer.kick(uid)
             sessionDao.currentSession()?.let { session ->
                 sessionDao.deleteParticipant(session.id, uid)
                 broadcastLeaderboardSnapshot(session.id)
@@ -312,7 +315,7 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun endSession() = withContext(Dispatchers.IO) {
-        lanHostManager.stop()
+        lanHostServer.stop()
         lanToken = null
         lanMetaState.value = null
         lanClient.disconnect()
@@ -332,7 +335,7 @@ class SessionRepositoryImpl @Inject constructor(
     private suspend fun broadcastSession(session: Session) {
         lanToken?.let {
             val payload = json.encodeToString(session)
-            lanHostManager.broadcast(
+            lanHostServer.broadcast(
                 WireMessage.SessionState(
                     sessionId = session.id,
                     status = session.status.name.lowercase(),
@@ -371,11 +374,11 @@ class SessionRepositoryImpl @Inject constructor(
         hideLeaderboard = hideLeaderboard,
         lockAfterQ1 = lockAfterQ1,
         startedAt = startedAt?.toEpochMilliseconds(),
-        endedAt = null,
+        endedAt = endedAt?.toEpochMilliseconds(),
         updatedAt = Clock.System.now().toEpochMilliseconds()
     )
 
-    private fun SessionLocalEntity.toDomain() = Session(
+    private fun SessionLocalEntity.toDomain(meta: LanMeta?) = Session(
         id = id,
         quizId = quizId,
         classroomId = classroomId,
@@ -384,18 +387,21 @@ class SessionRepositoryImpl @Inject constructor(
         currentIndex = currentIndex,
         reveal = reveal,
         startedAt = startedAt?.let(Instant::fromEpochMilliseconds),
+        endedAt = endedAt?.let(Instant::fromEpochMilliseconds),
         teacherId = teacherId,
         hideLeaderboard = hideLeaderboard,
-        lockAfterQ1 = lockAfterQ1
+        lockAfterQ1 = lockAfterQ1,
+        lanMeta = meta
     )
 
-    private fun ParticipantLocalEntity.toDomain() = Participant(
+    private fun ParticipantLocalEntity.toDomain(rank: Int) = Participant(
         uid = uid,
         nickname = nickname,
         avatar = avatar,
         totalPoints = totalPoints,
         totalTimeMs = totalTimeMs,
-        joinedAt = Instant.fromEpochMilliseconds(joinedAt)
+        joinedAt = Instant.fromEpochMilliseconds(joinedAt),
+        rank = rank
     )
 
     private fun Participant.toEntity(sessionId: String) = ParticipantLocalEntity(
@@ -506,9 +512,10 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     private suspend fun broadcastLeaderboardSnapshot(sessionId: String) {
-        val participantsSnapshot = sessionDao.listParticipants(sessionId).map { it.toDomain() }
+        val participantsSnapshot = sessionDao.listParticipants(sessionId)
+            .mapIndexed { index, entity -> entity.toDomain(index + 1) }
         if (lanToken != null) {
-            lanHostManager.broadcast(
+            lanHostServer.broadcast(
                 WireMessage.Leaderboard(
                     leaderboardJson = json.encodeToString(participantsSnapshot)
                 )
@@ -558,3 +565,8 @@ class SessionRepositoryImpl @Inject constructor(
         startedAt = Instant.fromEpochMilliseconds(startedAt)
     )
 }
+
+
+
+
+

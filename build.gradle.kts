@@ -1,12 +1,21 @@
+import org.gradle.api.tasks.Delete
+
 plugins {
-    id("com.android.application") version "8.7.3" apply false
-    id("com.android.test") version "8.7.3" apply false
-    id("org.jetbrains.kotlin.android") version "1.9.25" apply false
-    id("org.jetbrains.kotlin.plugin.serialization") version "1.9.25" apply false
-    id("com.google.dagger.hilt.android") version "2.51.1" apply false
-    id("com.google.gms.google-services") version "4.4.2" apply false
-    id("com.google.firebase.crashlytics") version "3.0.2" apply false
-    id("com.google.devtools.ksp") version "1.9.25-1.0.20" apply false
-    id("org.jlleitschuh.gradle.ktlint") version "12.1.1" apply false
-    id("io.gitlab.arturbosch.detekt") version "1.23.6" apply false
+    alias(libs.plugins.androidApplication) apply false
+    alias(libs.plugins.androidTest) apply false
+    alias(libs.plugins.kotlinAndroid) apply false
+    alias(libs.plugins.kotlinParcelize) apply false
+    alias(libs.plugins.kotlinKapt) apply false
+    alias(libs.plugins.kotlinSerialization) apply false
+    alias(libs.plugins.hiltAndroid) apply false
+    alias(libs.plugins.googleServices) apply false
+    alias(libs.plugins.firebaseCrashlytics) apply false
+    alias(libs.plugins.ksp) apply false
+    alias(libs.plugins.ktlint) apply false
+    alias(libs.plugins.detekt) apply false
+    alias(libs.plugins.baselineProfile) apply false
+}
+
+tasks.register<Delete>("clean") {
+    delete(rootProject.layout.buildDirectory)
 }
