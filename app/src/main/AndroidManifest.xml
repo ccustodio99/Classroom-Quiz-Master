@@ -85,13 +85,15 @@
             android:name="androidx.work.impl.background.systemjob.SystemJobService"
             android:permission="android.permission.BIND_JOB_SERVICE"
             android:exported="false"
-            tools:node="merge" />
+            tools:node="merge"
+            tools:replace="android:exported" />
 
         <receiver
             android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
             android:exported="false"
             android:enabled="true"
-            tools:node="merge" />
+            tools:node="merge"
+            tools:replace="android:enabled" />
 
         <receiver
             android:name=".sync.BootCompletedReceiver"

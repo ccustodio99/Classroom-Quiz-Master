@@ -54,7 +54,6 @@ object QuizMasterMigrations {
 
     val MIGRATION_4_5 = object : Migration(4, 5) {
         override fun migrate(db: SupportSQLiteDatabase) {
-            // Participants table upgrade to include sessionId composite key
             db.execSQL("ALTER TABLE participants ADD COLUMN sessionId TEXT NOT NULL DEFAULT ''")
             db.execSQL(
                 "UPDATE participants SET sessionId = (SELECT id FROM sessions ORDER BY updatedAt DESC LIMIT 1) WHERE sessionId = ''"
@@ -70,7 +69,6 @@ object QuizMasterMigrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS index_participants_session_points ON participants(sessionId, totalPoints)")
             db.execSQL("CREATE INDEX IF NOT EXISTS index_participants_session_time ON participants(sessionId, totalTimeMs)")
 
-            // Attempts table enrichment
             db.execSQL("ALTER TABLE attempts ADD COLUMN sessionId TEXT NOT NULL DEFAULT ''")
             db.execSQL("ALTER TABLE attempts ADD COLUMN syncedAt INTEGER")
             db.execSQL("ALTER TABLE attempts ADD COLUMN sequenceNumber INTEGER NOT NULL DEFAULT 0")
@@ -81,7 +79,6 @@ object QuizMasterMigrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS index_attempts_questionId ON attempts(questionId)")
             db.execSQL("CREATE INDEX IF NOT EXISTS index_attempts_uid ON attempts(uid)")
 
-            // OpLog retry column
             db.execSQL("ALTER TABLE oplog ADD COLUMN retryCount INTEGER NOT NULL DEFAULT 0")
         }
     }
@@ -100,12 +97,42 @@ object QuizMasterMigrations {
         }
     }
 
+    val MIGRATION_7_8 = object : Migration(7, 8) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS teachers (id TEXT NOT NULL, displayName TEXT NOT NULL, email TEXT NOT NULL, createdAt INTEGER NOT NULL, PRIMARY KEY(id))"
+            )
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_teachers_email ON teachers(email)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_teachers_createdAt ON teachers(createdAt)")
+
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS classrooms (id TEXT NOT NULL, teacherId TEXT NOT NULL, name TEXT NOT NULL, grade TEXT NOT NULL, subject TEXT NOT NULL, createdAt INTEGER NOT NULL, PRIMARY KEY(id))"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_classrooms_teacherId ON classrooms(teacherId)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_classrooms_teacherId_name ON classrooms(teacherId, name)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_classrooms_createdAt ON classrooms(createdAt)")
+
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_classroomId ON sessions(classroomId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_joinCode_status ON sessions(joinCode, status)")
+
+            db.execSQL("DROP INDEX IF EXISTS index_participants_session_points")
+            db.execSQL("DROP INDEX IF EXISTS index_participants_session_time")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_participants_session_totalPoints_totalTimeMs ON participants(sessionId, totalPoints, totalTimeMs)")
+
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_attempts_sessionId_questionId ON attempts(sessionId, questionId)")
+
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_oplog_synced ON oplog(synced)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_oplog_ts ON oplog(ts)")
+        }
+    }
+
     val ALL = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
         MIGRATION_3_4,
         MIGRATION_4_5,
         MIGRATION_5_6,
-        MIGRATION_6_7
+        MIGRATION_6_7,
+        MIGRATION_7_8
     )
 }
