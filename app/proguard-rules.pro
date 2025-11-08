@@ -1,4 +1,4 @@
-﻿# Keep annotations and metadata used by Hilt/Room/Serialization
+# Keep annotations and metadata used by Hilt/Room/Serialization
 -keepattributes *Annotation*,InnerClasses,EnclosingMethod,SourceFile,LineNumberTable,Record
 
 # Core application & DI entry points
@@ -14,7 +14,7 @@
 -keep interface androidx.lifecycle.DefaultLifecycleObserver
 -keepclassmembers class androidx.lifecycle.ProcessLifecycleOwner { *; }
 
-# Navigation safe args & Compose runtime
+# Navigation & Compose runtime
 -keep class androidx.navigation.NavArgs { *; }
 -keep class androidx.navigation.NavDirections { *; }
 -keep class androidx.compose.runtime.internal.ComposableLambdaImpl { *; }
