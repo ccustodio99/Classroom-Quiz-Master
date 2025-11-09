@@ -1,8 +1,26 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Classroom Quiz Master</string>
+
+    <!-- Notifications -->
     <string name="notification_discovery">Searching for nearby LAN sessions</string>
     <string name="notification_hosting">Hosting a LAN quiz</string>
+    <string name="notification_sync_channel">Sync status</string>
+    <string name="notification_sync_description">Mirroring quiz data to the cloud</string>
+
+    <!-- Common actions -->
+    <string name="common_ok">OK</string>
+    <string name="common_cancel">Cancel</string>
+    <string name="common_confirm">Confirm</string>
+    <string name="common_retry">Retry</string>
+    <string name="common_dismiss">Dismiss</string>
+    <string name="common_save">Save</string>
+    <string name="common_continue">Continue</string>
+    <string name="common_delete">Delete</string>
+    <string name="common_edit">Edit</string>
+    <string name="common_share">Share</string>
+
+    <!-- Authentication -->
     <string name="auth_teacher_login">Teacher sign in</string>
     <string name="auth_email">Email</string>
     <string name="auth_password">Password</string>
@@ -15,5 +33,122 @@
     <string name="auth_create_account">Create account</string>
     <string name="auth_student_heading">Student quick entry</string>
     <string name="auth_continue_student">Continue as student</string>
+    <string name="auth_nickname_hint">Nickname</string>
+    <string name="auth_loading">Signing in…</string>
+    <string name="auth_terms_error">Accept the terms to continue</string>
     <string name="google_placeholder">Google sign-in not configured in demo</string>
+
+    <!-- Teacher home -->
+    <string name="teacher_home_title">Teacher home</string>
+    <string name="teacher_home_create_quiz">Create quiz</string>
+    <string name="teacher_home_manage_quizzes">Manage quizzes</string>
+    <string name="teacher_home_launch_live">Launch live session</string>
+    <string name="teacher_home_view_reports">Reports</string>
+    <string name="teacher_home_assignments">Assignments</string>
+    <string name="teacher_home_sync_status">Pending sync items: %1$d</string>
+    <string name="teacher_home_sync_idle">All data synced</string>
+    <string name="teacher_home_sync_now">Sync now</string>
+
+    <!-- Quiz editor -->
+    <string name="quiz_editor_title_placeholder">Quiz title</string>
+    <string name="quiz_editor_grade_placeholder">Grade</string>
+    <string name="quiz_editor_subject_placeholder">Subject</string>
+    <string name="quiz_editor_time_per_question">Default seconds per question</string>
+    <string name="quiz_editor_shuffle_questions">Shuffle questions</string>
+    <string name="quiz_editor_add_multiple_choice">Add multiple-choice</string>
+    <string name="quiz_editor_add_true_false">Add true or false</string>
+    <string name="quiz_editor_add_fill_blank">Add fill in the blank</string>
+    <string name="quiz_editor_add_matching">Add matching pairs</string>
+    <string name="quiz_editor_question_placeholder">Question prompt</string>
+    <string name="quiz_editor_answer_placeholder">Answer choice</string>
+    <string name="quiz_editor_explanation_placeholder">Add explanation (optional)</string>
+    <string name="quiz_editor_save">Save quiz</string>
+    <string name="quiz_editor_discard">Discard changes</string>
+    <string name="quiz_editor_confirm_discard_title">Discard draft?</string>
+    <string name="quiz_editor_confirm_discard_message">Unsaved changes will be lost.</string>
+    <string name="quiz_editor_validation_error">Complete all required fields</string>
+
+    <!-- Launch lobby -->
+    <string name="launch_lobby_title">Launch lobby</string>
+    <string name="launch_lobby_join_code">Join code</string>
+    <string name="launch_lobby_refresh_hosts">Refresh LAN discovery</string>
+    <string name="launch_lobby_start">Start</string>
+    <string name="launch_lobby_start_now">Start now</string>
+    <string name="launch_lobby_end">End session</string>
+    <string name="launch_lobby_players">Players</string>
+    <string name="launch_lobby_discovery_count">%1$d nearby devices</string>
+    <string name="launch_lobby_scan_instructions">Students can scan the QR code or enter the join code.</string>
+    <string name="launch_lobby_toggle_leaderboard">Show leaderboard to students</string>
+    <string name="launch_lobby_lock_after_q1">Lock after question one</string>
+    <string name="launch_lobby_hide_leaderboard">Hide leaderboard</string>
+    <string name="launch_lobby_ready_badge">Ready</string>
+
+    <!-- Host live -->
+    <string name="host_live_title">Host controls</string>
+    <string name="host_live_reveal">Reveal</string>
+    <string name="host_live_next">Next question</string>
+    <string name="host_live_end">End session</string>
+    <string name="host_live_show_leaderboard">Show leaderboard</string>
+    <string name="host_live_hide_leaderboard">Hide leaderboard</string>
+    <string name="host_live_waiting">Waiting for answers…</string>
+    <string name="host_live_distribution_header">Answer distribution</string>
+    <string name="host_live_timer_accessibility">Timer %1$d seconds remaining</string>
+
+    <!-- Student entry & play -->
+    <string name="student_entry_title">Join a quiz</string>
+    <string name="student_entry_join_code">Join code</string>
+    <string name="student_entry_join_button">Join session</string>
+    <string name="student_entry_joining">Joining…</string>
+    <string name="student_entry_refresh">Refresh</string>
+    <string name="student_entry_hosts_empty">No nearby hosts detected</string>
+    <string name="student_entry_hosts_found">Discovered hosts</string>
+    <string name="student_entry_manual_hint">Enter the join code provided by your teacher.</string>
+    <string name="student_entry_validation_error">Check your nickname and join code.</string>
+    <string name="student_lobby_waiting">Waiting for the host to begin</string>
+    <string name="student_play_submit">Submit answer</string>
+    <string name="student_play_waiting">Answer sent—waiting for host</string>
+    <string name="student_end_title">Great work!</string>
+    <string name="student_end_badges">You earned %1$d stars</string>
+    <string name="student_end_try_again">Play again</string>
+
+    <!-- Reports -->
+    <string name="reports_title">Reports</string>
+    <string name="reports_empty">Run a live session to generate reports.</string>
+    <string name="reports_export_csv">Export CSV</string>
+    <string name="reports_export_pdf">Export PDF summary</string>
+    <string name="reports_share_insight">Share insight</string>
+    <string name="reports_accuracy_label">Accuracy</string>
+
+    <!-- Assignments -->
+    <string name="assignments_title">Assignments</string>
+    <string name="assignments_empty">No assignments yet.</string>
+    <string name="assignments_publish">Publish assignment</string>
+    <string name="assignments_due_format">Due %1$s</string>
+    <string name="assignments_attempts_allowed">Attempts allowed: %1$d</string>
+    <string name="assignments_scoring_best">Best score</string>
+    <string name="assignments_scoring_last">Last attempt</string>
+    <string name="assignments_scoring_average">Average</string>
+    <string name="assignments_reveal_after_submit">Reveal answers after submission</string>
+
+    <!-- Sync & status messages -->
+    <string name="message_sync_complete">Synced successfully</string>
+    <string name="message_sync_scheduled">Sync scheduled</string>
+    <string name="message_attempt_recorded">Answer received</string>
+    <string name="message_assignment_submitted">Assignment submitted</string>
+    <string name="message_host_stopped">Hosting stopped</string>
+    <string name="message_wait_for_wan">Offline. Changes will sync when online.</string>
+
+    <!-- Errors -->
+    <string name="error_network_unavailable">Network unavailable. Check your connection.</string>
+    <string name="error_sync_failed">Could not sync with the cloud. Tap to retry.</string>
+    <string name="error_invalid_join_code">That join code is not valid.</string>
+    <string name="error_duplicate_nickname">Nickname already taken. Try another.</string>
+
+    <!-- Accessibility & preferences -->
+    <string name="accessibility_leaderboard">Leaderboard</string>
+    <string name="accessibility_reveal_button">Reveal correct answer</string>
+    <string name="accessibility_next_button">Advance to the next question</string>
+    <string name="pref_high_contrast">High contrast mode</string>
+    <string name="pref_large_text">Large text</string>
+    <string name="pref_talkback_hint">Optimized for TalkBack</string>
 </resources>
