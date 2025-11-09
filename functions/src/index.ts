@@ -1,11 +1,15 @@
 import * as functions from "firebase-functions/v1";
 import * as admin from "firebase-admin";
+import type { Firestore } from "firebase-admin/firestore";
 import PDFDocument = require("pdfkit");
 
 admin.initializeApp();
 
-const db = admin.firestore();
-const getBucket = () => admin.storage().bucket();
+const defaultFirestore = admin.firestore();
+let firestoreDb: Firestore = defaultFirestore;
+const defaultBucketFactory = () => admin.storage().bucket();
+let bucketFactory = defaultBucketFactory;
+const getBucket = () => bucketFactory();
 
 export const computePoints = (correct: boolean, timeLimitMs: number, timeTakenMs: number): number => {
   if (!correct) {
@@ -166,13 +170,13 @@ export const scoreAttempt = functions.firestore
     const questionId = attempt.questionId;
     const submittedAt = attempt.createdAt ?? admin.firestore.Timestamp.now();
 
-    await db.runTransaction(async (txn) => {
+    await firestoreDb.runTransaction(async (txn) => {
       const freshAttempt = await txn.get(attemptRef);
       if (freshAttempt.exists && freshAttempt.get("scoredAt")) {
         return;
       }
 
-      const assignmentRef = db.collection("assignments").doc(assignmentId);
+      const assignmentRef = firestoreDb.collection("assignments").doc(assignmentId);
       const assignmentSnap = await txn.get(assignmentRef);
       if (!assignmentSnap.exists) {
         functions.logger.error("Missing assignment", { assignmentId });
@@ -181,7 +185,7 @@ export const scoreAttempt = functions.firestore
 
       const assignment = assignmentSnap.data() as AssignmentDoc;
       const quizId = assignment.quizId;
-      const quizSnap = await txn.get(db.collection("quizzes").doc(quizId));
+      const quizSnap = await txn.get(firestoreDb.collection("quizzes").doc(quizId));
       if (!quizSnap.exists) {
         functions.logger.error("Missing quiz", { quizId });
         throw new functions.https.HttpsError("not-found", "quiz-missing");
@@ -256,7 +260,7 @@ export const exportReport = functions.https.onCall(async (data: { sessionId?: st
     throw new functions.https.HttpsError("invalid-argument", "sessionId required");
   }
 
-  const sessionRef = db.collection("sessions").doc(sessionId);
+  const sessionRef = firestoreDb.collection("sessions").doc(sessionId);
   const sessionSnap = await sessionRef.get();
   if (!sessionSnap.exists) {
     throw new functions.https.HttpsError("not-found", "session-missing");
@@ -335,3 +339,16 @@ export const exportReport = functions.https.onCall(async (data: { sessionId?: st
 
   return { csvUrl, pdfUrl, accuracy };
 });
+
+export const setFirestoreForTests = (override: Firestore) => {
+  firestoreDb = override;
+};
+
+export const setBucketFactoryForTests = (factory: typeof bucketFactory) => {
+  bucketFactory = factory;
+};
+
+export const resetTestOverrides = () => {
+  firestoreDb = defaultFirestore;
+  bucketFactory = defaultBucketFactory;
+};

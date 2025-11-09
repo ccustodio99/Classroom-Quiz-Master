@@ -7,16 +7,24 @@ import org.junit.jupiter.api.Test
 class IdempotencyTest {
 
     @Test
-    fun `idempotent hash is deterministic`() {
-        val first = Idempotency.attemptId("user", "question", "nonce")
-        val second = Idempotency.attemptId("user", "question", "nonce")
+    fun `digest is deterministic for identical inputs`() {
+        val first = Idempotency.digest("teacher", "quiz", "session")
+        val second = Idempotency.digest("teacher", "quiz", "session")
         assertEquals(first, second)
     }
 
     @Test
-    fun `different nonce yields different hash`() {
-        val first = Idempotency.attemptId("user", "question", "one")
-        val second = Idempotency.attemptId("user", "question", "two")
-        assertNotEquals(first, second)
+    fun `attemptId combines uid question and nonce`() {
+        val id = Idempotency.attemptId("u1", "q1", "nonce")
+        val other = Idempotency.attemptId("u1", "q1", "different")
+        assertNotEquals(id, other)
+        assertEquals(id.length, other.length)
+    }
+
+    @Test
+    fun `payloadSignature uses optional salt`() {
+        val plain = Idempotency.payloadSignature("payload")
+        val salted = Idempotency.payloadSignature("payload", "salt")
+        assertNotEquals(plain, salted)
     }
 }
