@@ -24,18 +24,147 @@ export const computeAccuracy = (correctCount: number, total: number): number => 
   return Math.round((correctCount / total) * 100);
 };
 
+type ScoringMode = "best" | "last" | "avg";
+
+interface SubmissionSnapshotShape {
+  attempts?: number;
+  bestScore?: number;
+  lastScore?: number;
+  totalScore?: number;
+  averageScore?: number;
+  effectiveScore?: number;
+}
+
+export interface SubmissionUpdate {
+  attempts: number;
+  bestScore: number;
+  lastScore: number;
+  totalScore: number;
+  averageScore: number;
+  effectiveScore: number;
+}
+
+const resolveTotalScore = (snapshot?: SubmissionSnapshotShape): number => {
+  if (!snapshot) {
+    return 0;
+  }
+  if (typeof snapshot.totalScore === "number") {
+    return snapshot.totalScore;
+  }
+  if (typeof snapshot.averageScore === "number" && typeof snapshot.attempts === "number") {
+    return Math.round(snapshot.averageScore * snapshot.attempts);
+  }
+  if (typeof snapshot.bestScore === "number") {
+    return snapshot.bestScore * Math.max(snapshot.attempts ?? 1, 1);
+  }
+  if (typeof snapshot.lastScore === "number") {
+    return snapshot.lastScore * Math.max(snapshot.attempts ?? 1, 1);
+  }
+  return 0;
+};
+
+export const applyScoringMode = (
+  mode: ScoringMode,
+  previous: SubmissionSnapshotShape | undefined,
+  points: number
+): SubmissionUpdate => {
+  const prevAttempts = previous?.attempts ?? 0;
+  const attempts = prevAttempts + 1;
+  const totalScore = resolveTotalScore(previous) + points;
+  const bestScore = Math.max(previous?.bestScore ?? 0, points);
+  const lastScore = points;
+  const averageScore = Math.round(totalScore / attempts);
+  let effectiveScore = bestScore;
+  if (mode === "last") {
+    effectiveScore = lastScore;
+  } else if (mode === "avg") {
+    effectiveScore = averageScore;
+  }
+  return {
+    attempts,
+    bestScore,
+    lastScore,
+    totalScore,
+    averageScore,
+    effectiveScore,
+  };
+};
+
+type AssignmentDoc = {
+  quizId: string;
+  closeAt?: number;
+  attemptsAllowed?: number;
+  scoringMode?: ScoringMode;
+  teacherId?: string;
+  revealAfterSubmit?: boolean;
+};
+
+type QuestionShape = {
+  id: string;
+  answerKey?: string[];
+  timeLimitSeconds?: number;
+};
+
+type AttemptDoc = {
+  uid: string;
+  questionId: string;
+  selected?: string[];
+  timeMs?: number;
+  createdAt?: admin.firestore.Timestamp;
+};
+
+const fetchQuestion = (questions: QuestionShape[], questionId: string): QuestionShape | undefined => {
+  return questions.find((q) => q.id === questionId);
+};
+
+const parseQuestions = (quizSnapshot: admin.firestore.DocumentSnapshot): QuestionShape[] => {
+  const questionsJson = quizSnapshot.get("questionsJson");
+  if (typeof questionsJson === "string") {
+    try {
+      const parsed = JSON.parse(questionsJson);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch (err) {
+      functions.logger.error("Failed to parse questionsJson", err);
+      return [];
+    }
+  }
+  const questions = quizSnapshot.get("questions");
+  return Array.isArray(questions) ? (questions as QuestionShape[]) : [];
+};
+
+const computeAttemptOutcome = (
+  attempt: AttemptDoc,
+  question: QuestionShape,
+  assignment: AssignmentDoc,
+  submittedAt: admin.firestore.Timestamp,
+  quizDefaultTimePerQ?: number
+) => {
+  const answerKey = (question.answerKey ?? []).map((v) => v.toLowerCase()).sort();
+  const selected = (attempt.selected ?? []).map((v) => v.toLowerCase()).sort();
+  const correct = JSON.stringify(answerKey) === JSON.stringify(selected);
+  const assignmentTimeLimit = (assignment as unknown as { defaultTimePerQ?: number })?.defaultTimePerQ;
+  const baseSeconds = question.timeLimitSeconds ?? assignmentTimeLimit ?? quizDefaultTimePerQ ?? 30;
+  const timeLimitMs = Math.max(baseSeconds * 1000, 1000);
+  const timeTakenMs = Math.max(attempt.timeMs ?? timeLimitMs, 0);
+  const points = computePoints(correct, timeLimitMs, timeTakenMs);
+  const closeAt = assignment.closeAt;
+  const late = typeof closeAt === "number" && submittedAt.toMillis() > closeAt;
+  return { correct, points, late, timeTakenMs, timeLimitMs };
+};
+
 export const scoreAttempt = functions.firestore
   .document("assignments/{assignmentId}/attempts/{attemptId}")
-  .onCreate(async (snap: functions.firestore.QueryDocumentSnapshot, context: functions.EventContext) => {
-    const attempt = snap.data();
+  .onCreate(async (snap, context) => {
+    const attempt = snap.data() as AttemptDoc | undefined;
     if (!attempt) {
       return;
     }
+
     const assignmentId = context.params.assignmentId as string;
     const attemptRef = snap.ref;
-    const uid: string = attempt.uid;
-    const questionId: string = attempt.questionId;
-    const submittedAt: admin.firestore.Timestamp = attempt.createdAt ?? admin.firestore.Timestamp.now();
+    const uid = attempt.uid;
+    const questionId = attempt.questionId;
+    const submittedAt = attempt.createdAt ?? admin.firestore.Timestamp.now();
 
     await db.runTransaction(async (txn) => {
       const freshAttempt = await txn.get(attemptRef);
@@ -47,41 +176,38 @@ export const scoreAttempt = functions.firestore
       const assignmentSnap = await txn.get(assignmentRef);
       if (!assignmentSnap.exists) {
         functions.logger.error("Missing assignment", { assignmentId });
-        throw new Error("assignment-missing");
+        throw new functions.https.HttpsError("not-found", "assignment-missing");
       }
 
-      const quizId: string = assignmentSnap.get("quizId");
+      const assignment = assignmentSnap.data() as AssignmentDoc;
+      const quizId = assignment.quizId;
       const quizSnap = await txn.get(db.collection("quizzes").doc(quizId));
       if (!quizSnap.exists) {
         functions.logger.error("Missing quiz", { quizId });
-        throw new Error("quiz-missing");
+        throw new functions.https.HttpsError("not-found", "quiz-missing");
       }
 
-      const questionsJson = quizSnap.get("questionsJson") ?? "[]";
-      const questions: Array<any> = JSON.parse(questionsJson);
-      const question = questions.find((q) => q.id === questionId);
+      const questions = parseQuestions(quizSnap);
+      const question = fetchQuestion(questions, questionId);
       if (!question) {
         functions.logger.error("Missing question", { questionId });
-        throw new Error("question-missing");
+        throw new functions.https.HttpsError("not-found", "question-missing");
       }
 
-      const answerKey: string[] = (question.answerKey ?? []).map((v: string) => v.toLowerCase()).sort();
-      const selected: string[] = (attempt.selected ?? []).map((v: string) => v.toLowerCase()).sort();
-      const correct = JSON.stringify(answerKey) === JSON.stringify(selected);
-      const timeLimitSeconds: number = question.timeLimitSeconds ?? assignmentSnap.get("defaultTimePerQ") ?? 30;
-      const timeLimitMs = Math.max(timeLimitSeconds * 1000, 1000);
-      const timeTakenMs: number = attempt.timeMs ?? timeLimitMs;
-      const timeLeft = Math.max(timeLimitMs - timeTakenMs, 0);
-      const closeAt: number = assignmentSnap.get("closeAt");
-      const late = typeof closeAt === "number" && submittedAt.toMillis() > closeAt;
-
-      const points = computePoints(correct, timeLimitMs, timeTakenMs);
-
+      const quizDefaultTimePerQ = quizSnap.get("defaultTimePerQ");
+      const { correct, points, late } = computeAttemptOutcome(
+        attempt,
+        question,
+        assignment,
+        submittedAt,
+        typeof quizDefaultTimePerQ === "number" ? quizDefaultTimePerQ : undefined
+      );
       const submissionRef = assignmentRef.collection("submissions").doc(uid);
       const submissionSnap = await txn.get(submissionRef);
-      const currentAttempts = submissionSnap.get("attempts") ?? 0;
-      const attemptsAllowed = assignmentSnap.get("attemptsAllowed");
-      if (typeof attemptsAllowed === "number" && attemptsAllowed > 0 && currentAttempts >= attemptsAllowed) {
+      const attemptsAllowed = assignment.attemptsAllowed;
+      const existingAttempts = submissionSnap.get("attempts") ?? 0;
+
+      if (typeof attemptsAllowed === "number" && attemptsAllowed > 0 && existingAttempts >= attemptsAllowed) {
         txn.update(attemptRef, {
           points: 0,
           correct: false,
@@ -99,14 +225,20 @@ export const scoreAttempt = functions.firestore
         scoredAt: admin.firestore.FieldValue.serverTimestamp(),
       });
 
-      const attempts = currentAttempts + 1;
-      const bestScore = Math.max(submissionSnap.get("bestScore") ?? 0, points);
+      const previousSubmission = submissionSnap.exists ? (submissionSnap.data() as SubmissionSnapshotShape) : undefined;
+      const scoringMode = assignment.scoringMode ?? "best";
+      const update = applyScoringMode(scoringMode, previousSubmission, points);
+
       txn.set(
         submissionRef,
         {
-          attempts,
-          lastScore: points,
-          bestScore,
+          attempts: update.attempts,
+          bestScore: update.bestScore,
+          lastScore: update.lastScore,
+          totalScore: update.totalScore,
+          averageScore: update.averageScore,
+          effectiveScore: update.effectiveScore,
+          scoringMode,
           updatedAt: admin.firestore.FieldValue.serverTimestamp(),
         },
         { merge: true }
@@ -114,17 +246,28 @@ export const scoreAttempt = functions.firestore
     });
   });
 
-export const exportReport = functions.https.onCall(async (data: { sessionId?: string }, context: functions.https.CallableContext) => {
+export const exportReport = functions.https.onCall(async (data: { sessionId?: string }, context) => {
   if (!context.auth || context.auth.token.firebase?.sign_in_provider === "anonymous") {
     throw new functions.https.HttpsError("permission-denied", "Teacher authentication required");
   }
 
-  const { sessionId } = data;
+  const sessionId = data.sessionId;
   if (!sessionId) {
     throw new functions.https.HttpsError("invalid-argument", "sessionId required");
   }
 
-  const attemptsSnap = await db.collection("sessions").doc(sessionId).collection("attempts").get();
+  const sessionRef = db.collection("sessions").doc(sessionId);
+  const sessionSnap = await sessionRef.get();
+  if (!sessionSnap.exists) {
+    throw new functions.https.HttpsError("not-found", "session-missing");
+  }
+
+  const teacherId = sessionSnap.get("teacherId");
+  if (teacherId !== context.auth.uid) {
+    throw new functions.https.HttpsError("permission-denied", "Teacher mismatch");
+  }
+
+  const attemptsSnap = await sessionRef.collection("attempts").get();
   const header = ["attemptId", "uid", "questionId", "selected", "points", "timeMs", "late", "createdAt"];
   const rows = attemptsSnap.docs.map((doc) => {
     const attempt = doc.data();
@@ -136,7 +279,7 @@ export const exportReport = functions.https.onCall(async (data: { sessionId?: st
       attempt.points ?? 0,
       attempt.timeMs ?? 0,
       attempt.late ?? false,
-      (attempt.createdAt && attempt.createdAt.toMillis) ? attempt.createdAt.toMillis() : attempt.createdAt ?? ""
+      attempt.createdAt && attempt.createdAt.toMillis ? attempt.createdAt.toMillis() : attempt.createdAt ?? ""
     ].join(",");
   });
   const csv = [header.join(","), ...rows].join("\n");
@@ -190,5 +333,5 @@ export const exportReport = functions.https.onCall(async (data: { sessionId?: st
     expires,
   });
 
-  return { csvUrl, pdfUrl };
+  return { csvUrl, pdfUrl, accuracy };
 });

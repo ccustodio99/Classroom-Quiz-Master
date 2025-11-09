@@ -1,21 +1,33 @@
 rules_version = '2';
 service firebase.storage {
   match /b/{bucket}/o {
-    function isTeacher() {
-      return request.auth != null &&
-        request.auth.token.firebase != null &&
-        request.auth.token.firebase.sign_in_provider != 'anonymous';
+    function isAuthenticated() {
+      return request.auth != null && request.auth.token.firebase != null;
     }
 
-    match /quiz_media/{quizId}/{allPaths=**} {
-      allow read: if true;
-      allow write: if isTeacher();
-      allow delete: if isTeacher();
+    function isTeacher() {
+      return isAuthenticated() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+    }
+
+    function teacherOwnsSession(sessionId) {
+      return isTeacher() &&
+        exists(/databases/(default)/documents/sessions/$(sessionId)) &&
+        get(/databases/(default)/documents/sessions/$(sessionId)).data.teacherId == request.auth.uid;
+    }
+
+    match /quiz_media/{teacherId}/{allPaths=**} {
+      allow read: if isAuthenticated();
+      allow write, delete: if isTeacher() && request.auth.uid == teacherId;
     }
 
     match /reports/{sessionId}/{allPaths=**} {
-      allow read: if isTeacher();
-      allow write: if isTeacher();
+      allow write: if teacherOwnsSession(sessionId);
+      allow read: if teacherOwnsSession(sessionId);
+      allow delete: if teacherOwnsSession(sessionId);
+    }
+
+    match /{allPaths=**} {
+      allow read, write: if false;
     }
   }
 }

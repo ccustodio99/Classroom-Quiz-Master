@@ -1,4 +1,4 @@
-import { computePoints, computeAccuracy } from "../src/index";
+import { applyScoringMode, computeAccuracy, computePoints, SubmissionUpdate } from "../src/index";
 
 describe("computePoints", () => {
   it("returns zero when incorrect", () => {
@@ -22,5 +22,37 @@ describe("computeAccuracy", () => {
 
   it("rounds to nearest integer", () => {
     expect(computeAccuracy(7, 9)).toBe(78);
+  });
+});
+
+describe("applyScoringMode", () => {
+  const base: SubmissionUpdate = {
+    attempts: 1,
+    bestScore: 800,
+    lastScore: 650,
+    totalScore: 800,
+    averageScore: 800,
+    effectiveScore: 800,
+  };
+
+  it("keeps best score when using best mode", () => {
+    const update = applyScoringMode("best", base, 600);
+    expect(update.attempts).toBe(2);
+    expect(update.bestScore).toBe(800);
+    expect(update.effectiveScore).toBe(800);
+  });
+
+  it("uses last score when scoring mode is last", () => {
+    const update = applyScoringMode("last", base, 500);
+    expect(update.lastScore).toBe(500);
+    expect(update.effectiveScore).toBe(500);
+  });
+
+  it("computes rounded average for avg mode", () => {
+    const update = applyScoringMode("avg", base, 700);
+    // total score becomes 1500 -> average 750
+    expect(update.totalScore).toBe(1500);
+    expect(update.averageScore).toBe(750);
+    expect(update.effectiveScore).toBe(750);
   });
 });
