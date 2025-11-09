@@ -2,43 +2,35 @@ rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
 
+    function isAuthenticated() {
+      return request.auth != null && request.auth.token.firebase != null;
+    }
+
     function isTeacher() {
-      return request.auth != null &&
-        request.auth.token.firebase != null &&
-        request.auth.token.firebase.sign_in_provider != 'anonymous';
+      return isAuthenticated() && request.auth.token.firebase.sign_in_provider != 'anonymous';
     }
 
     function isStudent() {
-      return request.auth != null &&
-        request.auth.token.firebase != null &&
-        request.auth.token.firebase.sign_in_provider == 'anonymous';
+      return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous';
     }
 
-    function teacherOwnsQuiz(quizId) {
-      return isTeacher() &&
-        quizId != null &&
-        exists(/databases/$(database)/documents/quizzes/$(quizId)) &&
-        get(/databases/$(database)/documents/quizzes/$(quizId)).data.teacherId == request.auth.uid;
+    function teacherOwnsResource(resourceTeacherId) {
+      return isTeacher() && resourceTeacherId == request.auth.uid;
     }
 
-    function sessionOwnedByTeacher(sessionId) {
-      return isTeacher() &&
-        exists(/databases/$(database)/documents/sessions/$(sessionId)) &&
-        get(/databases/$(database)/documents/sessions/$(sessionId)).data.teacherId == request.auth.uid;
+    function teacherOwnsDocument(path) {
+      return exists(path) && teacherOwnsResource(get(path).data.teacherId);
     }
 
-    function lowerStatus(value) {
-      return (value is string) ? value.lower() : '';
-    }
-
-    function sessionJoinable(sessionId) {
-      let path = /databases/$(database)/documents/sessions/$(sessionId);
-      return exists(path) &&
-        (lowerStatus(get(path).data.status) in ['lobby', 'active']) &&
-        !(
-          (get(path).data.lockAfterQ1 == true) &&
-          ((get(path).data.currentIndex == null ? 0 : get(path).data.currentIndex) >= 1)
-        );
+    function sessionJoinable(path) {
+      if (!exists(path)) {
+        return false;
+      }
+      let session = get(path).data;
+      let status = session.status;
+      let currentIndex = session.currentIndex == null ? 0 : session.currentIndex;
+      let lockAfterQ1 = session.lockAfterQ1 == true;
+      return (status == 'lobby' || status == 'active') && !(lockAfterQ1 && currentIndex >= 1);
     }
 
     function cleanAttemptPayload() {
@@ -46,21 +38,32 @@ service cloud.firestore {
         !request.resource.data.keys().hasAny([
           'points',
           'correct',
-          'late',
-          'syncedAt',
+          'totalPoints',
+          'totalTimeMs',
+          'scoredAt',
           'sequenceNumber',
-          'scoredAt'
+          'syncedAt',
+          'ackLatencyMs'
         ]);
     }
 
     function cleanParticipantPayload() {
       return request.resource != null &&
-        !request.resource.data.keys().hasAny(['totalPoints', 'totalTimeMs', 'joinedAt']);
+        !request.resource.data.keys().hasAny([
+          'totalPoints',
+          'totalTimeMs',
+          'points',
+          'rank'
+        ]);
     }
 
-    function assignmentOwnedByTeacher(assignmentId) {
-      let path = /databases/$(database)/documents/assignments/$(assignmentId);
-      return exists(path) && teacherOwnsQuiz(get(path).data.quizId);
+    match /teachers/{teacherId} {
+      allow read, write: if isTeacher() && request.auth.uid == teacherId;
+    }
+
+    match /classrooms/{classroomId} {
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow read, update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
 
     match /quizzes/{quizId} {
@@ -69,60 +72,55 @@ service cloud.firestore {
     }
 
     match /sessions/{sessionId} {
-      allow read: if sessionOwnedByTeacher(sessionId) || (isStudent() && sessionJoinable(sessionId));
-      allow create: if isTeacher() &&
-        request.resource.data.teacherId == request.auth.uid;
-      allow update, delete: if sessionOwnedByTeacher(sessionId);
+      allow read: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId)) ||
+        (isStudent() && sessionJoinable(/databases/$(database)/documents/sessions/$(sessionId)));
+
+      allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
+      allow update, delete: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId));
 
       match /participants/{participantId} {
-        allow read: if sessionOwnedByTeacher(sessionId) ||
-          (isStudent() && sessionJoinable(sessionId) && request.auth.uid == participantId);
-        allow create: if
-          sessionOwnedByTeacher(sessionId) ||
-          (
-            isStudent() &&
-            sessionJoinable(sessionId) &&
-            request.auth.uid == participantId &&
-            cleanParticipantPayload()
-          );
-        allow update, delete: if sessionOwnedByTeacher(sessionId);
+        allow read: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId)) ||
+          (isStudent() && sessionJoinable(/databases/$(database)/documents/sessions/$(sessionId)) && request.auth.uid == participantId);
+        allow create: if cleanParticipantPayload() && (
+          teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId)) ||
+          (isStudent() && sessionJoinable(/databases/$(database)/documents/sessions/$(sessionId)) && request.auth.uid == participantId)
+        );
+        allow update, delete: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId));
       }
 
       match /attempts/{attemptId} {
-        allow read: if sessionOwnedByTeacher(sessionId);
-        allow create: if
-          sessionOwnedByTeacher(sessionId) ||
-          (
-            isStudent() &&
-            sessionJoinable(sessionId) &&
-            request.resource.data.uid == request.auth.uid &&
-            cleanAttemptPayload()
-          );
-        allow update: if sessionOwnedByTeacher(sessionId);
-        allow delete: if false;
+        allow read: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId));
+        allow create: if cleanAttemptPayload() && (
+          teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId)) ||
+          (isStudent() && sessionJoinable(/databases/$(database)/documents/sessions/$(sessionId)) && request.resource.data.uid == request.auth.uid)
+        );
+        allow update, delete: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId));
       }
     }
 
     match /assignments/{assignmentId} {
-      allow read: if isStudent() || (isTeacher() && assignmentOwnedByTeacher(assignmentId));
-      allow create: if isTeacher() &&
-        request.resource.data.quizId != null &&
-        teacherOwnsQuiz(request.resource.data.quizId);
-      allow update, delete: if isTeacher() && assignmentOwnedByTeacher(assignmentId);
+      allow read: if (isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId))) || isStudent();
+      allow create: if isTeacher() && request.resource.data.quizId != null &&
+        teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId));
+      allow update, delete: if isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId));
 
       match /attempts/{attemptId} {
-        allow create: if isStudent() &&
-          request.resource.data.uid == request.auth.uid &&
-          cleanAttemptPayload();
-        allow read: if isTeacher() && assignmentOwnedByTeacher(assignmentId);
+        allow create: if isStudent() && request.resource.data.uid == request.auth.uid && cleanAttemptPayload();
+        allow read: if isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId));
         allow update, delete: if false;
       }
 
       match /submissions/{uid} {
-        allow read: if (isTeacher() && assignmentOwnedByTeacher(assignmentId)) ||
+        allow read: if (isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId))) ||
           (request.auth != null && request.auth.uid == uid);
         allow write: if false;
       }
+    }
+
+    match /lanMeta/{sessionId} {
+      allow read: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId));
+      allow create, update, delete: if isTeacher() &&
+        teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId));
     }
 
     match /{document=**} {
