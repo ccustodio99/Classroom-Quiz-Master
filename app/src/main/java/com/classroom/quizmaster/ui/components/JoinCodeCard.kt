@@ -89,6 +89,8 @@ fun QRPlaceholder(
         shape = MaterialTheme.shapes.medium,
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
+        val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+        val dashedBorderColor = onSurfaceVariantColor.copy(alpha = 0.2f)
         Box(
             contentAlignment = Alignment.Center,
             modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
@@ -97,11 +99,11 @@ fun QRPlaceholder(
                 imageVector = Icons.Default.QrCode2,
                 contentDescription = "QR code placeholder",
                 modifier = Modifier.size(48.dp),
-                tint = MaterialTheme.colorScheme.onSurfaceVariant
+                tint = onSurfaceVariantColor
             )
             Canvas(modifier = Modifier.fillMaxSize()) {
                 drawRect(
-                    color = MaterialTheme.colorScheme.onSurfaceVariant.copy(alpha = 0.2f),
+                    color = dashedBorderColor,
                     style = Stroke(width = 4f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 12f)))
                 )
             }

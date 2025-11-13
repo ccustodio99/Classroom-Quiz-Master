@@ -7,8 +7,8 @@ import androidx.work.Configuration
 import com.classroom.quizmaster.data.remote.FirebaseAnalyticsLogger
 import com.classroom.quizmaster.sync.SyncScheduler
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
+import com.google.firebase.appcheck.AppCheckProviderFactory
 import com.google.firebase.appcheck.FirebaseAppCheck
-import com.google.firebase.appcheck.FirebaseAppCheckProviderFactory
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
@@ -70,11 +70,11 @@ class QuizMasterApp : Application(), Configuration.Provider {
     }
 
     private fun configureAppCheck() {
-        val providerFactory: FirebaseAppCheckProviderFactory = if (BuildConfig.DEBUG) {
+        val providerFactory: AppCheckProviderFactory = if (BuildConfig.DEBUG) {
             try {
                 val debugAppCheckProviderFactoryClass = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
                 val getInstanceMethod = debugAppCheckProviderFactoryClass.getMethod("getInstance")
-                getInstanceMethod.invoke(null) as FirebaseAppCheckProviderFactory
+                getInstanceMethod.invoke(null) as AppCheckProviderFactory
             } catch (e: ClassNotFoundException) {
                 // Fallback for when DebugAppCheckProviderFactory is not available (e.g., release builds)
                 PlayIntegrityAppCheckProviderFactory.getInstance()
