@@ -41,9 +41,7 @@ class QuizMasterDatabaseMigrationsTest {
             close()
         }
 
-        helper.runMigrationsAndValidate(dbName, 8, true, *QuizMasterMigrations.ALL)
-
-        helper.openDatabase(dbName, 8).use { db ->
+        helper.runMigrationsAndValidate(dbName, 8, true, *QuizMasterMigrations.ALL).use { db ->
             val sessionIndexes = mutableSetOf<String>()
             db.query("PRAGMA index_list('sessions')").use { cursor ->
                 val nameIndex = cursor.getColumnIndex("name")
