@@ -241,7 +241,13 @@ private fun ActionCards(
     val cards = if (actionCards.isEmpty()) defaultActionCards else actionCards
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         cards.forEach { card ->
-            val baseAction = resolveAction(card, onCreateQuiz, onLaunchLive, onAssignments, onReports)
+            val baseAction = resolveAction(
+                card = card,
+                onCreateQuiz = onCreateQuiz,
+                onLaunchLive = onLaunchLive,
+                onAssignments = onAssignments,
+                onReports = onReports
+            )
 
             val allowed = when (card.id) {
                 ACTION_CREATE_QUIZ -> hasTopics
@@ -254,7 +260,11 @@ private fun ActionCards(
             val enabled = baseAction != null && allowed
             ActionCard(
                 card = card,
-                onClick = if (enabled) baseAction!! else {},
+                onClick = {
+                    if (enabled) {
+                        baseAction?.invoke()
+                    }
+                },
                 enabled = enabled
             )
         }
