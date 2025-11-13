@@ -32,7 +32,6 @@ androidxUiautomator = "2.3.0"
 androidxWindow = "1.3.0"
 androidxWork = "2.9.1"
 archCore = "2.2.0"
-baselineProfile = "1.3.3"
 bouncycastle = "1.78.1"
 coil = "2.7.0"
 commonsIo = "2.16.1"
@@ -193,7 +192,6 @@ kotlinx-coroutines-test = { group = "org.jetbrains.kotlinx", name = "kotlinx-cor
 kotlinx-datetime = { group = "org.jetbrains.kotlinx", name = "kotlinx-datetime", version.ref = "kotlinxDatetime" }
 kotlinx-serialization-cbor = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-cbor", version.ref = "kotlinxSerialization" }
 kotlinx-serialization-json = { group = "org.jetbrains.kotlinx", name = "kotlinx-serialization-json", version.ref = "kotlinxSerialization" }
-microbenchmark-junit4 = { group = "androidx.benchmark", name = "benchmark-macro-junit4", version = "1.3.3" }
 mockk = { group = "io.mockk", name = "mockk", version.ref = "mockk" }
 mockwebserver = { group = "com.squareup.okhttp3", name = "mockwebserver", version.ref = "mockwebserver" }
 okhttp-logging-interceptor = { group = "com.squareup.okhttp3", name = "logging-interceptor", version.ref = "okhttp" }
@@ -262,8 +260,6 @@ test-unit = [
 [plugins]
 androidApplication = { id = "com.android.application", version.ref = "androidGradlePlugin" }
 androidLibrary = { id = "com.android.library", version.ref = "androidGradlePlugin" }
-androidTest = { id = "com.android.test", version.ref = "androidGradlePlugin" }
-baselineProfile = { id = "androidx.baselineprofile", version.ref = "baselineProfile" }
 detekt = { id = "io.gitlab.arturbosch.detekt", version.ref = "detekt" }
 firebaseCrashlytics = { id = "com.google.firebase.crashlytics", version.ref = "firebaseCrashlyticsGradle" }
 googleServices = { id = "com.google.gms.google-services", version.ref = "googleServices" }
