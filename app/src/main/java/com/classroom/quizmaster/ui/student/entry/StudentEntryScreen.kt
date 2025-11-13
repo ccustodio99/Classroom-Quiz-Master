@@ -16,6 +16,7 @@ import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -241,6 +242,7 @@ class StudentEntryViewModel @Inject constructor(
 fun StudentEntryRoute(
     onJoined: () -> Unit,
     initialTab: EntryTab = EntryTab.Lan,
+    onTeacherSignIn: (() -> Unit)? = null,
     viewModel: StudentEntryViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -255,7 +257,8 @@ fun StudentEntryRoute(
         onRefreshLan = viewModel::refreshLanHosts,
         onJoinLan = { viewModel.joinLan(onJoined) },
         onJoinCode = { viewModel.joinByCode(onJoined) },
-        onClearError = viewModel::clearError
+        onClearError = viewModel::clearError,
+        onTeacherSignIn = onTeacherSignIn
     )
 }
 
@@ -270,7 +273,8 @@ fun StudentEntryScreen(
     onRefreshLan: () -> Unit,
     onJoinLan: () -> Unit,
     onJoinCode: () -> Unit,
-    onClearError: () -> Unit
+    onClearError: () -> Unit,
+    onTeacherSignIn: (() -> Unit)? = null
 ) {
     Column(
         modifier = Modifier
@@ -282,6 +286,19 @@ fun StudentEntryScreen(
             text = "Join Classroom",
             style = MaterialTheme.typography.headlineMedium
         )
+        Text(
+            text = "Join LAN sessions nearby or enter a code shared by your teacher.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (onTeacherSignIn != null) {
+            TextButton(
+                onClick = onTeacherSignIn,
+                modifier = Modifier.align(Alignment.End)
+            ) {
+                Text("Are you a teacher? Sign in")
+            }
+        }
         SegmentedControl(
             options = listOf(
                 SegmentOption(EntryTab.Lan.name, "Nearby", "Discover LAN hosts"),

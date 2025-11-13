@@ -26,7 +26,6 @@ data class SignupFormState(
 data class AuthUiState(
     val login: LoginFormState = LoginFormState(),
     val signup: SignupFormState = SignupFormState(),
-    val nickname: String = "",
     val loading: Boolean = false,
     val bannerMessage: String? = null,
     val errorMessage: String? = null,
@@ -35,7 +34,6 @@ data class AuthUiState(
 
 sealed interface AuthEffect {
     data object TeacherAuthenticated : AuthEffect
-    data class StudentContinue(val nickname: String) : AuthEffect
     data object DemoMode : AuthEffect
     data class Error(val message: String) : AuthEffect
 }
@@ -73,10 +71,6 @@ class AuthViewModel @Inject constructor() : ViewModel() {
         _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(acceptedTerms = value))
     }
 
-    fun updateNickname(value: String) {
-        _uiState.value = _uiState.value.copy(nickname = value)
-    }
-
     fun signInTeacher() = launchWithProgress {
         val login = _uiState.value.login
         if (!login.email.contains("@") || login.password.length < 6) {
@@ -108,12 +102,6 @@ class AuthViewModel @Inject constructor() : ViewModel() {
             bannerMessage = "Demo lessons unlocked offline"
         )
         _effects.emit(AuthEffect.DemoMode)
-    }
-
-    fun continueAsStudent() = launchWithProgress {
-        val nickname = _uiState.value.nickname.ifBlank { "Guest" }
-        delay(200)
-        _effects.emit(AuthEffect.StudentContinue(nickname))
     }
 
     private fun emitError(message: String) {

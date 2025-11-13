@@ -14,6 +14,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.classroom.quizmaster.ui.auth.AuthRoute
+import com.classroom.quizmaster.ui.neutral.NeutralWelcomeScreen
 import com.classroom.quizmaster.ui.student.end.StudentEndRoute
 import com.classroom.quizmaster.ui.student.entry.EntryTab
 import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
@@ -27,6 +28,7 @@ import com.classroom.quizmaster.ui.teacher.quiz_editor.QuizEditorRoute
 import com.classroom.quizmaster.ui.teacher.reports.ReportsRoute
 
 sealed class AppRoute(val route: String) {
+    data object Welcome : AppRoute("neutral/welcome")
     data object Auth : AppRoute("auth")
     data object TeacherHome : AppRoute("teacher/home")
     data object TeacherQuizCreate : AppRoute("teacher/quiz/create")
@@ -82,9 +84,22 @@ fun AppNav(
     ) { contentModifier ->
         NavHost(
             navController = navController,
-            startDestination = AppRoute.Auth.route,
+            startDestination = AppRoute.Welcome.route,
             modifier = contentModifier
         ) {
+            composable(AppRoute.Welcome.route) {
+                NeutralWelcomeScreen(
+                    onTeacherFlow = { navController.navigate(AppRoute.Auth.route) },
+                    onStudentFlow = { navController.navigate(AppRoute.StudentEntry.route) },
+                    onOfflineDemo = {
+                        appState.showMessage("Offline demo enabled")
+                        navController.navigate(AppRoute.TeacherHome.route) {
+                            launchSingleTop = true
+                            popUpTo(AppRoute.Welcome.route) { inclusive = false }
+                        }
+                    }
+                )
+            }
             composable(AppRoute.Auth.route) {
                 AuthRoute(
                     onTeacherAuthenticated = {
@@ -92,8 +107,10 @@ fun AppNav(
                             popUpTo(AppRoute.Auth.route) { inclusive = true }
                         }
                     },
-                    onStudentContinue = { _ ->
-                        navController.navigate(AppRoute.StudentEntry.route)
+                    onStudentEntry = {
+                        navController.navigate(AppRoute.StudentEntry.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -143,19 +160,34 @@ fun AppNav(
             }
             composable(AppRoute.StudentEntry.route) {
                 StudentEntryRoute(
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onTeacherSignIn = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
             composable(AppRoute.StudentJoinLan.route) {
                 StudentEntryRoute(
                     initialTab = EntryTab.Lan,
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onTeacherSignIn = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
             composable(AppRoute.StudentJoinCode.route) {
                 StudentEntryRoute(
                     initialTab = EntryTab.Code,
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onTeacherSignIn = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
             composable(AppRoute.StudentLobby.route) {
