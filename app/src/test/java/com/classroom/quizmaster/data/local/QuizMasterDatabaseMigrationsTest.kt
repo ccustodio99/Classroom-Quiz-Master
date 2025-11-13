@@ -59,7 +59,18 @@ class QuizMasterDatabaseMigrationsTest {
                     participantIndexes += cursor.getString(nameIndex)
                 }
             }
-            assertTrue(participantIndexes.any { it.contains("totalPoints") })
+            assertTrue(
+                "index_participants_sessionId_totalPoints_totalTimeMs" in participantIndexes
+            )
+            assertTrue(
+                participantIndexes.intersect(
+                    setOf(
+                        "index_participants_sessionId_totalPoints",
+                        "index_participants_sessionId_totalTimeMs",
+                        "index_participants_session_totalPoints_totalTimeMs"
+                    )
+                ).isEmpty()
+            )
         }
     }
 }

@@ -115,9 +115,10 @@ object QuizMasterMigrations {
             db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_classroomId ON sessions(classroomId)")
             db.execSQL("CREATE INDEX IF NOT EXISTS index_sessions_joinCode_status ON sessions(joinCode, status)")
 
-            db.execSQL("DROP INDEX IF EXISTS index_participants_session_points")
-            db.execSQL("DROP INDEX IF EXISTS index_participants_session_time")
-            db.execSQL("CREATE INDEX IF NOT EXISTS index_participants_session_totalPoints_totalTimeMs ON participants(sessionId, totalPoints, totalTimeMs)")
+            db.execSQL("DROP INDEX IF EXISTS index_participants_sessionId_totalPoints")
+            db.execSQL("DROP INDEX IF EXISTS index_participants_sessionId_totalTimeMs")
+            db.execSQL("DROP INDEX IF EXISTS index_participants_session_totalPoints_totalTimeMs")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_participants_sessionId_totalPoints_totalTimeMs ON participants(sessionId, totalPoints, totalTimeMs)")
 
             db.execSQL("CREATE INDEX IF NOT EXISTS index_attempts_sessionId_questionId ON attempts(sessionId, questionId)")
 
