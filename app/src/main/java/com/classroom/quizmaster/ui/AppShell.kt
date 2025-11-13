@@ -200,11 +200,12 @@ private fun NeutralTopBar() {
             )
             Column(modifier = Modifier.weight(1f)) {
                 Text(
-                    text = "Welcome",
-                    style = MaterialTheme.typography.titleMedium
+                    text = "Welcome to Classroom Quiz Master",
+                    style = MaterialTheme.typography.titleMedium,
+                    maxLines = 2
                 )
                 Text(
-                    text = "Sign in as teacher or join as guest",
+                    text = "Teachers create & host quizzes. Students join with a code or over LAN.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
