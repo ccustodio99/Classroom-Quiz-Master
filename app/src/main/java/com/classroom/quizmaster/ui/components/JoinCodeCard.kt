@@ -31,8 +31,6 @@ import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 
-private val DefaultQrPlaceholder: @Composable () -> Unit = { QRPlaceholder() }
-
 @Composable
 fun JoinCodeCard(
     code: String,
@@ -40,7 +38,7 @@ fun JoinCodeCard(
     peersConnected: Int,
     onCopy: () -> Unit,
     modifier: Modifier = Modifier,
-    qrPlaceholder: @Composable () -> Unit = DefaultQrPlaceholder
+    qrPlaceholder: @Composable () -> Unit = { QRPlaceholder() }
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
