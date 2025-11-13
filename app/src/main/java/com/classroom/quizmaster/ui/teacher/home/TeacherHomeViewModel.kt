@@ -11,11 +11,12 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.stateIn
 
-data class QuickStat(
-    val label: String,
-    val value: String,
-    val trendLabel: String,
-    val positive: Boolean
+data class ClassroomOverviewUi(
+    val id: String,
+    val name: String,
+    val grade: String?,
+    val topicCount: Int,
+    val quizCount: Int
 )
 
 data class HomeActionCard(
@@ -32,7 +33,7 @@ data class TeacherHomeUiState(
     val connectivityHeadline: String = "",
     val connectivitySupporting: String = "",
     val statusChips: List<StatusChipUi> = emptyList(),
-    val quickStats: List<QuickStat> = emptyList(),
+    val classrooms: List<ClassroomOverviewUi> = emptyList(),
     val actionCards: List<HomeActionCard> = emptyList(),
     val recentQuizzes: List<QuizOverviewUi> = emptyList(),
     val emptyMessage: String = "",

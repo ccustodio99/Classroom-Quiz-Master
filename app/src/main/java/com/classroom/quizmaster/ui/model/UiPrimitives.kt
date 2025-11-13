@@ -53,7 +53,9 @@ data class QuizOverviewUi(
     val questionCount: Int,
     val averageScore: Int,
     val updatedAgo: String,
-    val isDraft: Boolean
+    val isDraft: Boolean,
+    val classroomName: String = "",
+    val topicName: String = ""
 )
 
 data class PlayerLobbyUi(

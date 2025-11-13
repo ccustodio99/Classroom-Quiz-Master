@@ -116,6 +116,7 @@ fun AppNav(
             }
             composable(AppRoute.TeacherHome.route) {
                 TeacherHomeRoute(
+                    onCreateClassroom = { appState.showMessage("Classroom creation coming soon") },
                     onCreateQuiz = { navController.navigate(AppRoute.TeacherQuizCreate.route) },
                     onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.route) },
                     onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },

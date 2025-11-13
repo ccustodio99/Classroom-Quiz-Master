@@ -47,6 +47,7 @@ import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
 
 @Composable
 fun TeacherHomeRoute(
+    onCreateClassroom: () -> Unit,
     onCreateQuiz: () -> Unit,
     onLaunchLive: () -> Unit,
     onAssignments: () -> Unit,
@@ -56,6 +57,7 @@ fun TeacherHomeRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     TeacherHomeScreen(
         state = state,
+        onCreateClassroom = onCreateClassroom,
         onCreateQuiz = onCreateQuiz,
         onLaunchLive = onLaunchLive,
         onAssignments = onAssignments,
@@ -66,6 +68,7 @@ fun TeacherHomeRoute(
 @Composable
 fun TeacherHomeScreen(
     state: TeacherHomeUiState,
+    onCreateClassroom: () -> Unit,
     onCreateQuiz: () -> Unit,
     onLaunchLive: () -> Unit,
     onAssignments: () -> Unit,
@@ -93,7 +96,10 @@ fun TeacherHomeScreen(
         if (state.isOfflineDemo) {
             TagChip(text = "Offline demo activated")
         }
-        QuickStatsSection(stats = state.quickStats)
+        ClassroomsSection(
+            classrooms = state.classrooms,
+            onCreateClassroom = onCreateClassroom
+        )
         ActionCards(
             actionCards = state.actionCards,
             onCreateQuiz = onCreateQuiz,
@@ -112,33 +118,56 @@ fun TeacherHomeScreen(
 }
 
 @Composable
-private fun QuickStatsSection(stats: List<QuickStat>) {
+private fun ClassroomsSection(
+    classrooms: List<ClassroomOverviewUi>,
+    onCreateClassroom: () -> Unit
+) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(text = "Classroom pulse", style = MaterialTheme.typography.titleLarge)
-        if (stats.isEmpty()) {
+        Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
+        if (classrooms.isEmpty()) {
+            Text(
+                text = "Here's how to set up your first classroom:",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             QuickStartSteps()
+            Spacer(modifier = Modifier.height(8.dp))
+            PrimaryButton(
+                text = "Create your first classroom",
+                onClick = onCreateClassroom,
+                modifier = Modifier.fillMaxWidth()
+            )
         } else {
-            stats.forEach { stat ->
+            classrooms.forEach { classroom ->
                 Surface(
                     modifier = Modifier.fillMaxWidth(),
                     shape = MaterialTheme.shapes.large,
                     tonalElevation = 2.dp
                 ) {
-                    Row(
+                    Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.CenterVertically
+                        verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
-                        Column {
-                            Text(text = stat.label, style = MaterialTheme.typography.bodySmall)
-                            Text(text = stat.value, style = MaterialTheme.typography.headlineSmall)
+                        Text(
+                            text = classroom.name,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                        val meta = buildString {
+                            classroom.grade?.takeIf { it.isNotBlank() }?.let {
+                                append("Grade $it")
+                            }
+                            if (isNotEmpty()) {
+                                append(" · ")
+                            }
+                            append("${classroom.topicCount} topics")
+                            append(" · ${classroom.quizCount} quizzes")
                         }
                         Text(
-                            text = stat.trendLabel,
-                            color = if (stat.positive) MaterialTheme.colorScheme.tertiary else MaterialTheme.colorScheme.error,
-                            style = MaterialTheme.typography.bodyMedium
+                            text = meta,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
                     }
                 }
@@ -247,7 +276,7 @@ private fun RecentQuizzesSection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = "Recent quizzes", style = MaterialTheme.typography.titleLarge)
         if (quizzes.isEmpty()) {
-            Text(emptyMessage?.takeIf { it.isNotBlank() } ?: "Create your first quiz to see it here.")
+            Text(emptyMessage?.takeIf { it.isNotBlank() } ?: "Build a quiz inside a topic to see it here.")
             PrimaryButton(text = "Create quiz", onClick = onCreateQuiz)
         } else {
             quizzes.forEach { quiz ->
@@ -262,6 +291,16 @@ private fun RecentQuizzesSection(
                         verticalArrangement = Arrangement.spacedBy(4.dp)
                     ) {
                         Text(text = quiz.title, style = MaterialTheme.typography.titleMedium)
+                        val location = listOf(quiz.classroomName, quiz.topicName)
+                            .filter { it.isNotBlank() }
+                            .joinToString(" · ")
+                        if (location.isNotBlank()) {
+                            Text(
+                                text = location,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
                         Text(text = "${quiz.subject} - Grade ${quiz.grade}")
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
@@ -393,17 +432,52 @@ private fun TeacherHomePreview() {
                     StatusChipUi("lan", "LAN", StatusChipType.Lan),
                     StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)
                 ),
-                quickStats = listOf(
-                    QuickStat("Active classes", "5", "+1 this week", true),
-                    QuickStat("Avg score", "83%", "+4 since Mon", true)
+                classrooms = listOf(
+                    ClassroomOverviewUi(
+                        id = "1",
+                        name = "Period 1 Algebra",
+                        grade = "8",
+                        topicCount = 4,
+                        quizCount = 12
+                    ),
+                    ClassroomOverviewUi(
+                        id = "2",
+                        name = "STEM Club",
+                        grade = null,
+                        topicCount = 3,
+                        quizCount = 6
+                    )
                 ),
                 actionCards = defaultActionCards,
                 recentQuizzes = listOf(
-                    QuizOverviewUi("1", "Fractions review", "4", "Math", 12, 78, "2h ago", false),
-                    QuizOverviewUi("2", "Science trivia", "5", "Science", 15, 88, "Yesterday", true)
+                    QuizOverviewUi(
+                        "1",
+                        "Fractions review",
+                        "4",
+                        "Math",
+                        12,
+                        78,
+                        "2h ago",
+                        false,
+                        classroomName = "Period 1 Algebra",
+                        topicName = "Fractions"
+                    ),
+                    QuizOverviewUi(
+                        "2",
+                        "Science trivia",
+                        "5",
+                        "Science",
+                        15,
+                        88,
+                        "Yesterday",
+                        true,
+                        classroomName = "STEM Club",
+                        topicName = "Space"
+                    )
                 ),
                 emptyMessage = "Import quizzes or create a new one to see it here"
             ),
+            onCreateClassroom = {},
             onCreateQuiz = {},
             onLaunchLive = {},
             onAssignments = {},

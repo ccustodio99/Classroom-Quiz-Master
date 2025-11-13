@@ -15,8 +15,8 @@ import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
 import com.classroom.quizmaster.ui.teacher.home.ACTION_LAUNCH_SESSION
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
+import com.classroom.quizmaster.ui.teacher.home.ClassroomOverviewUi
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
-import com.classroom.quizmaster.ui.teacher.home.QuickStat
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeUiState
 import com.classroom.quizmaster.ui.teacher.quiz_editor.QuizEditorUiState
 import javax.inject.Inject
@@ -59,7 +59,7 @@ class RealQuizRepositoryUi @Inject constructor(
             val recent = buildRecentQuizzes(quizzes)
             TeacherHomeUiState(
                 greeting = greeting,
-                quickStats = buildQuickStats(quizzes),
+                classrooms = buildClassrooms(quizzes),
                 actionCards = defaultActionCards,
                 recentQuizzes = recent,
                 emptyMessage = if (recent.isEmpty()) DEFAULT_QUIZ_EMPTY_MESSAGE else "",
@@ -119,7 +119,7 @@ class RealQuizRepositoryUi @Inject constructor(
         return "Welcome back, $resolvedName"
     }
 
-    private fun buildQuickStats(@Suppress("UNUSED_PARAMETER") quizzes: List<Quiz>): List<QuickStat> = emptyList()
+    private fun buildClassrooms(@Suppress("UNUSED_PARAMETER") quizzes: List<Quiz>): List<ClassroomOverviewUi> = emptyList()
 
     private fun buildRecentQuizzes(quizzes: List<Quiz>): List<QuizOverviewUi> =
         quizzes
@@ -135,7 +135,9 @@ class RealQuizRepositoryUi @Inject constructor(
         questionCount = questions.size.takeIf { it > 0 } ?: questionCount,
         averageScore = 0,
         updatedAgo = formatRelativeTime(updatedAt),
-        isDraft = questions.isEmpty()
+        isDraft = questions.isEmpty(),
+        classroomName = "",
+        topicName = ""
     )
 
     private fun Quiz.toEditorState(): QuizEditorUiState = QuizEditorUiState(
