@@ -166,7 +166,15 @@ class AuthViewModel @Inject constructor() : ViewModel() {
             !signup.acceptedTerms -> emitError("Accept the terms to continue.")
             else -> {
                 delay(400)
-                _uiState.value = _uiState.value.copy(signupStep = SignupStep.Profile)
+                val current = _uiState.value
+                _uiState.value = current.copy(
+                    signupStep = SignupStep.Profile,
+                    profile = if (current.profile.role == SignupRole.None) {
+                        current.profile.copy(role = SignupRole.Teacher)
+                    } else {
+                        current.profile
+                    }
+                )
             }
         }
     }
