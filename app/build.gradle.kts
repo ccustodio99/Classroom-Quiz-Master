@@ -12,7 +12,6 @@ plugins {
     alias(libs.plugins.firebaseCrashlytics)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
-    alias(libs.plugins.baselineProfile)
 }
 
 android {
@@ -247,8 +246,6 @@ dependencies {
     implementation(libs.openpdf)
     implementation(libs.kotlin.csv)
     implementation("com.google.protobuf:protobuf-javalite:3.21.12")
-
-    baselineProfile(projects.macrobenchmark)
 
     coreLibraryDesugaring(libs.android.desugar.jdk.libs)
 

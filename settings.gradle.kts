@@ -19,6 +19,5 @@ enableFeaturePreview("TYPESAFE_PROJECT_ACCESSORS")
 rootProject.name = "ClassroomQuizMaster"
 
 include(
-    ":app",
-    ":macrobenchmark"
+    ":app"
 )
