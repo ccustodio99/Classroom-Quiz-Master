@@ -270,11 +270,13 @@ class SessionRepositoryImpl @Inject constructor(
             lanClient.connect(service, uid)
         }
 
-    override suspend fun kickParticipant(uid: String) = withContext(ioDispatcher) {
-        lanHostServer.kick(uid)
-        sessionDao.currentSession()?.let { current ->
-            database.withTransaction { sessionDao.deleteParticipant(current.id, uid) }
-            broadcastLeaderboardSnapshot(current.id)
+    override suspend fun kickParticipant(uid: String) {
+        withContext(ioDispatcher) {
+            lanHostServer.kick(uid)
+            sessionDao.currentSession()?.let { current ->
+                database.withTransaction { sessionDao.deleteParticipant(current.id, uid) }
+                broadcastLeaderboardSnapshot(current.id)
+            }
         }
     }
 

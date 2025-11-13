@@ -20,18 +20,16 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.ui.Modifier
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.Alignment
+import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.PathEffect
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.unit.dp
-import com.classroom.quizmaster.ui.theme.QuizMasterTheme
-import com.classroom.quizmaster.ui.preview.QuizPreviews
-import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.ui.platform.LocalLayoutDirection
 import androidx.compose.ui.unit.LayoutDirection
-
-private val DefaultQrPlaceholder: @Composable () -> Unit = { QRPlaceholder() }
+import androidx.compose.ui.unit.dp
+import com.classroom.quizmaster.ui.preview.QuizPreviews
+import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 
 @Composable
 fun JoinCodeCard(
@@ -40,7 +38,7 @@ fun JoinCodeCard(
     peersConnected: Int,
     onCopy: () -> Unit,
     modifier: Modifier = Modifier,
-    qrPlaceholder: @Composable () -> Unit = DefaultQrPlaceholder
+    qrPlaceholder: @Composable () -> Unit = { QRPlaceholder() }
 ) {
     Surface(
         modifier = modifier.fillMaxWidth(),
