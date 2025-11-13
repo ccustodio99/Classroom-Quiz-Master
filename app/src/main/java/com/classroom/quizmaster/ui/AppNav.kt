@@ -21,6 +21,7 @@ import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
+import com.classroom.quizmaster.ui.teacher.classrooms.CreateClassroomRoute
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeRoute
 import com.classroom.quizmaster.ui.teacher.host.HostLiveRoute
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyRoute
@@ -31,6 +32,7 @@ sealed class AppRoute(val route: String) {
     data object Welcome : AppRoute("neutral/welcome")
     data object Auth : AppRoute("auth")
     data object TeacherHome : AppRoute("teacher/home")
+    data object TeacherClassroomCreate : AppRoute("teacher/classrooms/create")
     data object TeacherQuizCreate : AppRoute("teacher/quiz/create")
     data object TeacherQuizEdit : AppRoute("teacher/quiz/edit/{quizId}") {
         fun build(id: String) = "teacher/quiz/edit/$id"
@@ -116,11 +118,18 @@ fun AppNav(
             }
             composable(AppRoute.TeacherHome.route) {
                 TeacherHomeRoute(
-                    onCreateClassroom = { appState.showMessage("Classroom creation coming soon") },
+                    onCreateClassroom = {
+                        navController.navigate(AppRoute.TeacherClassroomCreate.route)
+                    },
                     onCreateQuiz = { navController.navigate(AppRoute.TeacherQuizCreate.route) },
                     onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.route) },
                     onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
                     onReports = { navController.navigate(AppRoute.TeacherReports.route) }
+                )
+            }
+            composable(AppRoute.TeacherClassroomCreate.route) {
+                CreateClassroomRoute(
+                    onDone = { navController.popBackStack() }
                 )
             }
             composable(AppRoute.TeacherQuizCreate.route) {
