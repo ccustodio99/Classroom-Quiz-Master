@@ -257,11 +257,13 @@ dependencies {
     debugImplementation(libs.compose.ui.tooling)
     debugImplementation(libs.compose.ui.test.manifest)
 
+    testImplementation(kotlin("test"))
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.junit4)
     testImplementation(libs.junit.jupiter.api)
     testImplementation(libs.junit.jupiter.params)
     testRuntimeOnly(libs.junit.jupiter.engine)
+    testImplementation(libs.androidx.test.core)
     testImplementation(libs.truth)
     testImplementation(libs.mockk)
     testImplementation(libs.mockwebserver)
