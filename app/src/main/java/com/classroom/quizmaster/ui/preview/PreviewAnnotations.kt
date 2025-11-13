@@ -2,7 +2,10 @@ package com.classroom.quizmaster.ui.preview
 
 import android.content.res.Configuration
 import androidx.compose.ui.tooling.preview.Preview
+import androidx.compose.runtime.Composable
 
+@Retention(AnnotationRetention.RUNTIME)
+@Target(AnnotationTarget.FUNCTION)
 @Preview(
     name = "Phone - Light",
     showBackground = true,
