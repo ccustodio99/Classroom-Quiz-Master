@@ -3,6 +3,7 @@ package com.classroom.quizmaster.data.lan
 import com.classroom.quizmaster.BuildConfig
 import io.ktor.http.HttpStatusCode
 import io.ktor.serialization.kotlinx.KotlinxWebsocketSerializationConverter
+import io.ktor.serialization.kotlinx.json.json
 import io.ktor.server.application.Application
 import io.ktor.server.application.call
 import io.ktor.server.application.install
