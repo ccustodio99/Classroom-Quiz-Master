@@ -26,9 +26,11 @@ import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.classroom.quizmaster.R
 import com.classroom.quizmaster.ui.components.ConnectivityBanner
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
@@ -114,7 +116,7 @@ private fun QuickStatsSection(stats: List<QuickStat>) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = "Classroom pulse", style = MaterialTheme.typography.titleLarge)
         if (stats.isEmpty()) {
-            TagChip(text = "Insights appear after your next session")
+            QuickStartSteps()
         } else {
             stats.forEach { stat ->
                 Surface(
@@ -139,6 +141,50 @@ private fun QuickStatsSection(stats: List<QuickStat>) {
                             style = MaterialTheme.typography.bodyMedium
                         )
                     }
+                }
+            }
+        }
+    }
+}
+
+@Composable
+private fun QuickStartSteps() {
+    val steps = listOf(
+        stringResource(id = R.string.teacher_home_quickstart_step_one),
+        stringResource(id = R.string.teacher_home_quickstart_step_two),
+        stringResource(id = R.string.teacher_home_quickstart_step_three)
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        steps.forEachIndexed { index, step ->
+            Surface(
+                modifier = Modifier.fillMaxWidth(),
+                shape = MaterialTheme.shapes.large,
+                tonalElevation = 2.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(vertical = 12.dp, horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(12.dp)
+                ) {
+                    Surface(
+                        shape = MaterialTheme.shapes.small,
+                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
+                    ) {
+                        Text(
+                            text = "${index + 1}",
+                            modifier = Modifier
+                                .padding(horizontal = 12.dp, vertical = 4.dp),
+                            style = MaterialTheme.typography.labelLarge,
+                            color = MaterialTheme.colorScheme.primary
+                        )
+                    }
+                    Text(
+                        text = step,
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurface
+                    )
                 }
             }
         }

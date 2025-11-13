@@ -75,6 +75,9 @@
     <string name="teacher_home_sync_status">Pending sync items: %1$d</string>
     <string name="teacher_home_sync_idle">All data synced</string>
     <string name="teacher_home_sync_now">Sync now</string>
+    <string name="teacher_home_quickstart_step_one">Create a classroom for each group you teach.</string>
+    <string name="teacher_home_quickstart_step_two">Add topics inside that classroom to organize your material.</string>
+    <string name="teacher_home_quickstart_step_three">Build quizzes inside a topic so students can practice.</string>
 
     <!-- Quiz editor -->
     <string name="quiz_editor_title_placeholder">Quiz title</string>
