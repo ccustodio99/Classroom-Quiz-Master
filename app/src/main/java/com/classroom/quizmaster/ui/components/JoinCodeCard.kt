@@ -112,12 +112,14 @@ fun QRPlaceholder(
 @QuizPreviews
 @Composable
 private fun JoinCodePreview() {
-    CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
-        JoinCodeCard(
-            code = "X7Q2",
-            expiresIn = "09:20",
-            peersConnected = 6,
-            onCopy = {}
-        )
+    QuizMasterTheme {
+        CompositionLocalProvider(LocalLayoutDirection provides LayoutDirection.Ltr) {
+            JoinCodeCard(
+                code = "X7Q2",
+                expiresIn = "09:20",
+                peersConnected = 6,
+                onCopy = {}
+            )
+        }
     }
 }
