@@ -32,14 +32,16 @@ class FirebaseClassroomDataSource @Inject constructor(
             .document(teacher.id)
             .set(FirestoreTeacher.fromDomain(teacher))
             .await()
+        Unit
     }.onFailure { Timber.e(it, "Failed to upsert teacher profile") }
 
-    suspend fun updateLastActive() = runCatching {
+    suspend fun updateLastActive(): Result<Unit> = runCatching {
         val uid = authDataSource.currentUserId() ?: return@runCatching
         teachersCollection()
             .document(uid)
             .update("lastActive", FieldValue.serverTimestamp())
             .await()
+        Unit
     }.onFailure { Timber.w(it, "Failed to update teacher last active") }
 
     suspend fun fetchClassrooms(): Result<List<Classroom>> = runCatching {
@@ -66,6 +68,7 @@ class FirebaseClassroomDataSource @Inject constructor(
 
     suspend fun deleteClassroom(id: String): Result<Unit> = runCatching {
         classroomsCollection().document(id).delete().await()
+        Unit
     }
 
     private data class FirestoreTeacher(

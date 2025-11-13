@@ -228,14 +228,16 @@ class SessionRepositoryImpl @Inject constructor(
         if (opEntry != null) {
             triggerImmediateSync()
         }
-        joinedEndpoint?.let { endpoint ->
+        joinedEndpoint?.let {
             val nickname = NicknamePolicy.sanitize(
                 studentNickname ?: "Student",
                 firebaseAuth.currentUser?.uid ?: attempt.uid
             )
             repositoryScope.launch {
-                runCatching { lanClient.sendAttempt(endpoint, attempt.toWire(json, nickname)) }
-                    .onFailure { Timber.w(it, "Failed to forward attempt ${attempt.id} to host") }
+                val sent = lanClient.sendAttempt(attempt.toWire(json, nickname))
+                if (!sent) {
+                    Timber.w("Failed to forward attempt %s to host", attempt.id)
+                }
             }
         }
         if (shouldSyncToCloud) {

@@ -19,7 +19,8 @@ fun NickNameField(
     value: String,
     onValueChange: (String) -> Unit,
     modifier: Modifier = Modifier,
-    label: String = "Nickname"
+    label: String = "Nickname",
+    errorText: String? = null
 ) {
     val trimmed = value.trim()
     val (error, sanitized) = remember(trimmed) {
@@ -33,14 +34,15 @@ fun NickNameField(
         }
         message to sanitized
     }
+    val resolvedError = errorText ?: error
     OutlinedTextField(
         value = sanitized.take(24),
         onValueChange = { onValueChange(it.take(24)) },
         modifier = modifier,
         label = { Text(label) },
-        isError = error != null,
+        isError = resolvedError != null,
         supportingText = {
-            error?.let { Text(text = it) }
+            resolvedError?.let { Text(text = it) }
         }
     )
 }
@@ -50,6 +52,6 @@ fun NickNameField(
 private fun NickNameFieldPreview() {
     QuizMasterTheme {
         var value by rememberSaveable { mutableStateOf("Quiz Wiz") }
-        NickNameField(value = value, onValueChange = { value = it })
+        NickNameField(value = value, onValueChange = { value = it }, errorText = null)
     }
 }

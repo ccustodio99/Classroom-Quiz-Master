@@ -5,6 +5,7 @@ plugins {
     alias(libs.plugins.kotlinAndroid)
     alias(libs.plugins.kotlinParcelize)
     alias(libs.plugins.kotlinSerialization)
+    alias(libs.plugins.kotlinCompose)
     alias(libs.plugins.ksp)
     alias(libs.plugins.hiltAndroid)
     alias(libs.plugins.googleServices)
@@ -20,7 +21,7 @@ android {
 
     defaultConfig {
         applicationId = "com.classroom.quizmaster"
-        minSdk = 26
+        minSdk = 24
         targetSdk = 35
         versionCode = 1
         versionName = "1.0.0"
@@ -65,7 +66,11 @@ android {
 
     kotlinOptions {
         jvmTarget = "17"
-        freeCompilerArgs += listOf("-Xjsr305=strict")
+        freeCompilerArgs += listOf(
+            "-Xjsr305=strict",
+            "-Xjvm-default=all",
+            "-Xcontext-receivers"
+        )
     }
 
     buildFeatures {
@@ -241,8 +246,7 @@ dependencies {
 
     implementation(libs.openpdf)
     implementation(libs.kotlin.csv)
-    implementation(libs.protobuf.kotlin.lite)
-    implementation(libs.protobuf.java.lite)
+    implementation("com.google.protobuf:protobuf-javalite:3.21.12")
 
     baselineProfile(projects.macrobenchmark)
 
@@ -298,6 +302,11 @@ dependencies {
 
     kspAndroidTest(libs.hilt.compiler)
     kspAndroidTest(libs.androidx.hilt.compiler)
+}
+
+configurations.configureEach {
+    exclude(group = "com.google.protobuf", module = "protobuf-lite")
+    resolutionStrategy.force("com.google.protobuf:protobuf-javalite:3.21.12")
 }
 
 ktlint {
