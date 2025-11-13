@@ -34,6 +34,8 @@ import com.classroom.quizmaster.R
 import com.classroom.quizmaster.ui.components.GhostButton
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.QuizSnackbar
+import com.classroom.quizmaster.ui.components.SegmentOption
+import com.classroom.quizmaster.ui.components.SegmentedControl
 import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
@@ -70,6 +72,12 @@ fun AuthRoute(
         onSignupPassword = viewModel::updateSignupPassword,
         onSignupConfirm = viewModel::updateSignupConfirm,
         onTermsToggle = viewModel::toggleTerms,
+        onProfileNameChange = viewModel::updateProfileName,
+        onProfileRoleSelected = viewModel::updateProfileRole,
+        onProfileSchoolChange = viewModel::updateProfileSchool,
+        onProfileSubjectChange = viewModel::updateProfileSubject,
+        onProfileNicknameChange = viewModel::updateProfileNickname,
+        onSignupBack = viewModel::backToSignupCredentials,
         onLogin = viewModel::signInTeacher,
         onSignup = viewModel::signUpTeacher,
         onDemo = viewModel::continueOfflineDemo,
@@ -92,6 +100,12 @@ fun AuthScreen(
     onSignupPassword: (String) -> Unit,
     onSignupConfirm: (String) -> Unit,
     onTermsToggle: (Boolean) -> Unit,
+    onProfileNameChange: (String) -> Unit,
+    onProfileRoleSelected: (SignupRole) -> Unit,
+    onProfileSchoolChange: (String) -> Unit,
+    onProfileSubjectChange: (String) -> Unit,
+    onProfileNicknameChange: (String) -> Unit,
+    onSignupBack: () -> Unit,
     onLogin: () -> Unit,
     onSignup: () -> Unit,
     onDemo: () -> Unit,
@@ -153,38 +167,27 @@ fun AuthScreen(
                 text = stringResource(R.string.auth_signup_header),
                 style = MaterialTheme.typography.titleLarge
             )
-            AuthTextField(
-                value = state.signup.email,
-                label = stringResource(R.string.auth_email),
-                onValueChange = onSignupEmail
-            )
-            AuthTextField(
-                value = state.signup.password,
-                label = stringResource(R.string.auth_password),
-                onValueChange = onSignupPassword,
-                isPassword = true
-            )
-            AuthTextField(
-                value = state.signup.confirmPassword,
-                label = stringResource(R.string.auth_confirm_password),
-                onValueChange = onSignupConfirm,
-                isPassword = true
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Checkbox(
-                    checked = state.signup.acceptedTerms,
-                    onCheckedChange = onTermsToggle
+            when (state.signupStep) {
+                SignupStep.Credentials -> SignupCredentialsForm(
+                    state = state,
+                    onSignupEmail = onSignupEmail,
+                    onSignupPassword = onSignupPassword,
+                    onSignupConfirm = onSignupConfirm,
+                    onTermsToggle = onTermsToggle,
+                    onContinue = onSignup
                 )
-                Text(text = stringResource(R.string.auth_terms))
+
+                SignupStep.Profile -> SignupProfileForm(
+                    state = state,
+                    onProfileNameChange = onProfileNameChange,
+                    onProfileRoleSelected = onProfileRoleSelected,
+                    onProfileSchoolChange = onProfileSchoolChange,
+                    onProfileSubjectChange = onProfileSubjectChange,
+                    onProfileNicknameChange = onProfileNicknameChange,
+                    onBack = onSignupBack,
+                    onComplete = onSignup
+                )
             }
-            PrimaryButton(
-                text = stringResource(R.string.auth_create_account),
-                onClick = onSignup,
-                enabled = state.signup.acceptedTerms && !state.loading
-            )
         }
         Spacer(modifier = Modifier.height(12.dp))
         TextButton(
@@ -194,6 +197,156 @@ fun AuthScreen(
             Text("Need to join a game instead? Continue as a student")
         }
         Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+private fun SignupCredentialsForm(
+    state: AuthUiState,
+    onSignupEmail: (String) -> Unit,
+    onSignupPassword: (String) -> Unit,
+    onSignupConfirm: (String) -> Unit,
+    onTermsToggle: (Boolean) -> Unit,
+    onContinue: () -> Unit
+) {
+    Text(
+        text = stringResource(R.string.auth_signup_step_one),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary
+    )
+    AuthTextField(
+        value = state.signup.email,
+        label = stringResource(R.string.auth_email),
+        onValueChange = onSignupEmail
+    )
+    AuthTextField(
+        value = state.signup.password,
+        label = stringResource(R.string.auth_password),
+        onValueChange = onSignupPassword,
+        isPassword = true
+    )
+    AuthTextField(
+        value = state.signup.confirmPassword,
+        label = stringResource(R.string.auth_confirm_password),
+        onValueChange = onSignupConfirm,
+        isPassword = true
+    )
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
+    ) {
+        Checkbox(
+            checked = state.signup.acceptedTerms,
+            onCheckedChange = onTermsToggle
+        )
+        Text(text = stringResource(R.string.auth_terms))
+    }
+    PrimaryButton(
+        text = stringResource(R.string.auth_create_account),
+        onClick = onContinue,
+        enabled = state.signup.acceptedTerms && !state.loading
+    )
+}
+
+@Composable
+private fun SignupProfileForm(
+    state: AuthUiState,
+    onProfileNameChange: (String) -> Unit,
+    onProfileRoleSelected: (SignupRole) -> Unit,
+    onProfileSchoolChange: (String) -> Unit,
+    onProfileSubjectChange: (String) -> Unit,
+    onProfileNicknameChange: (String) -> Unit,
+    onBack: () -> Unit,
+    onComplete: () -> Unit
+) {
+    Text(
+        text = stringResource(R.string.auth_signup_step_two),
+        style = MaterialTheme.typography.labelLarge,
+        color = MaterialTheme.colorScheme.primary
+    )
+    Text(
+        text = stringResource(R.string.auth_signup_step_two_description),
+        style = MaterialTheme.typography.bodyMedium,
+        color = MaterialTheme.colorScheme.onSurfaceVariant
+    )
+    SegmentedControl(
+        options = listOf(
+            SegmentOption(
+                id = SignupRole.Teacher.name,
+                label = stringResource(R.string.auth_signup_role_teacher)
+            ),
+            SegmentOption(
+                id = SignupRole.Student.name,
+                label = stringResource(R.string.auth_signup_role_student)
+            )
+        ),
+        selectedId = if (state.profile.role == SignupRole.None) "" else state.profile.role.name,
+        onSelected = { id ->
+            val role = SignupRole.values().firstOrNull { it.name == id } ?: SignupRole.None
+            onProfileRoleSelected(role)
+        },
+        modifier = Modifier.fillMaxWidth()
+    )
+    when (state.profile.role) {
+        SignupRole.Teacher -> {
+            Text(
+                text = stringResource(R.string.auth_signup_teacher_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            AuthTextField(
+                value = state.profile.fullName,
+                label = stringResource(R.string.auth_signup_teacher_name),
+                onValueChange = onProfileNameChange
+            )
+            AuthTextField(
+                value = state.profile.school,
+                label = stringResource(R.string.auth_signup_teacher_school),
+                onValueChange = onProfileSchoolChange
+            )
+            AuthTextField(
+                value = state.profile.subject,
+                label = stringResource(R.string.auth_signup_teacher_subject),
+                onValueChange = onProfileSubjectChange
+            )
+        }
+
+        SignupRole.Student -> {
+            Text(
+                text = stringResource(R.string.auth_signup_student_hint),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            AuthTextField(
+                value = state.profile.nickname,
+                label = stringResource(R.string.auth_signup_student_nickname),
+                onValueChange = onProfileNicknameChange
+            )
+        }
+
+        SignupRole.None -> {
+            Text(
+                text = stringResource(R.string.auth_signup_role_prompt),
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
+    Row(
+        modifier = Modifier.fillMaxWidth(),
+        horizontalArrangement = Arrangement.spacedBy(12.dp)
+    ) {
+        SecondaryButton(
+            text = stringResource(R.string.auth_signup_back),
+            onClick = onBack,
+            modifier = Modifier.weight(1f)
+        )
+        PrimaryButton(
+            text = stringResource(R.string.auth_signup_complete),
+            onClick = onComplete,
+            enabled = !state.loading,
+            modifier = Modifier.weight(1f)
+        )
     }
 }
 
@@ -227,6 +380,12 @@ private fun AuthScreenPreview() {
             onSignupPassword = {},
             onSignupConfirm = {},
             onTermsToggle = {},
+            onProfileNameChange = {},
+            onProfileRoleSelected = {},
+            onProfileSchoolChange = {},
+            onProfileSubjectChange = {},
+            onProfileNicknameChange = {},
+            onSignupBack = {},
             onLogin = {},
             onSignup = {},
             onDemo = {},

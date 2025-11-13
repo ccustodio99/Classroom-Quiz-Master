@@ -23,14 +23,28 @@ data class SignupFormState(
     val acceptedTerms: Boolean = false
 )
 
+data class ProfileFormState(
+    val fullName: String = "",
+    val role: SignupRole = SignupRole.None,
+    val school: String = "",
+    val subject: String = "",
+    val nickname: String = ""
+)
+
 data class AuthUiState(
     val login: LoginFormState = LoginFormState(),
     val signup: SignupFormState = SignupFormState(),
+    val profile: ProfileFormState = ProfileFormState(),
+    val signupStep: SignupStep = SignupStep.Credentials,
     val loading: Boolean = false,
     val bannerMessage: String? = null,
     val errorMessage: String? = null,
     val demoModeEnabled: Boolean = false
 )
+
+enum class SignupRole { None, Teacher, Student }
+
+enum class SignupStep { Credentials, Profile }
 
 sealed interface AuthEffect {
     data object TeacherAuthenticated : AuthEffect
@@ -71,6 +85,34 @@ class AuthViewModel @Inject constructor() : ViewModel() {
         _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(acceptedTerms = value))
     }
 
+    fun updateProfileName(value: String) {
+        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(fullName = value))
+    }
+
+    fun updateProfileRole(value: SignupRole) {
+        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(role = value))
+    }
+
+    fun updateProfileSchool(value: String) {
+        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(school = value))
+    }
+
+    fun updateProfileSubject(value: String) {
+        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(subject = value))
+    }
+
+    fun updateProfileNickname(value: String) {
+        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(nickname = value))
+    }
+
+    fun backToSignupCredentials() {
+        _uiState.value = _uiState.value.copy(
+            signupStep = SignupStep.Credentials,
+            errorMessage = null,
+            loading = false
+        )
+    }
+
     fun signInTeacher() = launchWithProgress {
         val login = _uiState.value.login
         if (!login.email.contains("@") || login.password.length < 6) {
@@ -82,16 +124,9 @@ class AuthViewModel @Inject constructor() : ViewModel() {
     }
 
     fun signUpTeacher() = launchWithProgress {
-        val signup = _uiState.value.signup
-        when {
-            !signup.email.contains("@") -> emitError("Use a school email.")
-            signup.password.length < 8 -> emitError("Password must be at least 8 characters.")
-            signup.password != signup.confirmPassword -> emitError("Passwords do not match.")
-            !signup.acceptedTerms -> emitError("Accept the terms to continue.")
-            else -> {
-                delay(600)
-                _effects.emit(AuthEffect.TeacherAuthenticated)
-            }
+        when (_uiState.value.signupStep) {
+            SignupStep.Credentials -> handleCredentialsStep()
+            SignupStep.Profile -> handleProfileStep()
         }
     }
 
@@ -119,6 +154,39 @@ class AuthViewModel @Inject constructor() : ViewModel() {
                     emitError(it.message ?: "Something went wrong")
                 }
             _uiState.value = _uiState.value.copy(loading = false)
+        }
+    }
+
+    private suspend fun handleCredentialsStep() {
+        val signup = _uiState.value.signup
+        when {
+            !signup.email.contains("@") -> emitError("Use a school email.")
+            signup.password.length < 8 -> emitError("Password must be at least 8 characters.")
+            signup.password != signup.confirmPassword -> emitError("Passwords do not match.")
+            !signup.acceptedTerms -> emitError("Accept the terms to continue.")
+            else -> {
+                delay(400)
+                _uiState.value = _uiState.value.copy(signupStep = SignupStep.Profile)
+            }
+        }
+    }
+
+    private suspend fun handleProfileStep() {
+        val profile = _uiState.value.profile
+        when {
+            profile.role == SignupRole.None -> emitError("Select whether you're a teacher or student.")
+            profile.role == SignupRole.Teacher && profile.fullName.isBlank() -> emitError("Enter your name to continue.")
+            profile.role == SignupRole.Teacher && profile.school.isBlank() -> emitError("Tell us your school or class.")
+            profile.role == SignupRole.Student && profile.nickname.isBlank() -> emitError("Add a nickname so your teacher recognizes you.")
+            else -> {
+                delay(600)
+                _uiState.value = _uiState.value.copy(
+                    signup = SignupFormState(),
+                    profile = ProfileFormState(),
+                    signupStep = SignupStep.Credentials
+                )
+                _effects.emit(AuthEffect.TeacherAuthenticated)
+            }
         }
     }
 }
