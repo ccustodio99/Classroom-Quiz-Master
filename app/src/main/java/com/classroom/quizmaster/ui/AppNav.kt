@@ -107,8 +107,10 @@ fun AppNav(
                             popUpTo(AppRoute.Auth.route) { inclusive = true }
                         }
                     },
-                    onStudentContinue = { _ ->
-                        navController.navigate(AppRoute.StudentEntry.route)
+                    onStudentEntry = {
+                        navController.navigate(AppRoute.StudentEntry.route) {
+                            launchSingleTop = true
+                        }
                     }
                 )
             }
@@ -158,19 +160,34 @@ fun AppNav(
             }
             composable(AppRoute.StudentEntry.route) {
                 StudentEntryRoute(
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onTeacherSignIn = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
             composable(AppRoute.StudentJoinLan.route) {
                 StudentEntryRoute(
                     initialTab = EntryTab.Lan,
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onTeacherSignIn = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
             composable(AppRoute.StudentJoinCode.route) {
                 StudentEntryRoute(
                     initialTab = EntryTab.Code,
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onTeacherSignIn = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            launchSingleTop = true
+                        }
+                    }
                 )
             }
             composable(AppRoute.StudentLobby.route) {

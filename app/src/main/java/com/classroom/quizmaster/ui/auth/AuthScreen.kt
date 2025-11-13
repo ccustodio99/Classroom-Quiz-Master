@@ -32,7 +32,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.R
 import com.classroom.quizmaster.ui.components.GhostButton
-import com.classroom.quizmaster.ui.components.NickNameField
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.QuizSnackbar
 import com.classroom.quizmaster.ui.components.SecondaryButton
@@ -44,7 +43,7 @@ import kotlinx.coroutines.launch
 @Composable
 fun AuthRoute(
     onTeacherAuthenticated: () -> Unit,
-    onStudentContinue: (String) -> Unit,
+    onStudentEntry: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -56,7 +55,6 @@ fun AuthRoute(
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 AuthEffect.TeacherAuthenticated -> onTeacherAuthenticated()
-                is AuthEffect.StudentContinue -> onStudentContinue(effect.nickname)
                 AuthEffect.DemoMode -> snackbarHost.showSnackbar("Offline demo enabled")
                 is AuthEffect.Error -> snackbarHost.showSnackbar(effect.message)
             }
@@ -72,16 +70,15 @@ fun AuthRoute(
         onSignupPassword = viewModel::updateSignupPassword,
         onSignupConfirm = viewModel::updateSignupConfirm,
         onTermsToggle = viewModel::toggleTerms,
-        onNicknameChange = viewModel::updateNickname,
         onLogin = viewModel::signInTeacher,
         onSignup = viewModel::signUpTeacher,
         onDemo = viewModel::continueOfflineDemo,
-        onContinueStudent = viewModel::continueAsStudent,
         onGoogle = {
             snackbarScope.launch {
                 snackbarHost.showSnackbar(context.getString(R.string.google_placeholder))
             }
-        }
+        },
+        onStudentEntry = onStudentEntry
     )
 }
 
@@ -95,12 +92,11 @@ fun AuthScreen(
     onSignupPassword: (String) -> Unit,
     onSignupConfirm: (String) -> Unit,
     onTermsToggle: (Boolean) -> Unit,
-    onNicknameChange: (String) -> Unit,
     onLogin: () -> Unit,
     onSignup: () -> Unit,
     onDemo: () -> Unit,
-    onContinueStudent: () -> Unit,
-    onGoogle: () -> Unit
+    onGoogle: () -> Unit,
+    onStudentEntry: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -112,6 +108,11 @@ fun AuthScreen(
         Text(
             text = stringResource(id = R.string.app_name),
             style = MaterialTheme.typography.displaySmall
+        )
+        Text(
+            text = "Manage quizzes, launch live sessions, and sync reports across your classrooms.",
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         SnackbarHost(hostState = snackbarHostState) { data ->
             QuizSnackbar(message = data.visuals.message)
@@ -185,23 +186,14 @@ fun AuthScreen(
                 enabled = state.signup.acceptedTerms && !state.loading
             )
         }
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            Text(
-                text = stringResource(R.string.auth_student_heading),
-                style = MaterialTheme.typography.titleLarge
-            )
-            NickNameField(
-                value = state.nickname,
-                onValueChange = onNicknameChange,
-                modifier = Modifier.fillMaxWidth()
-            )
-            SecondaryButton(
-                text = stringResource(R.string.auth_continue_student),
-                onClick = onContinueStudent,
-                enabled = !state.loading
-            )
+        Spacer(modifier = Modifier.height(12.dp))
+        TextButton(
+            onClick = onStudentEntry,
+            modifier = Modifier.align(Alignment.CenterHorizontally)
+        ) {
+            Text("Need to join a game instead? Continue as a student")
         }
-        Spacer(modifier = Modifier.height(32.dp))
+        Spacer(modifier = Modifier.height(20.dp))
     }
 }
 
@@ -235,12 +227,11 @@ private fun AuthScreenPreview() {
             onSignupPassword = {},
             onSignupConfirm = {},
             onTermsToggle = {},
-            onNicknameChange = {},
             onLogin = {},
             onSignup = {},
             onDemo = {},
-            onContinueStudent = {},
-            onGoogle = {}
+            onGoogle = {},
+            onStudentEntry = {}
         )
     }
 }
