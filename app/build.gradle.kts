@@ -12,7 +12,6 @@ plugins {
     alias(libs.plugins.firebaseCrashlytics)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
-    alias(libs.plugins.baselineProfile)
 }
 
 android {
@@ -30,8 +29,8 @@ android {
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
         vectorDrawables.useSupportLibrary = true
 
-        buildConfigField("String", "LAN_SERVICE_TYPE", ""_quizmaster._tcp."")
-        buildConfigField("String", "LAN_DEFAULT_HOST", ""0.0.0.0"")
+        buildConfigField("String", "LAN_SERVICE_TYPE", "\"_quizmaster._tcp.\"")
+        buildConfigField("String", "LAN_DEFAULT_HOST", "\"0.0.0.0\"")
         buildConfigField("int", "LAN_DEFAULT_PORT", "48765")
     }
 
@@ -173,6 +172,7 @@ dependencies {
     implementation(libs.androidx.startup.runtime)
     implementation(libs.androidx.tracing.ktx)
     implementation(libs.timber)
+    implementation("org.slf4j:slf4j-nop:1.7.36") // Added SLF4J no-op
     implementation(libs.guava)
 
     implementation(libs.compose.ui)
@@ -251,7 +251,6 @@ dependencies {
     implementation(libs.kotlin.csv)
     implementation("com.google.protobuf:protobuf-javalite:3.21.12")
 
-    baselineProfile(projects.macrobenchmark)
 
     coreLibraryDesugaring(libs.android.desugar.jdk.libs)
 
@@ -309,7 +308,8 @@ dependencies {
 
 configurations.configureEach {
     exclude(group = "com.google.protobuf", module = "protobuf-lite")
-    exclude(group = "org.apache.commons", module = "commons-text") // Uncommented this line
+    exclude(group = "org.apache.commons", module = "commons-text")
+    exclude(group = "org.slf4j", module = "slf4j-simple") // Exclude slf4j-simple
     resolutionStrategy.force("com.google.protobuf:protobuf-javalite:3.21.12")
 }
 
