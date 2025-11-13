@@ -1,6 +1,8 @@
 package com.classroom.quizmaster.di
 
 import android.content.Context
+import com.google.firebase.FirebaseApp
+import com.google.firebase.FirebaseOptions
 import com.google.firebase.analytics.FirebaseAnalytics
 import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.auth.FirebaseAuth
@@ -23,29 +25,47 @@ object FirebaseModule {
 
     @Provides
     @Singleton
-    fun provideAuth(): FirebaseAuth = FirebaseAuth.getInstance()
-
-    @Provides
-    @Singleton
-    fun provideFirestore(): FirebaseFirestore = FirebaseFirestore.getInstance().apply {
-        firestoreSettings = FirebaseFirestoreSettings.Builder()
-            .setLocalCacheSettings(
-                PersistentCacheSettings.newBuilder().build()
+    fun provideFirebaseApp(
+        @ApplicationContext context: Context
+    ): FirebaseApp {
+        return FirebaseApp.getApps(context).firstOrNull()
+            ?: FirebaseApp.initializeApp(
+                context,
+                FirebaseOptions.Builder()
+                    .setApplicationId("1:000000000000:android:unit-test")
+                    .setProjectId("quizmaster-local")
+                    .setGcmSenderId("000000000000")
+                    .setApiKey("FAKE_API_KEY")
+                    .build()
             )
-            .build()
     }
 
     @Provides
     @Singleton
-    fun provideStorage(): FirebaseStorage = FirebaseStorage.getInstance()
+    fun provideAuth(firebaseApp: FirebaseApp): FirebaseAuth = FirebaseAuth.getInstance(firebaseApp)
 
     @Provides
     @Singleton
-    fun provideFunctions(): FirebaseFunctions = FirebaseFunctions.getInstance()
+    fun provideFirestore(firebaseApp: FirebaseApp): FirebaseFirestore =
+        FirebaseFirestore.getInstance(firebaseApp).apply {
+            firestoreSettings = FirebaseFirestoreSettings.Builder()
+                .setLocalCacheSettings(
+                    PersistentCacheSettings.newBuilder().build()
+                )
+                .build()
+        }
 
     @Provides
     @Singleton
-    fun provideAppCheck(): FirebaseAppCheck = FirebaseAppCheck.getInstance()
+    fun provideStorage(firebaseApp: FirebaseApp): FirebaseStorage = FirebaseStorage.getInstance(firebaseApp)
+
+    @Provides
+    @Singleton
+    fun provideFunctions(firebaseApp: FirebaseApp): FirebaseFunctions = FirebaseFunctions.getInstance(firebaseApp)
+
+    @Provides
+    @Singleton
+    fun provideAppCheck(firebaseApp: FirebaseApp): FirebaseAppCheck = FirebaseAppCheck.getInstance(firebaseApp)
 
     @Provides
     @Singleton
@@ -53,6 +73,9 @@ object FirebaseModule {
 
     @Provides
     @Singleton
-    fun provideAnalytics(@ApplicationContext context: Context): FirebaseAnalytics =
+    fun provideAnalytics(
+        @ApplicationContext context: Context,
+        firebaseApp: FirebaseApp
+    ): FirebaseAnalytics =
         FirebaseAnalytics.getInstance(context)
 }

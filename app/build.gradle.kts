@@ -110,7 +110,12 @@ android {
         unitTests {
             isIncludeAndroidResources = true
             isReturnDefaultValues = true
-            all { it.useJUnitPlatform() }
+        }
+        unitTests.all {
+            it.systemProperty(
+                "robolectric.dependencyResolver",
+                "org.robolectric.internal.dependency.GradleDependencyResolver"
+            )
         }
         managedDevices {
             devices {
@@ -138,7 +143,7 @@ hilt {
 }
 
 kotlin {
-    jvmToolchain(17)
+    jvmToolchain(21)
 }
 
 dependencies {
@@ -260,9 +265,6 @@ dependencies {
     testImplementation(kotlin("test"))
     testImplementation(platform(libs.compose.bom))
     testImplementation(libs.junit4)
-    testImplementation(libs.junit.jupiter.api)
-    testImplementation(libs.junit.jupiter.params)
-    testRuntimeOnly(libs.junit.jupiter.engine)
     testImplementation(libs.androidx.test.core)
     testImplementation(libs.truth)
     testImplementation(libs.mockk)
@@ -270,6 +272,8 @@ dependencies {
     testImplementation(libs.kotlinx.coroutines.test)
     testImplementation(libs.turbine)
     testImplementation(libs.robolectric)
+    testImplementation(libs.robolectricAndroidAllApi14)
+    testImplementation(libs.robolectricAndroidAllInstrumentedApi14)
     testImplementation(libs.arch.core.testing)
     testImplementation(libs.androidx.lifecycle.runtime.testing)
     testImplementation(libs.androidx.room.testing)
