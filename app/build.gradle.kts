@@ -12,6 +12,7 @@ plugins {
     alias(libs.plugins.firebaseCrashlytics)
     alias(libs.plugins.ktlint)
     alias(libs.plugins.detekt)
+    alias(libs.plugins.baselineProfile)
 }
 
 android {
@@ -29,8 +30,8 @@ android {
         testInstrumentationRunnerArguments["clearPackageData"] = "true"
         vectorDrawables.useSupportLibrary = true
 
-        buildConfigField("String", "LAN_SERVICE_TYPE", "\"_quizmaster._tcp.\"")
-        buildConfigField("String", "LAN_DEFAULT_HOST", "\"0.0.0.0\"")
+        buildConfigField("String", "LAN_SERVICE_TYPE", ""_quizmaster._tcp."")
+        buildConfigField("String", "LAN_DEFAULT_HOST", ""0.0.0.0"")
         buildConfigField("int", "LAN_DEFAULT_PORT", "48765")
     }
 
@@ -89,7 +90,9 @@ android {
                 "META-INF/LICENSE*",
                 "META-INF/INDEX.LIST",
                 "META-INF/*.kotlin_module",
-                "DebugProbesKt.bin"
+                "DebugProbesKt.bin",
+                "META-INF/versions/9/OSGI-INF/MANIFEST.MF",
+                "META-INF/versions/9/**" // Added more general exclusion
             )
         }
     }
@@ -145,6 +148,7 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.bundles.firebase.core)
+    implementation(libs.firebase.appcheck)
     debugImplementation(libs.firebase.appcheck.debug)
 
     implementation(libs.androidx.core.ktx)
@@ -247,6 +251,8 @@ dependencies {
     implementation(libs.kotlin.csv)
     implementation("com.google.protobuf:protobuf-javalite:3.21.12")
 
+    baselineProfile(projects.macrobenchmark)
+
     coreLibraryDesugaring(libs.android.desugar.jdk.libs)
 
     debugImplementation(libs.compose.ui.tooling)
@@ -303,6 +309,7 @@ dependencies {
 
 configurations.configureEach {
     exclude(group = "com.google.protobuf", module = "protobuf-lite")
+    exclude(group = "org.apache.commons", module = "commons-text") // Uncommented this line
     resolutionStrategy.force("com.google.protobuf:protobuf-javalite:3.21.12")
 }
 
