@@ -69,6 +69,7 @@ class FirebaseAuthDataSource @Inject constructor(
             AuthState(
                 userId = uid,
                 displayName = displayName,
+                email = email,
                 isAuthenticated = true,
                 role = if (isAnonymous) UserRole.STUDENT else UserRole.TEACHER
             )

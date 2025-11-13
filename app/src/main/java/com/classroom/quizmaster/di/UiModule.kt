@@ -1,11 +1,11 @@
 package com.classroom.quizmaster.di
 
 import com.classroom.quizmaster.ui.preview.FakeAssignmentRepository
-import com.classroom.quizmaster.ui.preview.FakeQuizRepository
 import com.classroom.quizmaster.ui.preview.FakeSessionRepository
 import com.classroom.quizmaster.ui.state.AssignmentRepositoryUi
 import com.classroom.quizmaster.ui.state.QuizRepositoryUi
 import com.classroom.quizmaster.ui.state.SessionRepositoryUi
+import com.classroom.quizmaster.ui.state.RealQuizRepositoryUi
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -18,7 +18,7 @@ object UiModule {
 
     @Provides
     @Singleton
-    fun provideQuizRepository(fake: FakeQuizRepository): QuizRepositoryUi = fake
+    fun provideQuizRepository(real: RealQuizRepositoryUi): QuizRepositoryUi = real
 
     @Provides
     @Singleton
