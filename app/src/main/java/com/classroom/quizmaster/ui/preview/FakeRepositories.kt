@@ -28,8 +28,8 @@ import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
 import com.classroom.quizmaster.ui.teacher.home.ACTION_LAUNCH_SESSION
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
+import com.classroom.quizmaster.ui.teacher.home.ClassroomOverviewUi
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
-import com.classroom.quizmaster.ui.teacher.home.QuickStat
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeUiState
 import com.classroom.quizmaster.ui.teacher.host.HostLiveUiState
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyUiState
@@ -60,9 +60,21 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
                 StatusChipUi("cloud", "Cloud", StatusChipType.Cloud),
                 StatusChipUi("offline", "Offline-ready", StatusChipType.Offline)
             ),
-            quickStats = listOf(
-                QuickStat("Active classes", "5", "+1 this week", true),
-                QuickStat("Avg score", "83%", "+4 since Mon", true)
+            classrooms = listOf(
+                ClassroomOverviewUi(
+                    id = "1",
+                    name = "Period 1 Algebra",
+                    grade = "8",
+                    topicCount = 4,
+                    quizCount = 12
+                ),
+                ClassroomOverviewUi(
+                    id = "2",
+                    name = "STEM Club",
+                    grade = null,
+                    topicCount = 3,
+                    quizCount = 6
+                )
             ),
             actionCards = listOf(
                 HomeActionCard(
@@ -97,8 +109,30 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
                 )
             ),
             recentQuizzes = listOf(
-                QuizOverviewUi("1", "Fractions review", "4", "Math", 12, 78, "2h ago", false),
-                QuizOverviewUi("2", "Science trivia", "5", "Science", 15, 88, "Yesterday", true)
+                QuizOverviewUi(
+                    "1",
+                    "Fractions review",
+                    "4",
+                    "Math",
+                    12,
+                    78,
+                    "2h ago",
+                    false,
+                    classroomName = "Period 1 Algebra",
+                    topicName = "Fractions"
+                ),
+                QuizOverviewUi(
+                    "2",
+                    "Science trivia",
+                    "5",
+                    "Science",
+                    15,
+                    88,
+                    "Yesterday",
+                    true,
+                    classroomName = "STEM Club",
+                    topicName = "Space"
+                )
             )
         )
     )
