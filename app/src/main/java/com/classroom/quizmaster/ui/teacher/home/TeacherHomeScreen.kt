@@ -74,6 +74,9 @@ fun TeacherHomeScreen(
     onAssignments: () -> Unit,
     onReports: () -> Unit
 ) {
+    val hasClassrooms = state.classrooms.isNotEmpty()
+    val hasTopics = state.classrooms.any { it.topicCount > 0 }
+
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -102,6 +105,8 @@ fun TeacherHomeScreen(
         )
         ActionCards(
             actionCards = state.actionCards,
+            hasClassrooms = hasClassrooms,
+            hasTopics = hasTopics,
             onCreateQuiz = onCreateQuiz,
             onLaunchLive = onLaunchLive,
             onAssignments = onAssignments,
@@ -109,8 +114,10 @@ fun TeacherHomeScreen(
         )
         RecentQuizzesSection(
             quizzes = state.recentQuizzes,
+            hasClassrooms = hasClassrooms,
+            hasTopics = hasTopics,
             onLaunchLive = onLaunchLive,
-            onCreateQuiz = onCreateQuiz,
+            onCreateQuiz = if (hasTopics) onCreateQuiz else onCreateClassroom,
             emptyMessage = state.emptyMessage
         )
         Spacer(modifier = Modifier.height(32.dp))
@@ -223,6 +230,8 @@ private fun QuickStartSteps() {
 @Composable
 private fun ActionCards(
     actionCards: List<HomeActionCard>,
+    hasClassrooms: Boolean,
+    hasTopics: Boolean,
     onCreateQuiz: () -> Unit,
     onLaunchLive: () -> Unit,
     onAssignments: () -> Unit,
@@ -232,11 +241,21 @@ private fun ActionCards(
     val cards = if (actionCards.isEmpty()) defaultActionCards else actionCards
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         cards.forEach { card ->
-            val action = resolveAction(card, onCreateQuiz, onLaunchLive, onAssignments, onReports)
+            val baseAction = resolveAction(card, onCreateQuiz, onLaunchLive, onAssignments, onReports)
+
+            val allowed = when (card.id) {
+                ACTION_CREATE_QUIZ -> hasTopics
+                ACTION_ASSIGNMENTS -> hasTopics
+                ACTION_LAUNCH_SESSION -> hasClassrooms
+                ACTION_REPORTS -> true
+                else -> true
+            }
+
+            val enabled = baseAction != null && allowed
             ActionCard(
                 card = card,
-                onClick = action ?: {},
-                enabled = action != null
+                onClick = if (enabled) baseAction!! else {},
+                enabled = enabled
             )
         }
     }
@@ -269,6 +288,8 @@ private fun resolveAction(
 @Composable
 private fun RecentQuizzesSection(
     quizzes: List<QuizOverviewUi>,
+    hasClassrooms: Boolean,
+    hasTopics: Boolean,
     onLaunchLive: () -> Unit,
     onCreateQuiz: () -> Unit,
     emptyMessage: String?
@@ -276,8 +297,23 @@ private fun RecentQuizzesSection(
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = "Recent quizzes", style = MaterialTheme.typography.titleLarge)
         if (quizzes.isEmpty()) {
-            Text(emptyMessage?.takeIf { it.isNotBlank() } ?: "Build a quiz inside a topic to see it here.")
-            PrimaryButton(text = "Create quiz", onClick = onCreateQuiz)
+            val message = when {
+                !hasClassrooms ->
+                    "Create a classroom and add a topic to start building quizzes."
+                !hasTopics ->
+                    "Add a topic inside one of your classrooms to start building quizzes."
+                else ->
+                    emptyMessage?.takeIf { it.isNotBlank() }
+                        ?: "Build a quiz inside a topic to see it here."
+            }
+            Text(message)
+
+            val buttonLabel = if (hasTopics) "Create quiz" else "Create classroom"
+            PrimaryButton(
+                text = buttonLabel,
+                onClick = onCreateQuiz,
+                enabled = hasTopics
+            )
         } else {
             quizzes.forEach { quiz ->
                 Surface(
@@ -308,7 +344,10 @@ private fun RecentQuizzesSection(
                             verticalAlignment = Alignment.CenterVertically
                         ) {
                             Text(text = "${quiz.questionCount} questions - ${quiz.averageScore}% avg")
-                            TextButton(onClick = onLaunchLive) {
+                            TextButton(
+                                onClick = onLaunchLive,
+                                enabled = hasClassrooms
+                            ) {
                                 Text("Launch")
                             }
                         }
