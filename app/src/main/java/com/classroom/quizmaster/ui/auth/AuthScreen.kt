@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.auth
 
+import androidx.compose.animation.Crossfade
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -25,16 +26,22 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.R
+import com.classroom.quizmaster.ui.components.AvatarPicker
 import com.classroom.quizmaster.ui.components.GhostButton
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.QuizSnackbar
 import com.classroom.quizmaster.ui.components.SecondaryButton
+import com.classroom.quizmaster.ui.components.SegmentOption
+import com.classroom.quizmaster.ui.components.SegmentedControl
+import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 import kotlinx.coroutines.flow.collectLatest
@@ -70,6 +77,14 @@ fun AuthRoute(
         onSignupPassword = viewModel::updateSignupPassword,
         onSignupConfirm = viewModel::updateSignupConfirm,
         onTermsToggle = viewModel::toggleTerms,
+        onSignupRole = viewModel::updateSignupRole,
+        onSignupFullName = viewModel::updateSignupFullName,
+        onSignupSchool = viewModel::updateSignupSchool,
+        onSignupSubject = viewModel::updateSignupSubject,
+        onSignupNickname = viewModel::updateSignupNickname,
+        onSignupGradeLevel = viewModel::updateSignupGradeLevel,
+        onSignupAvatar = viewModel::updateSignupAvatar,
+        onSignupBack = viewModel::backToSignupCredentials,
         onLogin = viewModel::signInTeacher,
         onSignup = viewModel::signUpTeacher,
         onDemo = viewModel::continueOfflineDemo,
@@ -92,6 +107,14 @@ fun AuthScreen(
     onSignupPassword: (String) -> Unit,
     onSignupConfirm: (String) -> Unit,
     onTermsToggle: (Boolean) -> Unit,
+    onSignupRole: (SignupRole) -> Unit,
+    onSignupFullName: (String) -> Unit,
+    onSignupSchool: (String) -> Unit,
+    onSignupSubject: (String) -> Unit,
+    onSignupNickname: (String) -> Unit,
+    onSignupGradeLevel: (String) -> Unit,
+    onSignupAvatar: (String?) -> Unit,
+    onSignupBack: () -> Unit,
     onLogin: () -> Unit,
     onSignup: () -> Unit,
     onDemo: () -> Unit,
@@ -153,38 +176,31 @@ fun AuthScreen(
                 text = stringResource(R.string.auth_signup_header),
                 style = MaterialTheme.typography.titleLarge
             )
-            AuthTextField(
-                value = state.signup.email,
-                label = stringResource(R.string.auth_email),
-                onValueChange = onSignupEmail
-            )
-            AuthTextField(
-                value = state.signup.password,
-                label = stringResource(R.string.auth_password),
-                onValueChange = onSignupPassword,
-                isPassword = true
-            )
-            AuthTextField(
-                value = state.signup.confirmPassword,
-                label = stringResource(R.string.auth_confirm_password),
-                onValueChange = onSignupConfirm,
-                isPassword = true
-            )
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Checkbox(
-                    checked = state.signup.acceptedTerms,
-                    onCheckedChange = onTermsToggle
-                )
-                Text(text = stringResource(R.string.auth_terms))
+            Crossfade(targetState = state.signup.stage, label = "signupStage") { stage ->
+                when (stage) {
+                    SignupStage.Credentials -> SignupCredentialsStep(
+                        state = state,
+                        onSignupEmail = onSignupEmail,
+                        onSignupPassword = onSignupPassword,
+                        onSignupConfirm = onSignupConfirm,
+                        onTermsToggle = onTermsToggle,
+                        onContinue = onSignup
+                    )
+
+                    SignupStage.Profile -> SignupProfileStep(
+                        state = state,
+                        onRoleSelected = onSignupRole,
+                        onFullNameChange = onSignupFullName,
+                        onSchoolChange = onSignupSchool,
+                        onSubjectChange = onSignupSubject,
+                        onNicknameChange = onSignupNickname,
+                        onGradeLevelChange = onSignupGradeLevel,
+                        onAvatarSelected = onSignupAvatar,
+                        onBack = onSignupBack,
+                        onFinish = onSignup
+                    )
+                }
             }
-            PrimaryButton(
-                text = stringResource(R.string.auth_create_account),
-                onClick = onSignup,
-                enabled = state.signup.acceptedTerms && !state.loading
-            )
         }
         Spacer(modifier = Modifier.height(12.dp))
         TextButton(
@@ -194,6 +210,177 @@ fun AuthScreen(
             Text("Need to join a game instead? Continue as a student")
         }
         Spacer(modifier = Modifier.height(20.dp))
+    }
+}
+
+@Composable
+private fun SignupCredentialsStep(
+    state: AuthUiState,
+    onSignupEmail: (String) -> Unit,
+    onSignupPassword: (String) -> Unit,
+    onSignupConfirm: (String) -> Unit,
+    onTermsToggle: (Boolean) -> Unit,
+    onContinue: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            text = stringResource(R.string.auth_signup_step_one),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        AuthTextField(
+            value = state.signup.email,
+            label = stringResource(R.string.auth_email),
+            onValueChange = onSignupEmail
+        )
+        AuthTextField(
+            value = state.signup.password,
+            label = stringResource(R.string.auth_password),
+            onValueChange = onSignupPassword,
+            isPassword = true
+        )
+        AuthTextField(
+            value = state.signup.confirmPassword,
+            label = stringResource(R.string.auth_confirm_password),
+            onValueChange = onSignupConfirm,
+            isPassword = true
+        )
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Checkbox(
+                checked = state.signup.acceptedTerms,
+                onCheckedChange = onTermsToggle
+            )
+            Text(text = stringResource(R.string.auth_terms))
+        }
+        PrimaryButton(
+            text = stringResource(R.string.auth_create_account),
+            onClick = onContinue,
+            enabled = state.signup.acceptedTerms && !state.loading
+        )
+        Text(
+            text = stringResource(R.string.auth_signup_step_hint),
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+    }
+}
+
+@Composable
+private fun SignupProfileStep(
+    state: AuthUiState,
+    onRoleSelected: (SignupRole) -> Unit,
+    onFullNameChange: (String) -> Unit,
+    onSchoolChange: (String) -> Unit,
+    onSubjectChange: (String) -> Unit,
+    onNicknameChange: (String) -> Unit,
+    onGradeLevelChange: (String) -> Unit,
+    onAvatarSelected: (String?) -> Unit,
+    onBack: () -> Unit,
+    onFinish: () -> Unit
+) {
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        Text(
+            text = stringResource(R.string.auth_signup_step_two),
+            style = MaterialTheme.typography.labelLarge,
+            color = MaterialTheme.colorScheme.primary
+        )
+        Text(
+            text = stringResource(R.string.auth_signup_profile_header),
+            style = MaterialTheme.typography.titleMedium
+        )
+        Text(
+            text = stringResource(R.string.auth_signup_profile_subtitle),
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        SegmentedControl(
+            options = listOf(
+                SegmentOption(
+                    id = SignupRole.Teacher.name,
+                    label = stringResource(R.string.auth_signup_role_teacher),
+                    description = stringResource(R.string.auth_signup_role_teacher_desc)
+                ),
+                SegmentOption(
+                    id = SignupRole.Student.name,
+                    label = stringResource(R.string.auth_signup_role_student),
+                    description = stringResource(R.string.auth_signup_role_student_desc)
+                )
+            ),
+            selectedId = state.signup.role?.name ?: "",
+            onSelected = { selected -> onRoleSelected(SignupRole.valueOf(selected)) },
+            modifier = Modifier.fillMaxWidth()
+        )
+        when (state.signup.role) {
+            SignupRole.Teacher -> {
+                AuthTextField(
+                    value = state.signup.fullName,
+                    label = stringResource(R.string.auth_signup_teacher_name),
+                    onValueChange = onFullNameChange
+                )
+                AuthTextField(
+                    value = state.signup.school,
+                    label = stringResource(R.string.auth_signup_teacher_school),
+                    onValueChange = onSchoolChange
+                )
+                AuthTextField(
+                    value = state.signup.subject,
+                    label = stringResource(R.string.auth_signup_teacher_subject_optional),
+                    onValueChange = onSubjectChange
+                )
+            }
+
+            SignupRole.Student -> {
+                AuthTextField(
+                    value = state.signup.nickname,
+                    label = stringResource(R.string.auth_signup_student_nickname),
+                    onValueChange = onNicknameChange
+                )
+                AuthTextField(
+                    value = state.signup.gradeLevel,
+                    label = stringResource(R.string.auth_signup_student_grade_optional),
+                    onValueChange = onGradeLevelChange
+                )
+                AvatarPicker(
+                    avatars = signupAvatarOptions,
+                    selectedId = state.signup.avatarId,
+                    onAvatarSelected = { option -> onAvatarSelected(option.id) }
+                )
+            }
+
+            null -> {
+                Text(
+                    text = stringResource(R.string.auth_signup_role_hint),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant,
+                    textAlign = TextAlign.Center,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            GhostButton(
+                text = stringResource(R.string.auth_signup_back),
+                onClick = onBack,
+                modifier = Modifier.weight(1f)
+            )
+            val canFinish = when (state.signup.role) {
+                SignupRole.Teacher -> state.signup.fullName.isNotBlank() && state.signup.school.isNotBlank()
+                SignupRole.Student -> state.signup.nickname.isNotBlank()
+                null -> false
+            }
+            PrimaryButton(
+                text = stringResource(R.string.auth_finish_setup),
+                onClick = onFinish,
+                enabled = canFinish && !state.loading,
+                modifier = Modifier.weight(1f)
+            )
+        }
     }
 }
 
@@ -227,6 +414,14 @@ private fun AuthScreenPreview() {
             onSignupPassword = {},
             onSignupConfirm = {},
             onTermsToggle = {},
+            onSignupRole = {},
+            onSignupFullName = {},
+            onSignupSchool = {},
+            onSignupSubject = {},
+            onSignupNickname = {},
+            onSignupGradeLevel = {},
+            onSignupAvatar = {},
+            onSignupBack = {},
             onLogin = {},
             onSignup = {},
             onDemo = {},
@@ -235,3 +430,12 @@ private fun AuthScreenPreview() {
         )
     }
 }
+
+private val signupAvatarOptions = listOf(
+    AvatarOption("aurora", "Aurora", listOf(Color(0xFF34D399), Color(0xFF3B82F6)), "spark"),
+    AvatarOption("zen", "Zen", listOf(Color(0xFFFDE68A), Color(0xFFF97316)), "pencil"),
+    AvatarOption("luna", "Luna", listOf(Color(0xFF818CF8), Color(0xFF3730A3)), "atom"),
+    AvatarOption("coco", "Coco", listOf(Color(0xFFFECACA), Color(0xFFFB7185)), "flag"),
+    AvatarOption("mango", "Mango", listOf(Color(0xFFFFF3BF), Color(0xFFF59E0B)), "compass"),
+    AvatarOption("iris", "Iris", listOf(Color(0xFFBBF7D0), Color(0xFF2DD4BF)), "compass")
+)

@@ -16,11 +16,23 @@ data class LoginFormState(
     val password: String = ""
 )
 
+enum class SignupStage { Credentials, Profile }
+
+enum class SignupRole { Teacher, Student }
+
 data class SignupFormState(
     val email: String = "",
     val password: String = "",
     val confirmPassword: String = "",
-    val acceptedTerms: Boolean = false
+    val acceptedTerms: Boolean = false,
+    val stage: SignupStage = SignupStage.Credentials,
+    val role: SignupRole? = null,
+    val fullName: String = "",
+    val school: String = "",
+    val subject: String = "",
+    val nickname: String = "",
+    val gradeLevel: String = "",
+    val avatarId: String? = null
 )
 
 data class AuthUiState(
@@ -71,6 +83,40 @@ class AuthViewModel @Inject constructor() : ViewModel() {
         _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(acceptedTerms = value))
     }
 
+    fun updateSignupRole(role: SignupRole) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(role = role))
+    }
+
+    fun updateSignupFullName(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(fullName = value))
+    }
+
+    fun updateSignupSchool(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(school = value))
+    }
+
+    fun updateSignupSubject(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(subject = value))
+    }
+
+    fun updateSignupNickname(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(nickname = value))
+    }
+
+    fun updateSignupGradeLevel(value: String) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(gradeLevel = value))
+    }
+
+    fun updateSignupAvatar(avatarId: String?) {
+        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(avatarId = avatarId))
+    }
+
+    fun backToSignupCredentials() {
+        _uiState.value = _uiState.value.copy(
+            signup = _uiState.value.signup.copy(stage = SignupStage.Credentials)
+        )
+    }
+
     fun signInTeacher() = launchWithProgress {
         val login = _uiState.value.login
         if (!login.email.contains("@") || login.password.length < 6) {
@@ -83,14 +129,29 @@ class AuthViewModel @Inject constructor() : ViewModel() {
 
     fun signUpTeacher() = launchWithProgress {
         val signup = _uiState.value.signup
-        when {
-            !signup.email.contains("@") -> emitError("Use a school email.")
-            signup.password.length < 8 -> emitError("Password must be at least 8 characters.")
-            signup.password != signup.confirmPassword -> emitError("Passwords do not match.")
-            !signup.acceptedTerms -> emitError("Accept the terms to continue.")
-            else -> {
-                delay(600)
-                _effects.emit(AuthEffect.TeacherAuthenticated)
+        when (signup.stage) {
+            SignupStage.Credentials -> when {
+                !signup.email.contains("@") -> emitError("Use a school email.")
+                signup.password.length < 8 -> emitError("Password must be at least 8 characters.")
+                signup.password != signup.confirmPassword -> emitError("Passwords do not match.")
+                !signup.acceptedTerms -> emitError("Accept the terms to continue.")
+                else -> {
+                    _uiState.value = _uiState.value.copy(
+                        signup = signup.copy(stage = SignupStage.Profile)
+                    )
+                }
+            }
+
+            SignupStage.Profile -> when {
+                signup.role == null -> emitError("Select a role to continue.")
+                signup.role == SignupRole.Teacher && signup.fullName.isBlank() -> emitError("Enter your name to personalize things.")
+                signup.role == SignupRole.Teacher && signup.school.isBlank() -> emitError("Share your school or class to finish setup.")
+                signup.role == SignupRole.Student && signup.nickname.isBlank() -> emitError("Pick a nickname so classmates know you.")
+                else -> {
+                    delay(600)
+                    _uiState.value = _uiState.value.copy(signup = SignupFormState())
+                    _effects.emit(AuthEffect.TeacherAuthenticated)
+                }
             }
         }
     }
