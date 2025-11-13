@@ -11,6 +11,7 @@ import io.ktor.http.HttpMethod
 import io.ktor.serialization.kotlinx.json.json
 import io.ktor.websocket.CloseReason
 import io.ktor.websocket.Frame
+import io.ktor.websocket.close
 import io.ktor.websocket.readText
 import io.ktor.websocket.send
 import java.util.concurrent.atomic.AtomicInteger

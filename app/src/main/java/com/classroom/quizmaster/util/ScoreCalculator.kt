@@ -1,8 +1,8 @@
 package com.classroom.quizmaster.util
 
 import kotlin.math.ceil
-import kotlin.math.coerceAtLeast
-import kotlin.math.coerceIn
+import kotlin.math.max
+import kotlin.math.min
 
 object ScoreCalculator {
     private const val BASE_POINTS = 400.0
@@ -32,15 +32,15 @@ object ScoreCalculator {
     }
 
     fun remainingMillis(timeLimitSeconds: Int, elapsedMillis: Long): Long {
-        val limitMillis = timeLimitSeconds.coerceAtLeast(0) * 1_000L
+        val limitMillis = max(timeLimitSeconds, 0) * 1_000L
         return sanitizedRemaining(limitMillis - elapsedMillis, limitMillis)
     }
 
     private fun sanitizedLimit(timeLimitMillis: Long): Long =
-        timeLimitMillis.coerceAtLeast(MIN_TIME_LIMIT_MS)
+        max(timeLimitMillis, MIN_TIME_LIMIT_MS)
 
     private fun sanitizedRemaining(timeLeftMillis: Long, timeLimitMillis: Long): Long =
-        timeLeftMillis.coerceIn(0L, timeLimitMillis)
+        max(0L, min(timeLeftMillis, timeLimitMillis))
 }
 
 data class ScoreBreakdown(

@@ -38,13 +38,15 @@ class FirebaseQuizDataSource @Inject constructor(
     }.onFailure { Timber.e(it, "Failed to load quizzes") }
         .getOrDefault(emptyList())
 
-    suspend fun upsertQuiz(quiz: Quiz) = runCatching {
+    suspend fun upsertQuiz(quiz: Quiz): Result<Unit> = runCatching {
         val document = if (quiz.id.isBlank()) quizCollection().document() else quizCollection().document(quiz.id)
         document.set(FirestoreQuiz.fromDomain(quiz, json), SetOptions.merge()).await()
+        Unit
     }.onFailure { Timber.e(it, "Failed to upsert quiz") }
 
-    suspend fun deleteQuiz(id: String) = runCatching {
+    suspend fun deleteQuiz(id: String): Result<Unit> = runCatching {
         quizCollection().document(id).delete().await()
+        Unit
     }.onFailure { Timber.e(it, "Failed to delete quiz") }
 
     data class FirestoreQuiz(

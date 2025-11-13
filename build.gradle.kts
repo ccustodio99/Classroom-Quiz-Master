@@ -7,6 +7,7 @@ plugins {
     alias(libs.plugins.kotlinParcelize) apply false
     alias(libs.plugins.kotlinKapt) apply false
     alias(libs.plugins.kotlinSerialization) apply false
+    alias(libs.plugins.kotlinCompose) apply false
     alias(libs.plugins.hiltAndroid) apply false
     alias(libs.plugins.googleServices) apply false
     alias(libs.plugins.firebaseCrashlytics) apply false

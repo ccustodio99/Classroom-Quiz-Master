@@ -32,6 +32,7 @@ class FirebaseStorageDataSource @Inject constructor(
 
     suspend fun deleteByUrl(remoteUrl: String) = withContext(Dispatchers.IO) {
         storage.getReferenceFromUrl(remoteUrl).delete().await()
+        Unit
     }
 
     suspend fun fetchBytes(remoteUrl: String, maxSize: Long): ByteArray = withContext(Dispatchers.IO) {

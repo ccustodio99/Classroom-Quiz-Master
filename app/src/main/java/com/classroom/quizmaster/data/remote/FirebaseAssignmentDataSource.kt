@@ -17,11 +17,12 @@ class FirebaseAssignmentDataSource @Inject constructor(
 
     private fun assignments() = firestore.collection("assignments")
 
-    suspend fun createAssignment(assignment: Assignment) = runCatching {
+    suspend fun createAssignment(assignment: Assignment): Result<Unit> = runCatching {
         assignments()
             .document(assignment.id)
             .set(FirestoreAssignment.fromDomain(assignment))
             .await()
+        Unit
     }
 
     suspend fun fetchAssignments(): Result<List<Assignment>> = runCatching {
@@ -46,13 +47,14 @@ class FirebaseAssignmentDataSource @Inject constructor(
             }
     }
 
-    suspend fun saveSubmission(submission: Submission) = runCatching {
+    suspend fun saveSubmission(submission: Submission): Result<Unit> = runCatching {
         assignments()
             .document(submission.assignmentId)
             .collection("submissions")
             .document(submission.uid)
             .set(FirestoreSubmission.fromDomain(submission))
             .await()
+        Unit
     }
 
     private data class FirestoreAssignment(

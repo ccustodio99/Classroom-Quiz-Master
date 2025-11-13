@@ -62,12 +62,14 @@ class AssignmentRepositoryImpl @Inject constructor(
         }
         remote.createAssignment(assignment)
             .onFailure { Timber.e(it, "Failed to create assignment ${assignment.id}") }
+            .getOrThrow()
     }
 
     override suspend fun submitHomework(submission: Submission) = withContext(ioDispatcher) {
         database.withTransaction { assignmentDao.upsertSubmission(submission.toEntity()) }
         remote.saveSubmission(submission)
             .onFailure { Timber.w(it, "Failed to mirror submission ${submission.assignmentId}:${submission.uid}") }
+            .getOrThrow()
     }
 
     private fun Assignment.toEntity(): AssignmentLocalEntity = AssignmentLocalEntity(

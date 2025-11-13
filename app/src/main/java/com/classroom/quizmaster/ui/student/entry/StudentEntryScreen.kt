@@ -293,7 +293,7 @@ fun StudentEntryScreen(
         NickNameField(
             value = state.nickname,
             onValueChange = onNicknameChange,
-            error = state.nicknameError
+            errorText = state.nicknameError
         )
         AvatarPicker(
             avatars = state.avatarOptions,

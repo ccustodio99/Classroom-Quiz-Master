@@ -21,24 +21,27 @@ class FirebaseSessionDataSource @Inject constructor(
 
     private fun sessionDoc(sessionId: String) = firestore.collection("sessions").document(sessionId)
 
-    suspend fun publishSession(session: Session) = runCatching {
+    suspend fun publishSession(session: Session): Result<Unit> = runCatching {
         sessionDoc(session.id).set(session.toMap()).await()
+        Unit
     }.onFailure { Timber.e(it, "publish session failed") }
 
-    suspend fun publishParticipants(sessionId: String, participants: List<Participant>) = runCatching {
+    suspend fun publishParticipants(sessionId: String, participants: List<Participant>): Result<Unit> = runCatching {
         sessionDoc(sessionId)
             .collection("participants")
             .document("snapshot")
             .set(mapOf("participants" to json.encodeToString(participants)))
             .await()
+        Unit
     }.onFailure { Timber.e(it, "publish participants failed") }
 
-    suspend fun publishAttempt(sessionId: String, attempt: Attempt) = runCatching {
+    suspend fun publishAttempt(sessionId: String, attempt: Attempt): Result<Unit> = runCatching {
         sessionDoc(sessionId)
             .collection("attempts")
             .document(attempt.id)
             .set(attempt.toMap(), SetOptions.merge())
             .await()
+        Unit
     }.onFailure { Timber.e(it, "publish attempt failed") }
 
     private fun Session.toMap(): Map<String, Any?> = mapOf(

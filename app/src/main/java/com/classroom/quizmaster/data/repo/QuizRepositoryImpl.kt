@@ -75,11 +75,13 @@ class QuizRepositoryImpl @Inject constructor(
         }
         remote.upsertQuiz(normalized)
             .onFailure { Timber.e(it, "Failed to upsert quiz ${normalized.id}") }
+            .getOrThrow()
     }
 
     override suspend fun delete(id: String) = withContext(ioDispatcher) {
         remote.deleteQuiz(id)
             .onFailure { Timber.e(it, "Failed to delete quiz $id remotely") }
+            .getOrThrow()
         database.withTransaction { quizDao.deleteQuiz(id) }
     }
 
