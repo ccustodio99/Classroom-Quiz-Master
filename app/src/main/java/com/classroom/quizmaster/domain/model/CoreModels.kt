@@ -26,7 +26,27 @@ data class Classroom(
     val name: String,
     val grade: String,
     val subject: String,
-    val createdAt: Instant
+    val createdAt: Instant,
+    val updatedAt: Instant = createdAt,
+    val isArchived: Boolean = false,
+    val archivedAt: Instant? = null
+)
+
+/**
+ * Topics organize quizzes and assignments within a classroom. They can be
+ * archived but are never hard deleted.
+ */
+@Serializable
+data class Topic(
+    val id: String,
+    val classroomId: String,
+    val teacherId: String,
+    val name: String,
+    val description: String = "",
+    val createdAt: Instant,
+    val updatedAt: Instant = createdAt,
+    val isArchived: Boolean = false,
+    val archivedAt: Instant? = null
 )
 
 /**
@@ -37,13 +57,17 @@ data class Classroom(
 data class Quiz(
     val id: String,
     val teacherId: String,
+    val classroomId: String,
+    val topicId: String,
     val title: String,
     val defaultTimePerQ: Int,
     val shuffle: Boolean,
     val createdAt: Instant,
     val questions: List<Question> = emptyList(),
     val questionCount: Int = questions.size,
-    val updatedAt: Instant = createdAt
+    val updatedAt: Instant = createdAt,
+    val isArchived: Boolean = false,
+    val archivedAt: Instant? = null
 )
 
 /**
@@ -170,13 +194,16 @@ data class Assignment(
     val id: String,
     val quizId: String,
     val classroomId: String,
+    val topicId: String,
     val openAt: Instant,
     val closeAt: Instant,
     val attemptsAllowed: Int,
     val scoringMode: ScoringMode = ScoringMode.BEST,
     val revealAfterSubmit: Boolean,
     val createdAt: Instant,
-    val updatedAt: Instant
+    val updatedAt: Instant,
+    val isArchived: Boolean = false,
+    val archivedAt: Instant? = null
 )
 
 @Serializable

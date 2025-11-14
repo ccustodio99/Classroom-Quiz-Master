@@ -60,38 +60,47 @@ class FirebaseAssignmentDataSource @Inject constructor(
     private data class FirestoreAssignment(
         val quizId: String = "",
         val classroomId: String = "",
+        val topicId: String = "",
         val openAt: Long = Clock.System.now().toEpochMilliseconds(),
         val closeAt: Long = openAt,
         val attemptsAllowed: Int = 1,
         val scoringMode: String = ScoringMode.BEST.name,
         val revealAfterSubmit: Boolean = true,
         val createdAt: Long = openAt,
-        val updatedAt: Long = openAt
+        val updatedAt: Long = openAt,
+        val isArchived: Boolean = false,
+        val archivedAt: Long? = null
     ) {
         fun toDomain(id: String): Assignment = Assignment(
             id = id,
             quizId = quizId,
             classroomId = classroomId,
+            topicId = topicId,
             openAt = Instant.fromEpochMilliseconds(openAt),
             closeAt = Instant.fromEpochMilliseconds(closeAt),
             attemptsAllowed = attemptsAllowed,
             scoringMode = runCatching { ScoringMode.valueOf(scoringMode) }.getOrDefault(ScoringMode.BEST),
             revealAfterSubmit = revealAfterSubmit,
             createdAt = Instant.fromEpochMilliseconds(createdAt),
-            updatedAt = Instant.fromEpochMilliseconds(updatedAt)
+            updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+            isArchived = isArchived,
+            archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
         )
 
         companion object {
             fun fromDomain(assignment: Assignment) = FirestoreAssignment(
                 quizId = assignment.quizId,
                 classroomId = assignment.classroomId,
+                topicId = assignment.topicId,
                 openAt = assignment.openAt.toEpochMilliseconds(),
                 closeAt = assignment.closeAt.toEpochMilliseconds(),
                 attemptsAllowed = assignment.attemptsAllowed,
                 scoringMode = assignment.scoringMode.name,
                 revealAfterSubmit = assignment.revealAfterSubmit,
                 createdAt = assignment.createdAt.toEpochMilliseconds(),
-                updatedAt = assignment.updatedAt.toEpochMilliseconds()
+                updatedAt = assignment.updatedAt.toEpochMilliseconds(),
+                isArchived = assignment.isArchived,
+                archivedAt = assignment.archivedAt?.toEpochMilliseconds()
             )
         }
     }

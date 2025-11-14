@@ -17,6 +17,7 @@ class CreateAssignmentUseCase @Inject constructor(
     data class Params(
         val quizId: String,
         val classroomId: String,
+        val topicId: String,
         val openAt: Instant,
         val closeAt: Instant,
         val attemptsAllowed: Int,
@@ -30,6 +31,9 @@ class CreateAssignmentUseCase @Inject constructor(
         require(!params.openAt.isAfter(params.closeAt)) { "Open date must be before close date" }
         val quiz = quizRepository.getQuiz(params.quizId)
             ?: throw IllegalArgumentException("Quiz ${params.quizId} not found")
+        require(!quiz.isArchived) { "Cannot assign an archived quiz" }
+        require(quiz.classroomId == params.classroomId) { "Quiz ${params.quizId} does not belong to classroom ${params.classroomId}" }
+        require(quiz.topicId == params.topicId) { "Quiz ${params.quizId} does not belong to topic ${params.topicId}" }
         val totalQuestions = quiz.questions.size.takeIf { it > 0 } ?: quiz.questionCount
         require(totalQuestions > 0) { "Assignments require a quiz with questions" }
 
@@ -39,6 +43,7 @@ class CreateAssignmentUseCase @Inject constructor(
             id = resolvedId,
             quizId = params.quizId,
             classroomId = params.classroomId,
+            topicId = params.topicId,
             openAt = params.openAt,
             closeAt = params.closeAt,
             attemptsAllowed = params.attemptsAllowed,

@@ -28,6 +28,9 @@ class AssignmentRepositoryImpl @Inject constructor(
 ) : AssignmentRepository {
 
     private val assignmentDao = database.assignmentDao()
+    private val classroomDao = database.classroomDao()
+    private val topicDao = database.topicDao()
+    private val quizDao = database.quizDao()
 
     override val assignments: Flow<List<Assignment>> =
         assignmentDao.observeAssignments()
@@ -57,6 +60,20 @@ class AssignmentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun createAssignment(assignment: Assignment) = withContext(ioDispatcher) {
+        require(assignment.classroomId.isNotBlank()) { "Assignment requires a classroom" }
+        require(assignment.topicId.isNotBlank()) { "Assignment requires a topic" }
+        val classroom = classroomDao.get(assignment.classroomId)
+            ?: error("Classroom ${assignment.classroomId} not found")
+        check(!classroom.isArchived) { "Cannot assign work to an archived classroom" }
+        val topic = topicDao.get(assignment.topicId)
+            ?: error("Topic ${assignment.topicId} not found")
+        check(topic.classroomId == assignment.classroomId) { "Topic ${assignment.topicId} not in classroom ${assignment.classroomId}" }
+        check(!topic.isArchived) { "Cannot assign work to an archived topic" }
+        val quiz = quizDao.getQuiz(assignment.quizId)
+            ?: error("Quiz ${assignment.quizId} not found")
+        check(!quiz.quiz.isArchived) { "Cannot assign an archived quiz" }
+        check(quiz.quiz.topicId == assignment.topicId) { "Quiz ${assignment.quizId} does not belong to topic ${assignment.topicId}" }
+
         database.withTransaction {
             assignmentDao.upsertAssignments(listOf(assignment.toEntity()))
         }
@@ -76,13 +93,16 @@ class AssignmentRepositoryImpl @Inject constructor(
         id = id,
         quizId = quizId,
         classroomId = classroomId,
+        topicId = topicId,
         openAt = openAt.toEpochMilliseconds(),
         closeAt = closeAt.toEpochMilliseconds(),
         attemptsAllowed = attemptsAllowed,
         scoringMode = scoringMode.name,
         revealAfterSubmit = revealAfterSubmit,
         createdAt = createdAt.toEpochMilliseconds(),
-        updatedAt = updatedAt.toEpochMilliseconds()
+        updatedAt = updatedAt.toEpochMilliseconds(),
+        isArchived = isArchived,
+        archivedAt = archivedAt?.toEpochMilliseconds()
     )
 
     private fun Submission.toEntity(): SubmissionLocalEntity = SubmissionLocalEntity(
@@ -98,13 +118,16 @@ class AssignmentRepositoryImpl @Inject constructor(
         id = id,
         quizId = quizId,
         classroomId = classroomId,
+        topicId = topicId,
         openAt = Instant.fromEpochMilliseconds(openAt),
         closeAt = Instant.fromEpochMilliseconds(closeAt),
         attemptsAllowed = attemptsAllowed,
         scoringMode = runCatching { ScoringMode.valueOf(scoringMode) }.getOrDefault(ScoringMode.BEST),
         revealAfterSubmit = revealAfterSubmit,
         createdAt = Instant.fromEpochMilliseconds(createdAt),
-        updatedAt = Instant.fromEpochMilliseconds(updatedAt)
+        updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+        isArchived = isArchived,
+        archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
     )
 
     private fun SubmissionLocalEntity.toDomain(): Submission = Submission(

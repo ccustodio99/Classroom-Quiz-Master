@@ -6,21 +6,27 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
+import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.state.QuizRepositoryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collect
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlin.random.Random
 
 data class QuizEditorUiState(
     val quizId: String? = null,
+    val classroomId: String = "",
+    val topicId: String = "",
     val title: String = "",
     val grade: String = "",
     val subject: String = "",
     val questions: List<QuestionDraftUi> = emptyList(),
+    val classroomOptions: List<SelectionOptionUi> = emptyList(),
+    val topicsByClassroom: Map<String, List<SelectionOptionUi>> = emptyMap(),
     val timePerQuestionSeconds: Int = 45,
     val shuffleQuestions: Boolean = true,
     val lastSavedRelative: String = "Just now",
@@ -40,15 +46,32 @@ class QuizEditorViewModel @Inject constructor(
     private val _uiState = MutableStateFlow(QuizEditorUiState(quizId = quizId))
     val uiState: StateFlow<QuizEditorUiState> = _uiState
 
+    private var hasPrimedState = false
+
     init {
         viewModelScope.launch {
             quizRepositoryUi.quizEditorState(quizId).collect { draft ->
-                _uiState.value = draft
+                _uiState.update { current ->
+                    if (!hasPrimedState) {
+                        hasPrimedState = true
+                        draft
+                    } else {
+                        current.mergeHierarchy(draft)
+                    }
+                }
             }
         }
     }
 
     fun updateTitle(value: String) = update { it.copy(title = value) }
+    fun updateClassroom(classroomId: String) = update {
+        val topics = it.topicsByClassroom[classroomId].orEmpty()
+        it.copy(
+            classroomId = classroomId,
+            topicId = topics.firstOrNull()?.id.orEmpty()
+        )
+    }
+    fun updateTopic(topicId: String) = update { it.copy(topicId = topicId) }
     fun updateGrade(value: String) = update { it.copy(grade = value) }
     fun updateSubject(value: String) = update { it.copy(subject = value) }
     fun updateTimePerQuestion(value: Int) =
@@ -118,17 +141,20 @@ class QuizEditorViewModel @Inject constructor(
 
     fun persist(onComplete: () -> Unit) {
         viewModelScope.launch {
-            quizRepositoryUi.persistDraft(_uiState.value)
-            _uiState.value = _uiState.value.copy(
-                showSaveDialog = false,
-                lastSavedRelative = "Moments ago"
-            )
+            val current = _uiState.value
+            quizRepositoryUi.persistDraft(current)
+            _uiState.update {
+                it.copy(
+                    showSaveDialog = false,
+                    lastSavedRelative = "Moments ago"
+                )
+            }
             onComplete()
         }
     }
 
     private fun update(reducer: (QuizEditorUiState) -> QuizEditorUiState) {
-        _uiState.value = reducer(_uiState.value)
+        _uiState.update(reducer)
     }
 
     private fun updateQuestions(
@@ -139,6 +165,32 @@ class QuizEditorViewModel @Inject constructor(
             questions = state.questions.map { question ->
                 if (question.id == questionId) transform(question) else question
             }
+        )
+    }
+
+    private fun QuizEditorUiState.mergeHierarchy(incoming: QuizEditorUiState): QuizEditorUiState {
+        val resolvedClassroomId = when {
+            incoming.classroomOptions.any { it.id == classroomId } -> classroomId
+            incoming.classroomOptions.any { it.id == incoming.classroomId } -> incoming.classroomId
+            else -> incoming.classroomOptions.firstOrNull()?.id.orEmpty()
+        }
+        val resolvedTopicsByClassroom = incoming.topicsByClassroom
+        val topicsForClassroom = resolvedTopicsByClassroom[resolvedClassroomId].orEmpty()
+        val resolvedTopicId = when {
+            topicsForClassroom.any { it.id == topicId } -> topicId
+            topicsForClassroom.any { it.id == incoming.topicId } -> incoming.topicId
+            else -> topicsForClassroom.firstOrNull()?.id.orEmpty()
+        }
+
+        return copy(
+            quizId = quizId ?: incoming.quizId,
+            classroomId = resolvedClassroomId,
+            topicId = resolvedTopicId,
+            classroomOptions = incoming.classroomOptions,
+            topicsByClassroom = resolvedTopicsByClassroom,
+            grade = grade.ifBlank { incoming.grade },
+            subject = subject.ifBlank { incoming.subject },
+            isNewQuiz = isNewQuiz && incoming.isNewQuiz
         )
     }
 

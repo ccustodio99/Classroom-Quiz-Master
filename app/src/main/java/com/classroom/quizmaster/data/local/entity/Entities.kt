@@ -24,7 +24,8 @@ data class TeacherEntity(
     indices = [
         Index(value = ["teacherId"]),
         Index(value = ["teacherId", "name"], unique = true),
-        Index(value = ["createdAt"])
+        Index(value = ["createdAt"]),
+        Index(value = ["isArchived"])
     ]
 )
 data class ClassroomEntity(
@@ -33,25 +34,56 @@ data class ClassroomEntity(
     val name: String,
     val grade: String,
     val subject: String,
-    val createdAt: Long
+    val createdAt: Long,
+    val updatedAt: Long,
+    val isArchived: Boolean,
+    val archivedAt: Long?
+)
+
+@Entity(
+    tableName = "topics",
+    indices = [
+        Index(value = ["classroomId"]),
+        Index(value = ["teacherId"]),
+        Index(value = ["classroomId", "name"], unique = true),
+        Index(value = ["isArchived"])
+    ]
+)
+data class TopicEntity(
+    @PrimaryKey val id: String,
+    val classroomId: String,
+    val teacherId: String,
+    val name: String,
+    val description: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val isArchived: Boolean,
+    val archivedAt: Long?
 )
 
 @Entity(
     tableName = "quizzes",
     indices = [
         Index(value = ["teacherId"]),
-        Index(value = ["createdAt"])
+        Index(value = ["classroomId"]),
+        Index(value = ["topicId"]),
+        Index(value = ["createdAt"]),
+        Index(value = ["isArchived"])
     ]
 )
 data class QuizEntity(
     @PrimaryKey val id: String,
     val teacherId: String,
+    val classroomId: String,
+    val topicId: String,
     val title: String,
     val defaultTimePerQ: Int,
     val shuffle: Boolean,
     val questionCount: Int,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val isArchived: Boolean,
+    val archivedAt: Long?
 )
 
 @Entity(
@@ -170,13 +202,16 @@ data class AssignmentLocalEntity(
     @PrimaryKey val id: String,
     val quizId: String,
     val classroomId: String,
+    val topicId: String,
     val openAt: Long,
     val closeAt: Long,
     val attemptsAllowed: Int,
     val scoringMode: String,
     val revealAfterSubmit: Boolean,
     val createdAt: Long,
-    val updatedAt: Long
+    val updatedAt: Long,
+    val isArchived: Boolean,
+    val archivedAt: Long?
 )
 
 @Entity(

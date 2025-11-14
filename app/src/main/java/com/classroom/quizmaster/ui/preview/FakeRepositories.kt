@@ -10,6 +10,7 @@ import com.classroom.quizmaster.ui.model.PlayerLobbyUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
 import com.classroom.quizmaster.ui.model.QuizOverviewUi
+import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.model.ReportRowUi
 import com.classroom.quizmaster.ui.model.StatusChipType
 import com.classroom.quizmaster.ui.model.StatusChipUi
@@ -139,6 +140,8 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
 
     private val editorState = MutableStateFlow(
         QuizEditorUiState(
+            classroomId = "demo-classroom",
+            topicId = "demo-topic",
             title = "Fractions review",
             grade = "4",
             subject = "Math",
@@ -152,6 +155,20 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
                         AnswerOptionUi("a2", "B", "2/4", false)
                     ),
                     explanation = "Use like denominators."
+                )
+            ),
+            classroomOptions = listOf(
+                SelectionOptionUi("demo-classroom", "Period 1 Algebra", "Grade 4 • Math"),
+                SelectionOptionUi("demo-classroom-2", "STEM Club", "Grade 5 • Science")
+            ),
+            topicsByClassroom = mapOf(
+                "demo-classroom" to listOf(
+                    SelectionOptionUi("demo-topic", "Fractions", "Number sense"),
+                    SelectionOptionUi("demo-topic-2", "Decimals", "Place value")
+                ),
+                "demo-classroom-2" to listOf(
+                    SelectionOptionUi("demo-topic-3", "Space", "Earth & Space"),
+                    SelectionOptionUi("demo-topic-4", "Robotics", "STEM challenges")
                 )
             )
         )

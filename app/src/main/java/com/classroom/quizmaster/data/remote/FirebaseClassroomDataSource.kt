@@ -66,10 +66,19 @@ class FirebaseClassroomDataSource @Inject constructor(
         document.id
     }
 
-    suspend fun deleteClassroom(id: String): Result<Unit> = runCatching {
-        classroomsCollection().document(id).delete().await()
+    suspend fun archiveClassroom(id: String, archivedAt: Instant): Result<Unit> = runCatching {
+        classroomsCollection()
+            .document(id)
+            .update(
+                mapOf(
+                    "isArchived" to true,
+                    "archivedAt" to archivedAt.toEpochMilliseconds(),
+                    "updatedAt" to archivedAt.toEpochMilliseconds()
+                )
+            )
+            .await()
         Unit
-    }
+    }.onFailure { Timber.e(it, "Failed to archive classroom $id") }
 
     private data class FirestoreTeacher(
         val displayName: String = "",
@@ -99,7 +108,10 @@ class FirebaseClassroomDataSource @Inject constructor(
         val name: String = "",
         val grade: String = "",
         val subject: String = "",
-        val createdAt: Long = Clock.System.now().toEpochMilliseconds()
+        val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
+        val updatedAt: Long = createdAt,
+        val isArchived: Boolean = false,
+        val archivedAt: Long? = null
     ) {
         fun toDomain(id: String): Classroom = Classroom(
             id = id,
@@ -107,7 +119,10 @@ class FirebaseClassroomDataSource @Inject constructor(
             name = name,
             grade = grade,
             subject = subject,
-            createdAt = Instant.fromEpochMilliseconds(createdAt)
+            createdAt = Instant.fromEpochMilliseconds(createdAt),
+            updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+            isArchived = isArchived,
+            archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
         )
 
         companion object {
@@ -116,7 +131,10 @@ class FirebaseClassroomDataSource @Inject constructor(
                 name = classroom.name,
                 grade = classroom.grade,
                 subject = classroom.subject,
-                createdAt = classroom.createdAt.toEpochMilliseconds()
+                createdAt = classroom.createdAt.toEpochMilliseconds(),
+                updatedAt = classroom.updatedAt.toEpochMilliseconds(),
+                isArchived = classroom.isArchived,
+                archivedAt = classroom.archivedAt?.toEpochMilliseconds()
             )
         }
     }

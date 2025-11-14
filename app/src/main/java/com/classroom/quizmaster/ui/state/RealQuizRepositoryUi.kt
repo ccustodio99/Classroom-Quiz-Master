@@ -1,16 +1,20 @@
 package com.classroom.quizmaster.ui.state
 
+import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.MediaAsset
 import com.classroom.quizmaster.domain.model.MediaType
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
 import com.classroom.quizmaster.domain.model.Quiz
+import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
 import com.classroom.quizmaster.ui.model.QuizOverviewUi
+import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
 import com.classroom.quizmaster.ui.teacher.home.ACTION_LAUNCH_SESSION
@@ -27,10 +31,8 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOn
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.coroutines.flow.first
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
@@ -42,6 +44,7 @@ import kotlin.time.Duration.Companion.minutes
 @Singleton
 class RealQuizRepositoryUi @Inject constructor(
     private val quizRepository: QuizRepository,
+    private val classroomRepository: ClassroomRepository,
     private val authRepository: AuthRepository,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : QuizRepositoryUi {
@@ -49,17 +52,26 @@ class RealQuizRepositoryUi @Inject constructor(
     override val teacherHome: Flow<TeacherHomeUiState> =
         combine(
             authRepository.authState,
+            classroomRepository.classrooms,
+            classroomRepository.topics,
             quizRepository.quizzes
-        ) { auth, quizzes ->
+        ) { auth, classrooms, topics, quizzes ->
             val greeting = buildGreeting(
                 displayName = auth.teacherProfile?.displayName ?: auth.displayName,
                 email = auth.teacherProfile?.email ?: auth.email
             )
 
-            val recent = buildRecentQuizzes(quizzes)
+            val activeClassrooms = classrooms.filterNot { it.isArchived }
+            val activeTopics = topics.filterNot { it.isArchived }
+            val activeQuizzes = quizzes.filterNot { it.isArchived }
+                .filter { quiz ->
+                    activeClassrooms.any { it.id == quiz.classroomId } &&
+                        activeTopics.any { it.id == quiz.topicId }
+                }
+            val recent = buildRecentQuizzes(activeQuizzes, activeClassrooms, activeTopics)
             TeacherHomeUiState(
                 greeting = greeting,
-                classrooms = buildClassrooms(quizzes),
+                classrooms = buildClassrooms(activeClassrooms, activeTopics, activeQuizzes),
                 actionCards = defaultActionCards,
                 recentQuizzes = recent,
                 emptyMessage = if (recent.isEmpty()) DEFAULT_QUIZ_EMPTY_MESSAGE else "",
@@ -68,20 +80,78 @@ class RealQuizRepositoryUi @Inject constructor(
         }
             .flowOn(dispatcher)
 
-    override fun quizEditorState(quizId: String?): Flow<QuizEditorUiState> {
-        return if (quizId.isNullOrBlank()) {
-            flowOf(QuizEditorUiState())
-        } else {
+    override fun quizEditorState(quizId: String?): Flow<QuizEditorUiState> =
+        combine(
+            classroomRepository.classrooms,
+            classroomRepository.topics,
             quizRepository.quizzes
-                .map { quizzes ->
-                    quizzes.firstOrNull { it.id == quizId }?.toEditorState()
-                        ?: QuizEditorUiState(quizId = quizId, isNewQuiz = false)
+        ) { classrooms, topics, quizzes ->
+            val activeClassrooms = classrooms.filterNot { it.isArchived }
+            val activeTopics = topics.filterNot { it.isArchived }
+
+            val classroomOptions = activeClassrooms
+                .sortedBy { it.name.lowercase() }
+                .map { classroom ->
+                    val supporting = listOfNotNull(
+                        classroom.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" },
+                        classroom.subject.takeIf { it.isNotBlank() }
+                    ).joinToString(separator = " • ")
+                    SelectionOptionUi(
+                        id = classroom.id,
+                        label = classroom.name,
+                        supportingText = supporting
+                    )
                 }
-                .distinctUntilChanged()
-                .onStart { emit(QuizEditorUiState(quizId = quizId, isNewQuiz = false)) }
-                .flowOn(dispatcher)
+
+            val topicsByClassroom = activeTopics
+                .groupBy { it.classroomId }
+                .mapValues { (_, groupedTopics) ->
+                    groupedTopics
+                        .sortedBy { it.name.lowercase() }
+                        .map { topic ->
+                            SelectionOptionUi(
+                                id = topic.id,
+                                label = topic.name,
+                                supportingText = topic.description.takeIf { it.isNotBlank() }.orEmpty()
+                            )
+                        }
+                }
+
+            val existingState = quizId?.let { id ->
+                quizzes.firstOrNull { it.id == id }?.toEditorState()
+            }
+
+            val defaultClassroomId = when {
+                existingState?.classroomId?.let { id ->
+                    activeClassrooms.any { it.id == id }
+                } == true -> existingState.classroomId
+                else -> classroomOptions.firstOrNull()?.id.orEmpty()
+            }
+
+            val resolvedTopics = topicsByClassroom[defaultClassroomId].orEmpty()
+            val defaultTopicId = when {
+                existingState?.topicId?.let { id ->
+                    resolvedTopics.any { it.id == id }
+                } == true -> existingState.topicId
+                else -> resolvedTopics.firstOrNull()?.id.orEmpty()
+            }
+
+            val selectedClassroom = activeClassrooms.firstOrNull { it.id == defaultClassroomId }
+            val baseState = existingState ?: QuizEditorUiState(isNewQuiz = quizId.isNullOrBlank())
+
+            baseState.copy(
+                quizId = existingState?.quizId ?: quizId,
+                classroomId = defaultClassroomId,
+                topicId = defaultTopicId,
+                grade = baseState.grade.ifBlank { selectedClassroom?.grade.orEmpty() },
+                subject = baseState.subject.ifBlank { selectedClassroom?.subject.orEmpty() },
+                classroomOptions = classroomOptions,
+                topicsByClassroom = topicsByClassroom
+            )
         }
-    }
+            .distinctUntilChanged()
+            .onStart { emit(QuizEditorUiState(quizId = quizId)) }
+            .flowOn(dispatcher)
 
     override suspend fun persistDraft(state: QuizEditorUiState) {
         withContext(dispatcher) {
@@ -91,10 +161,26 @@ class RealQuizRepositoryUi @Inject constructor(
             val existing = state.quizId?.takeIf { it.isNotBlank() }?.let { quizRepository.getQuiz(it) }
             val createdAt = existing?.createdAt ?: Clock.System.now()
             val resolvedQuizId = existing?.id ?: state.quizId.orEmpty()
+            val activeClassrooms = classroomRepository.classrooms.first().filterNot { it.isArchived }
+            val resolvedClassroomId = state.classroomId
+                .takeIf { it.isNotBlank() }
+                ?: existing?.classroomId
+                ?: activeClassrooms.firstOrNull()?.id
+                ?: error("Create a classroom before saving a quiz")
+            val activeTopics = classroomRepository.topics.first()
+                .filterNot { it.isArchived }
+                .filter { it.classroomId == resolvedClassroomId }
+            val resolvedTopicId = state.topicId
+                .takeIf { it.isNotBlank() }
+                ?: existing?.topicId
+                ?: activeTopics.firstOrNull()?.id
+                ?: error("Create a topic inside the classroom before saving a quiz")
 
             val quiz = Quiz(
                 id = resolvedQuizId,
                 teacherId = teacherId,
+                classroomId = resolvedClassroomId,
+                topicId = resolvedTopicId,
                 title = state.title.ifBlank { "Untitled quiz" },
                 defaultTimePerQ = state.timePerQuestionSeconds,
                 shuffle = state.shuffleQuestions,
@@ -119,29 +205,55 @@ class RealQuizRepositoryUi @Inject constructor(
         return "Welcome back, $resolvedName"
     }
 
-    private fun buildClassrooms(@Suppress("UNUSED_PARAMETER") quizzes: List<Quiz>): List<ClassroomOverviewUi> = emptyList()
+    private fun buildClassrooms(
+        classrooms: List<Classroom>,
+        topics: List<Topic>,
+        quizzes: List<Quiz>
+    ): List<ClassroomOverviewUi> = classrooms
+        .sortedByDescending { it.createdAt }
+        .map { classroom ->
+            val topicCount = topics.count { it.classroomId == classroom.id }
+            val quizCount = quizzes.count { it.classroomId == classroom.id }
+            ClassroomOverviewUi(
+                id = classroom.id,
+                name = classroom.name,
+                grade = classroom.grade.takeIf { it.isNotBlank() },
+                topicCount = topicCount,
+                quizCount = quizCount
+            )
+        }
 
-    private fun buildRecentQuizzes(quizzes: List<Quiz>): List<QuizOverviewUi> =
+    private fun buildRecentQuizzes(
+        quizzes: List<Quiz>,
+        classrooms: List<Classroom>,
+        topics: List<Topic>
+    ): List<QuizOverviewUi> =
         quizzes
             .sortedByDescending { it.updatedAt }
             .take(5)
-            .map { quiz -> quiz.toOverview() }
+            .mapNotNull { quiz ->
+                val classroom = classrooms.firstOrNull { it.id == quiz.classroomId } ?: return@mapNotNull null
+                val topic = topics.firstOrNull { it.id == quiz.topicId } ?: return@mapNotNull null
+                quiz.toOverview(classroom, topic)
+            }
 
-    private fun Quiz.toOverview(): QuizOverviewUi = QuizOverviewUi(
+    private fun Quiz.toOverview(classroom: Classroom, topic: Topic): QuizOverviewUi = QuizOverviewUi(
         id = id,
         title = title.ifBlank { "Untitled quiz" },
-        grade = "",
-        subject = "",
+        grade = classroom.grade,
+        subject = classroom.subject,
         questionCount = questions.size.takeIf { it > 0 } ?: questionCount,
         averageScore = 0,
         updatedAgo = formatRelativeTime(updatedAt),
         isDraft = questions.isEmpty(),
-        classroomName = "",
-        topicName = ""
+        classroomName = classroom.name,
+        topicName = topic.name
     )
 
     private fun Quiz.toEditorState(): QuizEditorUiState = QuizEditorUiState(
         quizId = id,
+        classroomId = classroomId,
+        topicId = topicId,
         title = title,
         grade = "",
         subject = "",
