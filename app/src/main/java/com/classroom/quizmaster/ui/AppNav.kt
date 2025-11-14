@@ -54,7 +54,7 @@ sealed class AppRoute(val route: String) {
                 topicId?.takeIf { it.isNotBlank() }?.let { add("topicId=$it") }
                 quizId?.takeIf { it.isNotBlank() }?.let { add("quizId=$it") }
             }
-            val query = if (params.isEmpty()) "" else "?${'$'}{params.joinToString("&")}"
+            val query = if (params.isEmpty()) "" else "?${params.joinToString("&")}"
             return "teacher/classrooms/$classroomId/launch$query"
         }
     }
