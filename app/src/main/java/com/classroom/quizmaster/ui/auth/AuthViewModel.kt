@@ -4,8 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.data.demo.OfflineDemoManager
 import com.classroom.quizmaster.data.auth.LocalAuthManager
+import com.classroom.quizmaster.data.network.ConnectivityMonitor
+import com.classroom.quizmaster.data.network.ConnectivityStatus
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
+import java.io.IOException
+import java.net.SocketTimeoutException
+import java.net.UnknownHostException
 import javax.inject.Inject
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -14,6 +19,12 @@ import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import timber.log.Timber
+import com.google.firebase.FirebaseNetworkException
+import com.google.firebase.FirebaseTooManyRequestsException
+import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
+import com.google.firebase.auth.FirebaseAuthInvalidUserException
+import com.google.firebase.auth.FirebaseAuthUserCollisionException
 
 data class LoginFormState(
     val email: String = "",
@@ -43,7 +54,8 @@ data class AuthUiState(
     val loading: Boolean = false,
     val bannerMessage: String? = null,
     val errorMessage: String? = null,
-    val demoModeEnabled: Boolean = false
+    val demoModeEnabled: Boolean = false,
+    val isOffline: Boolean = false
 )
 
 enum class SignupRole { None, Teacher, Student }
@@ -60,7 +72,8 @@ sealed interface AuthEffect {
 class AuthViewModel @Inject constructor(
     private val offlineDemoManager: OfflineDemoManager,
     private val localAuthManager: LocalAuthManager,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    connectivityMonitor: ConnectivityMonitor
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -69,48 +82,92 @@ class AuthViewModel @Inject constructor(
     private val _effects = MutableSharedFlow<AuthEffect>()
     val effects: SharedFlow<AuthEffect> = _effects
 
+    private var latestConnectivity: ConnectivityStatus = connectivityMonitor.status.value
+
+    init {
+        viewModelScope.launch {
+            connectivityMonitor.status.collect { status ->
+                latestConnectivity = status
+                _uiState.value = _uiState.value.copy(isOffline = status.isOffline)
+            }
+        }
+    }
+
     fun updateLoginEmail(value: String) {
-        _uiState.value = _uiState.value.copy(login = _uiState.value.login.copy(email = value))
+        _uiState.value = _uiState.value.copy(
+            login = _uiState.value.login.copy(email = value),
+            errorMessage = null
+        )
     }
 
     fun updateLoginPassword(value: String) {
-        _uiState.value = _uiState.value.copy(login = _uiState.value.login.copy(password = value))
+        _uiState.value = _uiState.value.copy(
+            login = _uiState.value.login.copy(password = value),
+            errorMessage = null
+        )
     }
 
     fun updateSignupEmail(value: String) {
-        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(email = value))
+        _uiState.value = _uiState.value.copy(
+            signup = _uiState.value.signup.copy(email = value),
+            errorMessage = null
+        )
     }
 
     fun updateSignupPassword(value: String) {
-        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(password = value))
+        _uiState.value = _uiState.value.copy(
+            signup = _uiState.value.signup.copy(password = value),
+            errorMessage = null
+        )
     }
 
     fun updateSignupConfirm(value: String) {
-        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(confirmPassword = value))
+        _uiState.value = _uiState.value.copy(
+            signup = _uiState.value.signup.copy(confirmPassword = value),
+            errorMessage = null
+        )
     }
 
     fun toggleTerms(value: Boolean) {
-        _uiState.value = _uiState.value.copy(signup = _uiState.value.signup.copy(acceptedTerms = value))
+        _uiState.value = _uiState.value.copy(
+            signup = _uiState.value.signup.copy(acceptedTerms = value),
+            errorMessage = null
+        )
     }
 
     fun updateProfileName(value: String) {
-        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(fullName = value))
+        _uiState.value = _uiState.value.copy(
+            profile = _uiState.value.profile.copy(fullName = value),
+            errorMessage = null
+        )
     }
 
     fun updateProfileRole(value: SignupRole) {
-        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(role = value))
+        _uiState.value = _uiState.value.copy(
+            profile = _uiState.value.profile.copy(role = value),
+            errorMessage = null
+        )
     }
 
     fun updateProfileSchool(value: String) {
-        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(school = value))
+        _uiState.value = _uiState.value.copy(
+            profile = _uiState.value.profile.copy(school = value),
+            errorMessage = null
+        )
     }
 
     fun updateProfileSubject(value: String) {
-        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(subject = value))
+        _uiState.value = _uiState.value.copy(
+            profile = _uiState.value.profile.copy(subject = value),
+            errorMessage = null
+        )
     }
 
     fun updateProfileNickname(value: String) {
-        _uiState.value = _uiState.value.copy(profile = _uiState.value.profile.copy(nickname = value))
+        _uiState.value = _uiState.value.copy(
+            profile = _uiState.value.profile.copy(nickname = value),
+            errorMessage = null
+        )
     }
 
     fun backToSignupCredentials() {
@@ -129,20 +186,22 @@ class AuthViewModel @Inject constructor(
         }
         val email = login.email.trim()
         val password = login.password
+
+        if (latestConnectivity.isOffline) {
+            performOfflineFallback(email, password)
+            return@launchWithProgress
+        }
+
         runCatching { authRepository.signInWithEmail(email, password) }
             .onSuccess {
                 cacheCredentialsFromFirebase(email, password)
                 _effects.emit(AuthEffect.TeacherAuthenticated)
             }
             .onFailure { error ->
-                val fallback = localAuthManager.tryOfflineLogin(email, password)
-                if (fallback) {
-                    _uiState.value = _uiState.value.copy(
-                        bannerMessage = "Working offline. Changes will sync after you reconnect."
-                    )
-                    _effects.emit(AuthEffect.TeacherAuthenticated)
+                if (error.isNetworkIssue()) {
+                    performOfflineFallback(email, password)
                 } else {
-                    emitError(error.message ?: "Unable to sign in.")
+                    emitError(mapAuthError(error))
                 }
             }
     }
@@ -217,6 +276,10 @@ class AuthViewModel @Inject constructor(
             profile.role == SignupRole.Teacher && profile.school.isBlank() -> emitError("Tell us your school or class.")
             profile.role == SignupRole.Student && profile.nickname.isBlank() -> emitError("Add a nickname so your teacher recognizes you.")
             else -> {
+                if (latestConnectivity.isOffline) {
+                    emitError("Connect to the internet to finish creating your account.")
+                    return
+                }
                 delay(600)
                 val signup = _uiState.value.signup
                 val displayName = profile.fullName.ifBlank { profile.school.ifBlank { signup.email.substringBefore('@') } }
@@ -233,7 +296,7 @@ class AuthViewModel @Inject constructor(
                     )
                     _effects.emit(AuthEffect.TeacherAuthenticated)
                 }.onFailure { error ->
-                    emitError(error.message ?: "Unable to create account.")
+                    emitError(mapAuthError(error))
                 }
             }
         }
@@ -245,5 +308,42 @@ class AuthViewModel @Inject constructor(
             ?: authState.displayName
             ?: email.substringBefore('@')
         localAuthManager.cacheCredentials(email, password, displayName)
+    }
+
+    private suspend fun performOfflineFallback(email: String, password: String) {
+        val fallback = localAuthManager.tryOfflineLogin(email, password)
+        if (fallback) {
+            _uiState.value = _uiState.value.copy(
+                bannerMessage = "Working offline. Changes will sync after you reconnect."
+            )
+            _effects.emit(AuthEffect.TeacherAuthenticated)
+        } else {
+            emitError(OFFLINE_REQUIRED_MESSAGE)
+        }
+    }
+
+    private fun mapAuthError(error: Throwable): String = when (error) {
+        is FirebaseAuthInvalidCredentialsException -> "Invalid email or password."
+        is FirebaseAuthInvalidUserException -> "We couldn't find that account. Check your email or sign up."
+        is FirebaseAuthUserCollisionException -> "That email is already registered. Try signing in instead."
+        is FirebaseTooManyRequestsException -> "Too many attempts right now. Please wait a moment and try again."
+        is FirebaseNetworkException,
+        is SocketTimeoutException,
+        is UnknownHostException,
+        is IOException -> OFFLINE_REQUIRED_MESSAGE
+        else -> {
+            Timber.w(error, "Unhandled auth error")
+            error.message ?: "Unable to complete the request."
+        }
+    }
+
+    private fun Throwable.isNetworkIssue(): Boolean =
+        this is FirebaseNetworkException ||
+            this is IOException ||
+            this is UnknownHostException ||
+            this is SocketTimeoutException
+
+    private companion object {
+        private const val OFFLINE_REQUIRED_MESSAGE = "No internet connection. Check your network and try again."
     }
 }

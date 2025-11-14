@@ -5,6 +5,7 @@ import android.os.StrictMode
 import androidx.hilt.work.HiltWorkerFactory
 import androidx.work.Configuration
 import com.classroom.quizmaster.data.remote.FirebaseAnalyticsLogger
+import com.classroom.quizmaster.di.FirebaseInitializer
 import com.classroom.quizmaster.sync.SyncScheduler
 import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
 import com.google.firebase.appcheck.AppCheckProviderFactory
@@ -31,6 +32,9 @@ class QuizMasterApp : Application(), Configuration.Provider {
 
     @Inject
     lateinit var analyticsLogger: FirebaseAnalyticsLogger
+
+    @Inject
+    lateinit var firebaseInitializer: FirebaseInitializer
 
     override fun onCreate() {
         super.onCreate()

@@ -19,6 +19,7 @@ import com.classroom.quizmaster.data.local.entity.LanSessionMetaEntity
 import com.classroom.quizmaster.data.local.entity.OpLogEntity
 import com.classroom.quizmaster.data.local.entity.ParticipantLocalEntity
 import com.classroom.quizmaster.data.local.entity.SessionLocalEntity
+import com.classroom.quizmaster.data.remote.FirebaseAuthDataSource
 import com.classroom.quizmaster.data.remote.FirebaseSessionDataSource
 import com.classroom.quizmaster.domain.model.Attempt
 import com.classroom.quizmaster.domain.model.LanMeta
@@ -32,7 +33,6 @@ import com.classroom.quizmaster.util.JoinCodeGenerator
 import com.classroom.quizmaster.util.NicknamePolicy
 import com.classroom.quizmaster.util.ScoreCalculator
 import com.classroom.quizmaster.util.switchMapLatest
-import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -66,12 +66,12 @@ class SessionRepositoryImpl @Inject constructor(
     @ApplicationContext private val context: Context,
     private val database: QuizMasterDatabase,
     private val firebaseSessionDataSource: FirebaseSessionDataSource,
+    private val authDataSource: FirebaseAuthDataSource,
     private val lanHostServer: LanHostServer,
     private val lanClient: LanClient,
     private val nsdClient: NsdClient,
     private val lanNetworkInfo: LanNetworkInfo,
     private val json: Json,
-    private val firebaseAuth: FirebaseAuth,
     private val syncScheduler: SyncScheduler,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : SessionRepository {
@@ -167,9 +167,10 @@ class SessionRepositoryImpl @Inject constructor(
         hostNickname: String
     ): Session = withContext(ioDispatcher) {
         val token = UUID.randomUUID().toString().replace("-", "")
+        val currentUid = authDataSource.currentUserId().orEmpty()
         val normalizedHost = NicknamePolicy.sanitize(
             hostNickname.ifBlank { "Host" },
-            firebaseAuth.currentUser?.uid.orEmpty()
+            currentUid
         )
         val now = Clock.System.now()
         val session = Session(
@@ -183,7 +184,7 @@ class SessionRepositoryImpl @Inject constructor(
             startedAt = now,
             lockAfterQ1 = false,
             hideLeaderboard = false,
-            teacherId = firebaseAuth.currentUser?.uid.orEmpty()
+            teacherId = currentUid
         )
         val sessionEntity = session.toEntity(now)
         val hostParticipant = ParticipantLocalEntity(
@@ -231,9 +232,10 @@ class SessionRepositoryImpl @Inject constructor(
             triggerImmediateSync()
         }
         joinedEndpoint?.let {
+            val senderUid = authDataSource.currentUserId() ?: attempt.uid
             val nickname = NicknamePolicy.sanitize(
                 studentNickname ?: "Student",
-                firebaseAuth.currentUser?.uid ?: attempt.uid
+                senderUid
             )
             repositoryScope.launch {
                 val sent = lanClient.sendAttempt(attempt.toWire(json, nickname))
@@ -263,13 +265,16 @@ class SessionRepositoryImpl @Inject constructor(
     override fun discoverHosts(): Flow<LanDiscoveryEvent> = nsdClient.discover()
 
     override suspend fun joinLanHost(service: LanServiceDescriptor, nickname: String): Result<Unit> =
-        runCatching {
-            val uid = firebaseAuth.currentUser?.uid
+        try {
+            val uid = authDataSource.currentUserId()
                 ?: "guest-${service.joinCode}-${System.currentTimeMillis()}"
             val sanitized = NicknamePolicy.sanitize(nickname.ifBlank { "Student" }, uid)
             joinedEndpoint = service
             studentNickname = sanitized
             lanClient.connect(service, uid)
+            Result.success(Unit)
+        } catch (error: Exception) {
+            Result.failure(error)
         }
 
     override suspend fun kickParticipant(uid: String) {
@@ -569,7 +574,7 @@ class SessionRepositoryImpl @Inject constructor(
         startedAt = Instant.fromEpochMilliseconds(startedAt)
     )
 
-    private fun isTeacherAccount(): Boolean = firebaseAuth.currentUser?.isAnonymous != true
+    private suspend fun isTeacherAccount(): Boolean = !authDataSource.isCurrentUserAnonymous()
 
     @Serializable
     private data class PendingAttemptPayload(

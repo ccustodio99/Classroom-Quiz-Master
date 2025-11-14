@@ -11,6 +11,7 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -34,6 +35,7 @@ class AppPreferencesDataSource @Inject constructor(
         val LAST_SYNC_EPOCH = longPreferencesKey("last_sync_epoch")
         val LAN_AUTO_JOIN = booleanPreferencesKey("lan_auto_join")
         val SAMPLE_SEEDED_TEACHERS = stringSetPreferencesKey("sample_seeded_teachers")
+        val SAMPLE_SEEDED_CLASSROOMS = stringSetPreferencesKey("sample_seeded_classrooms")
     }
 
     val highContrastEnabled: Flow<Boolean> =
@@ -115,10 +117,35 @@ class AppPreferencesDataSource @Inject constructor(
         context.prefStore.edit { it[Keys.LAN_AUTO_JOIN] = enabled }
     }
 
-    suspend fun addSampleSeededTeacher(teacherId: String) {
+    suspend fun addSampleSeededTeacher(teacherId: String, classroomIds: Set<String>) {
         context.prefStore.edit {
-            val current = it[Keys.SAMPLE_SEEDED_TEACHERS] ?: emptySet()
-            it[Keys.SAMPLE_SEEDED_TEACHERS] = current + teacherId
+            val currentTeachers = it[Keys.SAMPLE_SEEDED_TEACHERS] ?: emptySet()
+            it[Keys.SAMPLE_SEEDED_TEACHERS] = currentTeachers + teacherId
+            val existingClassrooms = it[Keys.SAMPLE_SEEDED_CLASSROOMS] ?: emptySet()
+            val filtered = existingClassrooms.filterNot { entry -> entry.startsWith("$teacherId|") }.toMutableSet()
+            classroomIds.forEach { classroomId ->
+                filtered += "$teacherId|$classroomId"
+            }
+            it[Keys.SAMPLE_SEEDED_CLASSROOMS] = filtered
+        }
+    }
+
+    suspend fun seededClassroomIds(teacherId: String): Set<String> {
+        val entries = context.prefStore.data.first()[Keys.SAMPLE_SEEDED_CLASSROOMS] ?: emptySet()
+        return entries.mapNotNull { entry ->
+            val parts = entry.split("|", limit = 2)
+            if (parts.size == 2 && parts[0] == teacherId) parts[1] else null
+        }.toSet()
+    }
+
+    suspend fun removeSampleSeededTeacher(teacherId: String) {
+        context.prefStore.edit {
+            val currentTeachers = it[Keys.SAMPLE_SEEDED_TEACHERS] ?: emptySet()
+            it[Keys.SAMPLE_SEEDED_TEACHERS] = currentTeachers - teacherId
+            val existingClassrooms = it[Keys.SAMPLE_SEEDED_CLASSROOMS] ?: emptySet()
+            it[Keys.SAMPLE_SEEDED_CLASSROOMS] = existingClassrooms.filterNot { entry ->
+                entry.startsWith("$teacherId|")
+            }.toSet()
         }
     }
 }

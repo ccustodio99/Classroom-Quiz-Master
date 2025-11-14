@@ -64,6 +64,7 @@
     <string name="auth_loading">Signing in…</string>
     <string name="auth_terms_error">Accept the terms to continue</string>
     <string name="google_placeholder">Google sign-in not configured in demo</string>
+    <string name="auth_offline_message">You&#8217;re offline. Connect to the internet to sign in.</string>
 
     <!-- Teacher home -->
     <string name="teacher_home_title">Teacher home</string>

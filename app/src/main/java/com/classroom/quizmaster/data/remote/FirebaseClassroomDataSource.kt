@@ -21,32 +21,40 @@ class FirebaseClassroomDataSource @Inject constructor(
 
     private fun classroomsCollection() = firestore.collection("classrooms")
 
-    suspend fun fetchTeacherProfile(): Result<Teacher?> = runCatching {
-        val uid = authDataSource.currentUserId() ?: return@runCatching null
+    suspend fun fetchTeacherProfile(): Result<Teacher?> = try {
+        val uid = authDataSource.currentUserId() ?: return Result.success(null)
         val snapshot = teachersCollection().document(uid).get().await()
-        snapshot.toObject(FirestoreTeacher::class.java)?.toDomain(uid)
+        Result.success(snapshot.toObject(FirestoreTeacher::class.java)?.toDomain(uid))
+    } catch (error: Exception) {
+        Result.failure(error)
     }
 
-    suspend fun upsertTeacherProfile(teacher: Teacher): Result<Unit> = runCatching {
+    suspend fun upsertTeacherProfile(teacher: Teacher): Result<Unit> = try {
         teachersCollection()
             .document(teacher.id)
             .set(FirestoreTeacher.fromDomain(teacher))
             .await()
-        Unit
-    }.onFailure { Timber.e(it, "Failed to upsert teacher profile") }
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Timber.e(error, "Failed to upsert teacher profile")
+        Result.failure(error)
+    }
 
-    suspend fun updateLastActive(): Result<Unit> = runCatching {
-        val uid = authDataSource.currentUserId() ?: return@runCatching
+    suspend fun updateLastActive(): Result<Unit> = try {
+        val uid = authDataSource.currentUserId() ?: return Result.success(Unit)
         teachersCollection()
             .document(uid)
             .update("lastActive", FieldValue.serverTimestamp())
             .await()
-        Unit
-    }.onFailure { Timber.w(it, "Failed to update teacher last active") }
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Timber.w(error, "Failed to update teacher last active")
+        Result.failure(error)
+    }
 
-    suspend fun fetchClassrooms(): Result<List<Classroom>> = runCatching {
-        val uid = authDataSource.currentUserId() ?: return@runCatching emptyList()
-        classroomsCollection()
+    suspend fun fetchClassrooms(): Result<List<Classroom>> = try {
+        val uid = authDataSource.currentUserId() ?: return Result.success(emptyList())
+        val documents = classroomsCollection()
             .whereEqualTo("teacherId", uid)
             .get()
             .await()
@@ -54,19 +62,24 @@ class FirebaseClassroomDataSource @Inject constructor(
             .mapNotNull { doc ->
                 doc.toObject(FirestoreClassroom::class.java)?.toDomain(doc.id)
             }
+        Result.success(documents)
+    } catch (error: Exception) {
+        Result.failure(error)
     }
 
-    suspend fun upsertClassroom(classroom: Classroom): Result<String> = runCatching {
+    suspend fun upsertClassroom(classroom: Classroom): Result<String> = try {
         val document = if (classroom.id.isBlank()) {
             classroomsCollection().document()
         } else {
             classroomsCollection().document(classroom.id)
         }
         document.set(FirestoreClassroom.fromDomain(classroom)).await()
-        document.id
+        Result.success(document.id)
+    } catch (error: Exception) {
+        Result.failure(error)
     }
 
-    suspend fun archiveClassroom(id: String, archivedAt: Instant): Result<Unit> = runCatching {
+    suspend fun archiveClassroom(id: String, archivedAt: Instant): Result<Unit> = try {
         classroomsCollection()
             .document(id)
             .update(
@@ -77,8 +90,11 @@ class FirebaseClassroomDataSource @Inject constructor(
                 )
             )
             .await()
-        Unit
-    }.onFailure { Timber.e(it, "Failed to archive classroom $id") }
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Timber.e(error, "Failed to archive classroom $id")
+        Result.failure(error)
+    }
 
     private data class FirestoreTeacher(
         val displayName: String = "",

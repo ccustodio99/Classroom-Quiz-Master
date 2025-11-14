@@ -5,8 +5,11 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.BuildConfig
 import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.data.demo.SampleDataSeeder
+import com.classroom.quizmaster.data.network.ConnectivityMonitor
+import com.classroom.quizmaster.domain.model.AuthState
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.ui.model.QuizOverviewUi
+import com.classroom.quizmaster.ui.model.StatusChipType
 import com.classroom.quizmaster.ui.model.StatusChipUi
 import com.classroom.quizmaster.ui.state.QuizRepositoryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -51,6 +54,9 @@ data class TeacherHomeUiState(
     val defaultTopicId: String? = null,
     val showSampleDataCard: Boolean = false,
     val isSeedingSamples: Boolean = false,
+    val isClearingSamples: Boolean = false,
+    val canSeedSampleData: Boolean = false,
+    val canClearSampleData: Boolean = false,
     val sampleSeedMessage: String? = null
 )
 
@@ -63,24 +69,51 @@ class TeacherHomeViewModel @Inject constructor(
     private val quizRepositoryUi: QuizRepositoryUi,
     private val authRepository: AuthRepository,
     private val preferences: AppPreferencesDataSource,
-    private val sampleDataSeeder: SampleDataSeeder
+    private val sampleDataSeeder: SampleDataSeeder,
+    connectivityMonitor: ConnectivityMonitor
 ) : ViewModel() {
 
     private val seedStatus = MutableStateFlow(SeedUi())
 
+    private val baseState = combine(
+        quizRepositoryUi.teacherHome,
+        authRepository.authState,
+        preferences.sampleSeededTeachers,
+        seedStatus
+    ) { home, auth, seeded, seedUi ->
+        CombinedHomeState(home, auth, seeded, seedUi)
+    }
+
     val uiState: StateFlow<TeacherHomeUiState> =
-        combine(
-            quizRepositoryUi.teacherHome,
-            authRepository.authState,
-            preferences.sampleSeededTeachers,
-            seedStatus
-        ) { home, auth, seeded, seedUi ->
-            val teacherId = auth.userId
-            val canSeed = BuildConfig.DEBUG && !teacherId.isNullOrBlank() && !seeded.contains(teacherId)
-            home.copy(
-                showSampleDataCard = canSeed || seedUi.isSeeding,
-                isSeedingSamples = seedUi.isSeeding,
-                sampleSeedMessage = seedUi.message
+        combine(baseState, connectivityMonitor.status) { combined, connectivity ->
+            val teacherId = combined.auth.userId
+            val hasSeededData = !teacherId.isNullOrBlank() && combined.seededTeachers.contains(teacherId)
+            val canSeed = BuildConfig.DEBUG && !teacherId.isNullOrBlank() && !hasSeededData
+            val showSampleCard = BuildConfig.DEBUG && (
+                canSeed || hasSeededData || combined.seedUi.isSeeding || combined.seedUi.isClearing
+                )
+            val offline = connectivity.isOffline
+            val bannerHeadline = if (offline) "You're offline" else ""
+            val bannerSupporting = if (offline) {
+                "We'll keep everything saved locally and sync once you're online."
+            } else {
+                ""
+            }
+            val chips = if (offline) {
+                listOf(StatusChipUi("offline", "Offline", StatusChipType.Offline))
+            } else {
+                emptyList()
+            }
+            combined.base.copy(
+                connectivityHeadline = bannerHeadline,
+                connectivitySupporting = bannerSupporting,
+                statusChips = chips,
+                showSampleDataCard = showSampleCard,
+                isSeedingSamples = combined.seedUi.isSeeding,
+                isClearingSamples = combined.seedUi.isClearing,
+                canSeedSampleData = canSeed && !combined.seedUi.isSeeding && !combined.seedUi.isClearing,
+                canClearSampleData = hasSeededData && !combined.seedUi.isSeeding && !combined.seedUi.isClearing,
+                sampleSeedMessage = combined.seedUi.message
             )
         }
             .stateIn(
@@ -95,9 +128,23 @@ class TeacherHomeViewModel @Inject constructor(
             val result = sampleDataSeeder.seed()
             seedStatus.update {
                 if (result.isSuccess) {
-                    SeedUi(isSeeding = false, message = "Sample data added")
+                    SeedUi(message = "Sample data added")
                 } else {
-                    SeedUi(isSeeding = false, message = result.exceptionOrNull()?.message ?: "Unable to seed data")
+                    SeedUi(message = result.exceptionOrNull()?.message ?: "Unable to seed data")
+                }
+            }
+        }
+    }
+
+    fun clearSampleData() {
+        viewModelScope.launch {
+            seedStatus.update { SeedUi(isClearing = true, message = null) }
+            val result = sampleDataSeeder.clearSeededData()
+            seedStatus.update {
+                if (result.isSuccess) {
+                    SeedUi(message = "Sample data removed")
+                } else {
+                    SeedUi(message = result.exceptionOrNull()?.message ?: "Unable to remove sample data")
                 }
             }
         }
@@ -105,6 +152,14 @@ class TeacherHomeViewModel @Inject constructor(
 
     private data class SeedUi(
         val isSeeding: Boolean = false,
+        val isClearing: Boolean = false,
         val message: String? = null
+    )
+
+    private data class CombinedHomeState(
+        val base: TeacherHomeUiState,
+        val auth: AuthState,
+        val seededTeachers: Set<String>,
+        val seedUi: SeedUi
     )
 }

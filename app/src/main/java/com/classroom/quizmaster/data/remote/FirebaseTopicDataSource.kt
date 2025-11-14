@@ -18,9 +18,9 @@ class FirebaseTopicDataSource @Inject constructor(
 
     private fun topicsCollection() = firestore.collection("topics")
 
-    suspend fun fetchTopics(): Result<List<Topic>> = runCatching {
-        val uid = authDataSource.currentUserId() ?: return@runCatching emptyList()
-        topicsCollection()
+    suspend fun fetchTopics(): Result<List<Topic>> = try {
+        val uid = authDataSource.currentUserId() ?: return Result.success(emptyList())
+        val documents = topicsCollection()
             .whereEqualTo("teacherId", uid)
             .get()
             .await()
@@ -28,15 +28,20 @@ class FirebaseTopicDataSource @Inject constructor(
             .mapNotNull { doc ->
                 doc.toObject(FirestoreTopic::class.java)?.toDomain(doc.id)
             }
+        Result.success(documents)
+    } catch (error: Exception) {
+        Result.failure(error)
     }
 
-    suspend fun upsertTopic(topic: Topic): Result<String> = runCatching {
+    suspend fun upsertTopic(topic: Topic): Result<String> = try {
         val document = if (topic.id.isBlank()) topicsCollection().document() else topicsCollection().document(topic.id)
         document.set(FirestoreTopic.fromDomain(topic)).await()
-        document.id
+        Result.success(document.id)
+    } catch (error: Exception) {
+        Result.failure(error)
     }
 
-    suspend fun archiveTopic(id: String, archivedAt: Instant): Result<Unit> = runCatching {
+    suspend fun archiveTopic(id: String, archivedAt: Instant): Result<Unit> = try {
         topicsCollection()
             .document(id)
             .update(
@@ -47,8 +52,11 @@ class FirebaseTopicDataSource @Inject constructor(
                 )
             )
             .await()
-        Unit
-    }.onFailure { Timber.e(it, "Failed to archive topic $id") }
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Timber.e(error, "Failed to archive topic $id")
+        Result.failure(error)
+    }
 
     private data class FirestoreTopic(
         val classroomId: String = "",

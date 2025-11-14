@@ -23,9 +23,9 @@ class FirebaseQuizDataSource @Inject constructor(
 
     private fun quizCollection() = firestore.collection("quizzes")
 
-    fun currentTeacherId(): String? = authDataSource.currentUserId()
+    suspend fun currentTeacherId(): String? = authDataSource.currentUserId()
 
-    suspend fun loadQuizzes(): List<Quiz> = runCatching {
+    suspend fun loadQuizzes(): List<Quiz> = try {
         val teacherId = currentTeacherId() ?: return emptyList()
         quizCollection()
             .whereEqualTo("teacherId", teacherId)
@@ -36,16 +36,21 @@ class FirebaseQuizDataSource @Inject constructor(
                 doc.toObject(FirestoreQuiz::class.java)?.toDomain(doc.id, json)
                     ?.takeIf { it.classroomId.isNotBlank() && it.topicId.isNotBlank() }
             }
-    }.onFailure { Timber.e(it, "Failed to load quizzes") }
-        .getOrDefault(emptyList())
+    } catch (error: Exception) {
+        Timber.e(error, "Failed to load quizzes")
+        emptyList()
+    }
 
-    suspend fun upsertQuiz(quiz: Quiz): Result<Unit> = runCatching {
+    suspend fun upsertQuiz(quiz: Quiz): Result<Unit> = try {
         val document = if (quiz.id.isBlank()) quizCollection().document() else quizCollection().document(quiz.id)
         document.set(FirestoreQuiz.fromDomain(quiz, json), SetOptions.merge()).await()
-        Unit
-    }.onFailure { Timber.e(it, "Failed to upsert quiz") }
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Timber.e(error, "Failed to upsert quiz")
+        Result.failure(error)
+    }
 
-    suspend fun archiveQuiz(id: String, archivedAt: Instant): Result<Unit> = runCatching {
+    suspend fun archiveQuiz(id: String, archivedAt: Instant): Result<Unit> = try {
         quizCollection()
             .document(id)
             .set(
@@ -57,8 +62,11 @@ class FirebaseQuizDataSource @Inject constructor(
                 SetOptions.merge()
             )
             .await()
-        Unit
-    }.onFailure { Timber.e(it, "Failed to archive quiz") }
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Timber.e(error, "Failed to archive quiz")
+        Result.failure(error)
+    }
 
     data class FirestoreQuiz(
         val teacherId: String = "",

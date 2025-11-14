@@ -131,6 +131,18 @@ fun AuthScreen(
     ) {
         WelcomeBanner()
         HeroSection()
+        if (state.isOffline) {
+            StatusMessageCard(
+                message = stringResource(id = R.string.auth_offline_message),
+                isError = false
+            )
+        }
+        state.bannerMessage?.takeIf { it.isNotBlank() }?.let {
+            StatusMessageCard(message = it, isError = false)
+        }
+        state.errorMessage?.takeIf { it.isNotBlank() }?.let {
+            StatusMessageCard(message = it, isError = true)
+        }
         SnackbarHost(hostState = snackbarHostState) { data ->
             QuizSnackbar(message = data.visuals.message)
         }
@@ -294,6 +306,37 @@ private fun TeacherAuthCard(
                 }
             }
         }
+    }
+}
+
+@Composable
+private fun StatusMessageCard(
+    message: String,
+    isError: Boolean,
+    modifier: Modifier = Modifier
+) {
+    val containerColor = if (isError) {
+        MaterialTheme.colorScheme.errorContainer
+    } else {
+        MaterialTheme.colorScheme.secondaryContainer
+    }
+    val contentColor = if (isError) {
+        MaterialTheme.colorScheme.onErrorContainer
+    } else {
+        MaterialTheme.colorScheme.onSecondaryContainer
+    }
+    Surface(
+        modifier = modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        color = containerColor,
+        tonalElevation = 2.dp
+    ) {
+        Text(
+            text = message,
+            color = contentColor,
+            style = MaterialTheme.typography.bodyMedium,
+            modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp)
+        )
     }
 }
 

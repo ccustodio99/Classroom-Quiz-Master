@@ -20,6 +20,7 @@ import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import kotlin.time.Duration.Companion.hours
 import java.util.UUID
+import timber.log.Timber
 
 @Singleton
 class SampleDataSeeder @Inject constructor(
@@ -38,6 +39,7 @@ class SampleDataSeeder @Inject constructor(
             if (alreadySeeded) return@runCatching
 
             val now = Clock.System.now()
+            val createdClassroomIds = mutableSetOf<String>()
             val classrooms = SAMPLE_CLASSROOMS.map { template ->
                 val classroom = Classroom(
                     id = "",
@@ -49,6 +51,7 @@ class SampleDataSeeder @Inject constructor(
                     updatedAt = now
                 )
                 val classroomId = classroomRepository.upsertClassroom(classroom)
+                createdClassroomIds += classroomId
                 template to classroomId
             }
 
@@ -117,7 +120,22 @@ class SampleDataSeeder @Inject constructor(
                 }
             }
 
-            preferences.addSampleSeededTeacher(teacherId)
+            preferences.addSampleSeededTeacher(teacherId, createdClassroomIds)
+            Timber.i("Seeded %d classrooms for %s", createdClassroomIds.size, teacherId)
+        }
+    }
+
+    suspend fun clearSeededData(): Result<Unit> = withContext(dispatcher) {
+        runCatching {
+            val teacherId = authRepository.authState.first { it.userId != null }.userId!!
+            val classroomIds = preferences.seededClassroomIds(teacherId)
+            if (classroomIds.isEmpty()) return@runCatching
+            classroomIds.forEach { classroomId ->
+                runCatching { classroomRepository.archiveClassroom(classroomId) }
+                    .onFailure { Timber.w(it, "Unable to archive seeded classroom $classroomId") }
+            }
+            preferences.removeSampleSeededTeacher(teacherId)
+            Timber.i("Cleared %d seeded classrooms for %s", classroomIds.size, teacherId)
         }
     }
 
