@@ -35,6 +35,12 @@ data class AnswerOptionUi(
     val percentage: Float = 0f
 )
 
+data class SelectionOptionUi(
+    val id: String,
+    val label: String,
+    val supportingText: String = ""
+)
+
 data class QuestionDraftUi(
     val id: String,
     val stem: String,

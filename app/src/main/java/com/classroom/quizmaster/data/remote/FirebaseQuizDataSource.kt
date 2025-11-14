@@ -34,6 +34,7 @@ class FirebaseQuizDataSource @Inject constructor(
             .documents
             .mapNotNull { doc ->
                 doc.toObject(FirestoreQuiz::class.java)?.toDomain(doc.id, json)
+                    ?.takeIf { it.classroomId.isNotBlank() && it.topicId.isNotBlank() }
             }
     }.onFailure { Timber.e(it, "Failed to load quizzes") }
         .getOrDefault(emptyList())
@@ -44,20 +45,34 @@ class FirebaseQuizDataSource @Inject constructor(
         Unit
     }.onFailure { Timber.e(it, "Failed to upsert quiz") }
 
-    suspend fun deleteQuiz(id: String): Result<Unit> = runCatching {
-        quizCollection().document(id).delete().await()
+    suspend fun archiveQuiz(id: String, archivedAt: Instant): Result<Unit> = runCatching {
+        quizCollection()
+            .document(id)
+            .set(
+                mapOf(
+                    "isArchived" to true,
+                    "archivedAt" to archivedAt.toEpochMilliseconds(),
+                    "updatedAt" to archivedAt.toEpochMilliseconds()
+                ),
+                SetOptions.merge()
+            )
+            .await()
         Unit
-    }.onFailure { Timber.e(it, "Failed to delete quiz") }
+    }.onFailure { Timber.e(it, "Failed to archive quiz") }
 
     data class FirestoreQuiz(
         val teacherId: String = "",
+        val classroomId: String = "",
+        val topicId: String = "",
         val title: String = "",
         val defaultTimePerQ: Int = 30,
         val shuffle: Boolean = false,
         val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
         val updatedAt: Long = createdAt,
         val questionCount: Int = 0,
-        val questionsJson: String = "[]"
+        val questionsJson: String = "[]",
+        val isArchived: Boolean = false,
+        val archivedAt: Long? = null
     ) {
         fun toDomain(id: String, json: Json): Quiz {
             val decodedQuestions: List<Question> = json.decodeFromString(questionsJson)
@@ -65,26 +80,34 @@ class FirebaseQuizDataSource @Inject constructor(
             return Quiz(
                 id = id,
                 teacherId = teacherId,
+                classroomId = classroomId,
+                topicId = topicId,
                 title = title,
                 defaultTimePerQ = defaultTimePerQ,
                 shuffle = shuffle,
                 createdAt = Instant.fromEpochMilliseconds(createdAt),
                 updatedAt = Instant.fromEpochMilliseconds(updatedAt),
                 questionCount = computedCount,
-                questions = decodedQuestions
+                questions = decodedQuestions,
+                isArchived = isArchived,
+                archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
             )
         }
 
         companion object {
             fun fromDomain(quiz: Quiz, json: Json) = FirestoreQuiz(
                 teacherId = quiz.teacherId,
+                classroomId = quiz.classroomId,
+                topicId = quiz.topicId,
                 title = quiz.title,
                 defaultTimePerQ = quiz.defaultTimePerQ,
                 shuffle = quiz.shuffle,
                 createdAt = quiz.createdAt.toEpochMilliseconds(),
                 updatedAt = quiz.updatedAt.toEpochMilliseconds(),
                 questionCount = if (quiz.questionCount > 0) quiz.questionCount else quiz.questions.size,
-                questionsJson = json.encodeToString(quiz.questions)
+                questionsJson = json.encodeToString(quiz.questions),
+                isArchived = quiz.isArchived,
+                archivedAt = quiz.archivedAt?.toEpochMilliseconds()
             )
         }
     }

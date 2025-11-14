@@ -14,34 +14,34 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 
 @Composable
 fun CreateClassroomRoute(
-    onDone: () -> Unit
+    onDone: () -> Unit,
+    viewModel: CreateClassroomViewModel = hiltViewModel()
 ) {
-    var name by remember { mutableStateOf("") }
-    var grade by remember { mutableStateOf("") }
-    var subject by remember { mutableStateOf("") }
-
+    val state by viewModel.uiState.collectAsStateWithLifecycle()
+    LaunchedEffect(state.success) {
+        if (state.success) onDone()
+    }
     CreateClassroomScreen(
-        name = name,
-        grade = grade,
-        subject = subject,
-        onNameChanged = { name = it },
-        onGradeChanged = { grade = it },
-        onSubjectChanged = { subject = it },
-        onSave = {
-            // TODO: actually persist the classroom
-            onDone()
-        },
+        name = state.name,
+        grade = state.grade,
+        subject = state.subject,
+        isSaving = state.isSaving,
+        errorMessage = state.errorMessage,
+        onNameChanged = viewModel::updateName,
+        onGradeChanged = viewModel::updateGrade,
+        onSubjectChanged = viewModel::updateSubject,
+        onSave = { viewModel.save(onDone) },
         onBack = onDone
     )
 }
@@ -51,13 +51,15 @@ fun CreateClassroomScreen(
     name: String,
     grade: String,
     subject: String,
+    isSaving: Boolean,
+    errorMessage: String?,
     onNameChanged: (String) -> Unit,
     onGradeChanged: (String) -> Unit,
     onSubjectChanged: (String) -> Unit,
     onSave: () -> Unit,
     onBack: () -> Unit
 ) {
-    val canSave = name.isNotBlank()
+    val canSave = name.isNotBlank() && !isSaving
 
     Column(
         modifier = Modifier
@@ -99,6 +101,14 @@ fun CreateClassroomScreen(
             label = { Text("Subject (optional)") },
             singleLine = true
         )
+
+        errorMessage?.takeIf { it.isNotBlank() }?.let { message ->
+            Text(
+                text = message,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.error
+            )
+        }
 
         Spacer(Modifier.height(8.dp))
 

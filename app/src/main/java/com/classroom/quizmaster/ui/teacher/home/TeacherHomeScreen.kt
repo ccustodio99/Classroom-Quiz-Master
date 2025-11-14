@@ -347,7 +347,13 @@ private fun RecentQuizzesSection(
                                 color = MaterialTheme.colorScheme.onSurfaceVariant
                             )
                         }
-                        Text(text = "${quiz.subject} - Grade ${quiz.grade}")
+                        val subjectAndGrade = listOf(
+                            quiz.subject.takeIf { it.isNotBlank() },
+                            quiz.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" }
+                        ).filterNotNull().joinToString(" · ")
+                        if (subjectAndGrade.isNotBlank()) {
+                            Text(subjectAndGrade)
+                        }
                         Row(
                             horizontalArrangement = Arrangement.SpaceBetween,
                             modifier = Modifier.fillMaxWidth(),

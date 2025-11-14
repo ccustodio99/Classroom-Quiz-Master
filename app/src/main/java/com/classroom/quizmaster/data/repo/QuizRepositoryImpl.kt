@@ -3,14 +3,20 @@ package com.classroom.quizmaster.data.repo
 import androidx.room.withTransaction
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.local.dao.QuizWithQuestions
+import com.classroom.quizmaster.data.local.entity.ClassroomEntity
 import com.classroom.quizmaster.data.local.entity.QuestionEntity
 import com.classroom.quizmaster.data.local.entity.QuizEntity
+import com.classroom.quizmaster.data.local.entity.TopicEntity
+import com.classroom.quizmaster.data.remote.FirebaseClassroomDataSource
 import com.classroom.quizmaster.data.remote.FirebaseQuizDataSource
+import com.classroom.quizmaster.data.remote.FirebaseTopicDataSource
+import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.MediaAsset
 import com.classroom.quizmaster.domain.model.MediaType
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
 import com.classroom.quizmaster.domain.model.Quiz
+import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.repository.QuizRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -32,12 +38,16 @@ import java.util.UUID
 @Singleton
 class QuizRepositoryImpl @Inject constructor(
     private val remote: FirebaseQuizDataSource,
+    private val classroomRemote: FirebaseClassroomDataSource,
+    private val topicRemote: FirebaseTopicDataSource,
     private val database: QuizMasterDatabase,
     private val json: Json,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : QuizRepository {
 
     private val quizDao = database.quizDao()
+    private val classroomDao = database.classroomDao()
+    private val topicDao = database.topicDao()
 
     override val quizzes: Flow<List<Quiz>> =
         quizDao.observeQuizzes()
@@ -48,23 +58,39 @@ class QuizRepositoryImpl @Inject constructor(
         val remoteQuizzes = remote.loadQuizzes()
         if (remoteQuizzes.isEmpty()) return@withContext
         database.withTransaction {
-            remoteQuizzes.forEach { quiz ->
-                val quizId = quiz.id.ifBlank { generateLocalQuizId() }
-                val resolved = if (quiz.id == quizId) quiz else quiz.copy(id = quizId)
-                quizDao.upsertQuizWithQuestions(
-                    resolved.toEntity(),
-                    resolved.questions.mapIndexed { index, question ->
-                        question.toEntity(quizId, index, json)
-                    }
-                )
-            }
+            remoteQuizzes
+                .filter { it.classroomId.isNotBlank() && it.topicId.isNotBlank() }
+                .forEach { quiz ->
+                    val quizId = quiz.id.ifBlank { generateLocalQuizId() }
+                    val resolved = if (quiz.id == quizId) quiz else quiz.copy(id = quizId)
+                    quizDao.upsertQuizWithQuestions(
+                        resolved.toEntity(),
+                        resolved.questions.mapIndexed { index, question ->
+                            question.toEntity(quizId, index, json)
+                        }
+                    )
+                }
         }
     }
 
     override suspend fun upsert(quiz: Quiz) = withContext(ioDispatcher) {
         val resolvedId = quiz.id.ifBlank { generateLocalQuizId() }
         val now = Clock.System.now()
-        val normalized = if (quiz.id == resolvedId) quiz else quiz.copy(id = resolvedId)
+        require(quiz.classroomId.isNotBlank()) { "Quiz must have a classroom" }
+        require(quiz.topicId.isNotBlank()) { "Quiz must have a topic" }
+        val classroom = classroomDao.get(quiz.classroomId)
+            ?: error("Parent classroom ${quiz.classroomId} not found")
+        check(!classroom.isArchived) { "Cannot attach quiz to archived classroom" }
+        val topic = topicDao.get(quiz.topicId)
+            ?: error("Parent topic ${quiz.topicId} not found")
+        check(topic.classroomId == quiz.classroomId) { "Topic ${quiz.topicId} not in classroom ${quiz.classroomId}" }
+        check(!topic.isArchived) { "Cannot attach quiz to archived topic" }
+
+        val normalized = if (quiz.id == resolvedId) {
+            quiz.copy(updatedAt = now)
+        } else {
+            quiz.copy(id = resolvedId, updatedAt = now)
+        }
         database.withTransaction {
             quizDao.upsertQuizWithQuestions(
                 normalized.toEntity(now, resolvedId),
@@ -79,10 +105,22 @@ class QuizRepositoryImpl @Inject constructor(
     }
 
     override suspend fun delete(id: String) = withContext(ioDispatcher) {
-        remote.deleteQuiz(id)
-            .onFailure { Timber.e(it, "Failed to delete quiz $id remotely") }
+        val existing = quizDao.getQuiz(id) ?: return@withContext
+        val now = Clock.System.now()
+        val archivedEntity = existing.quiz.copy(
+            isArchived = true,
+            archivedAt = now.toEpochMilliseconds(),
+            updatedAt = now.toEpochMilliseconds()
+        )
+        database.withTransaction {
+            quizDao.upsertQuizWithQuestions(
+                archivedEntity,
+                existing.questions
+            )
+        }
+        remote.archiveQuiz(id, now)
+            .onFailure { Timber.e(it, "Failed to archive quiz $id remotely") }
             .getOrThrow()
-        database.withTransaction { quizDao.deleteQuiz(id) }
     }
 
     override suspend fun getQuiz(id: String): Quiz? = withContext(ioDispatcher) {
@@ -94,9 +132,61 @@ class QuizRepositoryImpl @Inject constructor(
         val existing = quizDao.observeQuizzes().firstOrNull()
         if (!existing.isNullOrEmpty()) return@withContext
         val now = Clock.System.now()
+        val classroomId = "demo-classroom"
+        val topicId = "demo-topic"
+        val demoClassroom = Classroom(
+            id = classroomId,
+            teacherId = teacherId,
+            name = "Period 1 Algebra",
+            grade = "8",
+            subject = "Math",
+            createdAt = now,
+            updatedAt = now
+        )
+        val demoTopic = Topic(
+            id = topicId,
+            classroomId = classroomId,
+            teacherId = teacherId,
+            name = "Fractions",
+            description = "Unit 1",
+            createdAt = now,
+            updatedAt = now
+        )
+        database.withTransaction {
+            classroomDao.upsert(
+                ClassroomEntity(
+                    id = demoClassroom.id,
+                    teacherId = teacherId,
+                    name = demoClassroom.name,
+                    grade = demoClassroom.grade,
+                    subject = demoClassroom.subject,
+                    createdAt = now.toEpochMilliseconds(),
+                    updatedAt = now.toEpochMilliseconds(),
+                    isArchived = false,
+                    archivedAt = null
+                )
+            )
+            topicDao.upsert(
+                TopicEntity(
+                    id = demoTopic.id,
+                    classroomId = demoTopic.classroomId,
+                    teacherId = teacherId,
+                    name = demoTopic.name,
+                    description = demoTopic.description,
+                    createdAt = now.toEpochMilliseconds(),
+                    updatedAt = now.toEpochMilliseconds(),
+                    isArchived = false,
+                    archivedAt = null
+                )
+            )
+        }
+        classroomRemote.upsertClassroom(demoClassroom)
+        topicRemote.upsertTopic(demoTopic)
         val demoQuiz = Quiz(
             id = generateLocalQuizId(),
             teacherId = teacherId,
+            classroomId = classroomId,
+            topicId = topicId,
             title = "Fractions Fundamentals",
             defaultTimePerQ = 30,
             shuffle = true,
@@ -123,12 +213,16 @@ class QuizRepositoryImpl @Inject constructor(
         QuizEntity(
             id = resolvedId,
             teacherId = teacherId,
+            classroomId = classroomId,
+            topicId = topicId,
             title = title,
             defaultTimePerQ = defaultTimePerQ,
             shuffle = shuffle,
             questionCount = questionCount.takeIf { it > 0 } ?: questions.size,
             createdAt = createdAt.toEpochMilliseconds(),
-            updatedAt = timestamp.toEpochMilliseconds()
+            updatedAt = timestamp.toEpochMilliseconds(),
+            isArchived = isArchived,
+            archivedAt = archivedAt?.toEpochMilliseconds()
         )
 
     private fun Question.toEntity(
@@ -153,6 +247,8 @@ class QuizRepositoryImpl @Inject constructor(
     private fun QuizWithQuestions.toDomain(json: Json): Quiz = Quiz(
         id = quiz.id,
         teacherId = quiz.teacherId,
+        classroomId = quiz.classroomId,
+        topicId = quiz.topicId,
         title = quiz.title,
         defaultTimePerQ = quiz.defaultTimePerQ,
         shuffle = quiz.shuffle,
@@ -161,7 +257,9 @@ class QuizRepositoryImpl @Inject constructor(
         questionCount = quiz.questionCount,
         questions = questions
             .sortedBy { it.position }
-            .map { it.toDomain(json, quiz.id) }
+            .map { it.toDomain(json, quiz.id) },
+        isArchived = quiz.isArchived,
+        archivedAt = quiz.archivedAt?.let(Instant::fromEpochMilliseconds)
     )
 
     private fun QuestionEntity.toDomain(json: Json, quizId: String): Question = Question(

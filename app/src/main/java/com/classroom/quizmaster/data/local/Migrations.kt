@@ -127,6 +127,38 @@ object QuizMasterMigrations {
         }
     }
 
+    val MIGRATION_8_9 = object : Migration(8, 9) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL("ALTER TABLE classrooms ADD COLUMN updatedAt INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("UPDATE classrooms SET updatedAt = createdAt WHERE updatedAt = 0")
+            db.execSQL("ALTER TABLE classrooms ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE classrooms ADD COLUMN archivedAt INTEGER")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_classrooms_isArchived ON classrooms(isArchived)")
+
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS topics (id TEXT NOT NULL, classroomId TEXT NOT NULL, teacherId TEXT NOT NULL, name TEXT NOT NULL, description TEXT NOT NULL, createdAt INTEGER NOT NULL, updatedAt INTEGER NOT NULL, isArchived INTEGER NOT NULL, archivedAt INTEGER, PRIMARY KEY(id))"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_topics_classroomId ON topics(classroomId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_topics_teacherId ON topics(teacherId)")
+            db.execSQL("CREATE UNIQUE INDEX IF NOT EXISTS index_topics_classroomId_name ON topics(classroomId, name)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_topics_isArchived ON topics(isArchived)")
+
+            db.execSQL("ALTER TABLE quizzes ADD COLUMN classroomId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE quizzes ADD COLUMN topicId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE quizzes ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE quizzes ADD COLUMN archivedAt INTEGER")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_quizzes_classroomId ON quizzes(classroomId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_quizzes_topicId ON quizzes(topicId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_quizzes_isArchived ON quizzes(isArchived)")
+
+            db.execSQL("ALTER TABLE assignments ADD COLUMN topicId TEXT NOT NULL DEFAULT ''")
+            db.execSQL("ALTER TABLE assignments ADD COLUMN isArchived INTEGER NOT NULL DEFAULT 0")
+            db.execSQL("ALTER TABLE assignments ADD COLUMN archivedAt INTEGER")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_assignments_topicId ON assignments(topicId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_assignments_isArchived ON assignments(isArchived)")
+        }
+    }
+
     val ALL = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -134,6 +166,7 @@ object QuizMasterMigrations {
         MIGRATION_4_5,
         MIGRATION_5_6,
         MIGRATION_6_7,
-        MIGRATION_7_8
+        MIGRATION_7_8,
+        MIGRATION_8_9
     )
 }

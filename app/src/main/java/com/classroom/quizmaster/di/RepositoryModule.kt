@@ -2,9 +2,11 @@ package com.classroom.quizmaster.di
 
 import com.classroom.quizmaster.data.repo.AssignmentRepositoryImpl
 import com.classroom.quizmaster.data.repo.AuthRepositoryImpl
+import com.classroom.quizmaster.data.repo.ClassroomRepositoryImpl
 import com.classroom.quizmaster.data.repo.MediaRepositoryImpl
 import com.classroom.quizmaster.data.repo.QuizRepositoryImpl
 import com.classroom.quizmaster.data.repo.SessionRepositoryImpl
+import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.MediaRepository
@@ -24,6 +26,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindQuizRepository(impl: QuizRepositoryImpl): QuizRepository
+
+    @Binds
+    abstract fun bindClassroomRepository(impl: ClassroomRepositoryImpl): ClassroomRepository
 
     @Binds
     abstract fun bindAssignmentRepository(impl: AssignmentRepositoryImpl): AssignmentRepository
