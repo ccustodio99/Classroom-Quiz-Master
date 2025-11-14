@@ -12,8 +12,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,6 +30,7 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -240,7 +241,7 @@ private fun ClassroomTopicSelector(
                     .menuAnchor()
                     .fillMaxWidth()
             )
-            ExposedDropdownMenu(
+            DropdownMenu(
                 expanded = classroomExpanded,
                 onDismissRequest = { classroomExpanded = false }
             ) {
@@ -307,7 +308,7 @@ private fun ClassroomTopicSelector(
                         .menuAnchor()
                         .fillMaxWidth()
                 )
-                ExposedDropdownMenu(
+                DropdownMenu(
                     expanded = topicExpanded,
                     onDismissRequest = { topicExpanded = false }
                 ) {
