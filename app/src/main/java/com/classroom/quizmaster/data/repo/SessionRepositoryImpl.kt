@@ -43,10 +43,11 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -101,17 +102,22 @@ class SessionRepositoryImpl @Inject constructor(
             .distinctUntilChanged()
 
     override val participants: Flow<List<Participant>> =
-        sessionDao.observeCurrentSession()
-            .flatMapLatest { entity ->
+        flow {
+            sessionDao.observeCurrentSession().collectLatest { entity ->
                 if (entity == null) {
-                    flowOf(emptyList())
+                    emit(emptyList())
                 } else {
-                    sessionDao.observeParticipants(entity.id)
-                        .map { list ->
-                            list.mapIndexed { index, participant -> participant.toDomain(index + 1) }
-                        }
+                    emitAll(
+                        sessionDao.observeParticipants(entity.id)
+                            .map { list ->
+                                list.mapIndexed { index, participant ->
+                                    participant.toDomain(index + 1)
+                                }
+                            }
+                    )
                 }
             }
+        }
             .distinctUntilChanged()
 
     override val pendingOpCount: Flow<Int> = opLogDao.observePendingCount()

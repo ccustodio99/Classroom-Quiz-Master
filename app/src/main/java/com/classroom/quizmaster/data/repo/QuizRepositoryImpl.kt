@@ -24,11 +24,12 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
@@ -55,21 +56,29 @@ class QuizRepositoryImpl @Inject constructor(
     private val topicDao = database.topicDao()
 
     override val quizzes: Flow<List<Quiz>> =
-        authRepository.authState.flatMapLatest { auth ->
-            val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
-            combine(
-                quizDao.observeActiveForTeacher(teacherId),
-                classroomDao.observeForTeacher(teacherId),
-                topicDao.observeForTeacher(teacherId)
-            ) { stored, classrooms, topics ->
-                val classroomIds = classrooms.map { it.id }.toSet()
-                val topicIds = topics.map { it.id }.toSet()
-                stored
-                    .filter { quiz ->
-                        quiz.quiz.classroomId in classroomIds &&
-                            quiz.quiz.topicId in topicIds
-                    }
-                    .map { it.toDomain(json) }
+        flow {
+            authRepository.authState.collectLatest { auth ->
+                val teacherId = auth.userId
+                if (teacherId.isNullOrBlank()) {
+                    emit(emptyList())
+                } else {
+                    emitAll(
+                        combine(
+                            quizDao.observeActiveForTeacher(teacherId),
+                            classroomDao.observeForTeacher(teacherId),
+                            topicDao.observeForTeacher(teacherId)
+                        ) { stored, classrooms, topics ->
+                            val classroomIds = classrooms.map { it.id }.toSet()
+                            val topicIds = topics.map { it.id }.toSet()
+                            stored
+                                .filter { quiz ->
+                                    quiz.quiz.classroomId in classroomIds &&
+                                        quiz.quiz.topicId in topicIds
+                                }
+                                .map { it.toDomain(json) }
+                        }
+                    )
+                }
             }
         }
             .distinctUntilChanged()

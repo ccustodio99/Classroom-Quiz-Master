@@ -15,10 +15,11 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
@@ -39,24 +40,32 @@ class AssignmentRepositoryImpl @Inject constructor(
     private val quizDao = database.quizDao()
 
     override val assignments: Flow<List<Assignment>> =
-        authRepository.authState.flatMapLatest { auth ->
-            val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
-            combine(
-                assignmentDao.observeAssignments(),
-                classroomDao.observeForTeacher(teacherId),
-                topicDao.observeForTeacher(teacherId),
-                quizDao.observeActiveForTeacher(teacherId)
-            ) { assignments, classrooms, topics, quizzes ->
-                val activeClassrooms = classrooms.map { it.id }.toSet()
-                val activeTopics = topics.map { it.id }.toSet()
-                val quizzesById = quizzes.associateBy { it.quiz.id }
-                assignments
-                    .filter { assignment ->
-                        assignment.classroomId in activeClassrooms &&
-                            assignment.topicId in activeTopics &&
-                            quizzesById[assignment.quizId]?.quiz?.topicId == assignment.topicId
-                    }
-                    .map { it.toDomain() }
+        flow {
+            authRepository.authState.collectLatest { auth ->
+                val teacherId = auth.userId
+                if (teacherId.isNullOrBlank()) {
+                    emit(emptyList())
+                } else {
+                    emitAll(
+                        combine(
+                            assignmentDao.observeAssignments(),
+                            classroomDao.observeForTeacher(teacherId),
+                            topicDao.observeForTeacher(teacherId),
+                            quizDao.observeActiveForTeacher(teacherId)
+                        ) { assignments, classrooms, topics, quizzes ->
+                            val activeClassrooms = classrooms.map { it.id }.toSet()
+                            val activeTopics = topics.map { it.id }.toSet()
+                            val quizzesById = quizzes.associateBy { it.quiz.id }
+                            assignments
+                                .filter { assignment ->
+                                    assignment.classroomId in activeClassrooms &&
+                                        assignment.topicId in activeTopics &&
+                                        quizzesById[assignment.quizId]?.quiz?.topicId == assignment.topicId
+                                }
+                                .map { it.toDomain() }
+                        }
+                    )
+                }
             }
         }
             .distinctUntilChanged()

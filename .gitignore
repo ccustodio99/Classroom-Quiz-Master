@@ -13,6 +13,7 @@ local.properties
 .cxx/
 .externalNativeBuild/
 .cordova/
+.kotlin/
 
 # OS
 .DS_Store
