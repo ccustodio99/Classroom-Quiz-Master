@@ -12,6 +12,7 @@ import com.classroom.quizmaster.data.local.dao.OpLogDao
 import com.classroom.quizmaster.data.local.dao.QuizDao
 import com.classroom.quizmaster.data.local.dao.SessionDao
 import com.classroom.quizmaster.data.local.dao.TopicDao
+import com.classroom.quizmaster.data.local.dao.TeacherDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -86,4 +87,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideLanSessionDao(database: QuizMasterDatabase): LanSessionDao = database.lanSessionDao()
+
+    @Provides
+    @Singleton
+    fun provideTeacherDao(database: QuizMasterDatabase): TeacherDao = database.teacherDao()
 }

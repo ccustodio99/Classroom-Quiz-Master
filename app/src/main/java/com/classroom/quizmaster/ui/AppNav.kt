@@ -6,8 +6,11 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.hilt.navigation.compose.hiltViewModel
+import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavController
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -15,6 +18,8 @@ import androidx.navigation.compose.composable
 import androidx.navigation.navArgument
 import com.classroom.quizmaster.ui.auth.AuthRoute
 import com.classroom.quizmaster.ui.neutral.NeutralWelcomeScreen
+import com.classroom.quizmaster.ui.neutral.NeutralWelcomeViewModel
+import com.classroom.quizmaster.ui.neutral.OfflineDemoEvent
 import com.classroom.quizmaster.ui.student.end.StudentEndRoute
 import com.classroom.quizmaster.ui.student.entry.EntryTab
 import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
@@ -110,16 +115,29 @@ fun AppNav(
             modifier = contentModifier
         ) {
             composable(AppRoute.Welcome.route) {
+                val welcomeViewModel: NeutralWelcomeViewModel = hiltViewModel()
+                val loading by welcomeViewModel.loading.collectAsStateWithLifecycle()
+
+                LaunchedEffect(Unit) {
+                    welcomeViewModel.events.collect { event ->
+                        when (event) {
+                            OfflineDemoEvent.Success -> {
+                                appState.showMessage("Offline demo enabled")
+                                navController.navigate(AppRoute.TeacherHome.route) {
+                                    launchSingleTop = true
+                                    popUpTo(AppRoute.Welcome.route) { inclusive = false }
+                                }
+                            }
+                            is OfflineDemoEvent.Error -> appState.showMessage(event.message)
+                        }
+                    }
+                }
+
                 NeutralWelcomeScreen(
                     onTeacherFlow = { navController.navigate(AppRoute.Auth.route) },
                     onStudentFlow = { navController.navigate(AppRoute.StudentEntry.route) },
-                    onOfflineDemo = {
-                        appState.showMessage("Offline demo enabled")
-                        navController.navigate(AppRoute.TeacherHome.route) {
-                            launchSingleTop = true
-                            popUpTo(AppRoute.Welcome.route) { inclusive = false }
-                        }
-                    }
+                    onOfflineDemo = welcomeViewModel::enableOfflineDemo,
+                    isOfflineDemoLoading = loading
                 )
             }
             composable(AppRoute.Auth.route) {

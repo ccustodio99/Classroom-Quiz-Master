@@ -7,6 +7,7 @@ import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
 import com.classroom.quizmaster.domain.model.Quiz
 import com.classroom.quizmaster.domain.model.Topic
+import com.classroom.quizmaster.domain.model.DemoMode
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
@@ -59,6 +60,7 @@ class RealQuizRepositoryUi @Inject constructor(
             val email = auth.teacherProfile?.email ?: auth.email
             val teacherName = resolveTeacherName(displayName, email)
             val greeting = buildGreeting(teacherName)
+            val isOfflineDemo = auth.userId == DemoMode.TEACHER_ID
 
             val activeClassrooms = classrooms.filterNot { it.isArchived }
             val activeTopics = topics.filterNot { it.isArchived }
@@ -78,7 +80,7 @@ class RealQuizRepositoryUi @Inject constructor(
                 actionCards = defaultActionCards,
                 recentQuizzes = recent,
                 emptyMessage = if (recent.isEmpty()) DEFAULT_QUIZ_EMPTY_MESSAGE else "",
-                isOfflineDemo = false,
+                isOfflineDemo = isOfflineDemo,
                 defaultClassroomId = defaultClassroomId,
                 defaultTopicId = defaultTopicId
             )

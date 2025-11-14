@@ -28,7 +28,8 @@ fun NeutralWelcomeScreen(
     onTeacherFlow: () -> Unit,
     onStudentFlow: () -> Unit,
     onOfflineDemo: () -> Unit,
-    modifier: Modifier = Modifier
+    modifier: Modifier = Modifier,
+    isOfflineDemoLoading: Boolean = false
 ) {
     Column(
         modifier = modifier
@@ -106,8 +107,8 @@ fun NeutralWelcomeScreen(
             }
         }
 
-        TextButton(onClick = onOfflineDemo) {
-            Text("Explore offline demo")
+        TextButton(onClick = onOfflineDemo, enabled = !isOfflineDemoLoading) {
+            Text(if (isOfflineDemoLoading) "Preparing demo..." else "Explore offline demo")
         }
     }
 }
