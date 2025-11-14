@@ -3,7 +3,6 @@ package com.classroom.quizmaster.ui.teacher.quiz_editor
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -12,8 +11,8 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
-import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
 import androidx.compose.material3.ExposedDropdownMenuDefaults
 import androidx.compose.material3.ExperimentalMaterial3Api
@@ -30,7 +29,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
@@ -224,11 +222,11 @@ private fun ClassroomTopicSelector(
             return@Column
         }
 
-        var classroomExpanded by remember { mutableStateOf(false) }
+        val classroomExpanded = remember { mutableStateOf(false) }
         val classroomLabel = classroomOptions.firstOrNull { it.id == selectedClassroomId }
         ExposedDropdownMenuBox(
-            expanded = classroomExpanded,
-            onExpandedChange = { classroomExpanded = !classroomExpanded }
+            expanded = classroomExpanded.value,
+            onExpandedChange = { classroomExpanded.value = !classroomExpanded.value }
         ) {
             OutlinedTextField(
                 value = classroomLabel?.label.orEmpty(),
@@ -236,14 +234,16 @@ private fun ClassroomTopicSelector(
                 readOnly = true,
                 label = { Text("Classroom") },
                 placeholder = { Text("Select a classroom") },
-                trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = classroomExpanded) },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = classroomExpanded.value)
+                },
                 modifier = Modifier
                     .menuAnchor()
                     .fillMaxWidth()
             )
-            DropdownMenu(
-                expanded = classroomExpanded,
-                onDismissRequest = { classroomExpanded = false }
+            ExposedDropdownMenu(
+                expanded = classroomExpanded.value,
+                onDismissRequest = { classroomExpanded.value = false }
             ) {
                 classroomOptions.forEach { option ->
                     DropdownMenuItem(
@@ -261,7 +261,7 @@ private fun ClassroomTopicSelector(
                         },
                         onClick = {
                             onClassroomSelected(option.id)
-                            classroomExpanded = false
+                            classroomExpanded.value = false
                         }
                     )
                 }
@@ -291,11 +291,11 @@ private fun ClassroomTopicSelector(
                 )
             }
         } else {
-            var topicExpanded by remember { mutableStateOf(false) }
+            val topicExpanded = remember { mutableStateOf(false) }
             val topicLabel = resolvedTopics.firstOrNull { it.id == selectedTopicId }
             ExposedDropdownMenuBox(
-                expanded = topicExpanded,
-                onExpandedChange = { topicExpanded = !topicExpanded }
+                expanded = topicExpanded.value,
+                onExpandedChange = { topicExpanded.value = !topicExpanded.value }
             ) {
                 OutlinedTextField(
                     value = topicLabel?.label.orEmpty(),
@@ -303,14 +303,16 @@ private fun ClassroomTopicSelector(
                     readOnly = true,
                     label = { Text("Topic") },
                     placeholder = { Text("Select a topic") },
-                    trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = topicExpanded) },
+                    trailingIcon = {
+                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = topicExpanded.value)
+                    },
                     modifier = Modifier
                         .menuAnchor()
                         .fillMaxWidth()
                 )
-                DropdownMenu(
-                    expanded = topicExpanded,
-                    onDismissRequest = { topicExpanded = false }
+                ExposedDropdownMenu(
+                    expanded = topicExpanded.value,
+                    onDismissRequest = { topicExpanded.value = false }
                 ) {
                     resolvedTopics.forEach { option ->
                         DropdownMenuItem(
@@ -328,7 +330,7 @@ private fun ClassroomTopicSelector(
                             },
                             onClick = {
                                 onTopicSelected(option.id)
-                                topicExpanded = false
+                                topicExpanded.value = false
                             }
                         )
                     }
