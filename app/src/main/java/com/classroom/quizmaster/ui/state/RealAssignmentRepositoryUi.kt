@@ -29,7 +29,6 @@ import kotlin.math.roundToInt
 import kotlin.time.Duration.Companion.days
 import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
-import kotlin.time.absoluteValue
 
 @Singleton
 class RealAssignmentRepositoryUi @Inject constructor(
@@ -176,7 +175,7 @@ class RealAssignmentRepositoryUi @Inject constructor(
     private fun formatDue(now: Instant, due: Instant): String {
         val delta = due - now
         return if (delta.isNegative()) {
-            val elapsed = delta.absoluteValue
+            val elapsed = -delta
             when {
                 elapsed < 1.minutes -> "closed just now"
                 elapsed < 1.hours -> "closed ${elapsed.inWholeMinutes} min ago"
