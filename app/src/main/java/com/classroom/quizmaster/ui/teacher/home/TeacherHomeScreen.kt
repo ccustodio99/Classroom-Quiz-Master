@@ -48,6 +48,7 @@ fun TeacherHomeRoute(
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
+    onViewArchived: () -> Unit,
     onClassroomSelected: (String) -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
 ) {
@@ -58,6 +59,8 @@ fun TeacherHomeRoute(
         onCreateQuiz = onCreateQuiz,
         onAssignments = onAssignments,
         onReports = onReports,
+        onViewArchived = onViewArchived,
+        onSeedSampleData = viewModel::seedSampleData,
         onClassroomSelected = onClassroomSelected
     )
 }
@@ -69,6 +72,8 @@ fun TeacherHomeScreen(
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
+    onViewArchived: () -> Unit,
+    onSeedSampleData: () -> Unit,
     onClassroomSelected: (String) -> Unit
 ) {
     val hasClassrooms = state.classrooms.isNotEmpty()
@@ -114,6 +119,7 @@ fun TeacherHomeScreen(
         ClassroomsSection(
             classrooms = state.classrooms,
             onCreateClassroom = onCreateClassroom,
+            onViewArchived = onViewArchived,
             onClassroomSelected = onClassroomSelected
         )
         ActionCards(
@@ -131,6 +137,13 @@ fun TeacherHomeScreen(
             onCreateQuiz = if (hasTopics) createQuizAction else onCreateClassroom,
             emptyMessage = state.emptyMessage
         )
+        if (state.showSampleDataCard) {
+            SampleDataCard(
+                isSeeding = state.isSeedingSamples,
+                message = state.sampleSeedMessage,
+                onSeed = onSeedSampleData
+            )
+        }
         Spacer(modifier = Modifier.height(32.dp))
     }
 }
@@ -139,10 +152,16 @@ fun TeacherHomeScreen(
 private fun ClassroomsSection(
     classrooms: List<ClassroomOverviewUi>,
     onCreateClassroom: () -> Unit,
+    onViewArchived: () -> Unit,
     onClassroomSelected: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
+        SecondaryButton(
+            text = "View archived",
+            onClick = onViewArchived,
+            modifier = Modifier.fillMaxWidth()
+        )
         if (classrooms.isEmpty()) {
             EmptyState(
                 title = "No classrooms yet",
@@ -190,6 +209,45 @@ private fun ClassroomsSection(
                     }
                 }
             }
+        }
+    }
+}
+
+@Composable
+private fun SampleDataCard(
+    isSeeding: Boolean,
+    message: String?,
+    onSeed: () -> Unit
+) {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 2.dp
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(text = "Need sample data?", style = MaterialTheme.typography.titleMedium)
+            Text(
+                text = "Add demo classrooms, topics, quizzes, and assignments for exploration. This runs only in debug builds and never overwrites existing work.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            message?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
+            PrimaryButton(
+                text = if (isSeeding) "Seeding…" else "Add sample data",
+                onClick = onSeed,
+                enabled = !isSeeding
+            )
         }
     }
 }
@@ -478,6 +536,8 @@ private fun TeacherHomePreview() {
             onCreateQuiz = { _: String, _: String -> },
             onAssignments = {},
             onReports = {},
+            onViewArchived = {},
+            onSeedSampleData = {},
             onClassroomSelected = {}
         )
     }

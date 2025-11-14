@@ -85,7 +85,7 @@ data class AssignmentCardUi(
     val title: String,
     val dueIn: String,
     val submissions: Int,
-    val total: Int,
+    val attemptsAllowed: Int,
     val statusLabel: String
 )
 

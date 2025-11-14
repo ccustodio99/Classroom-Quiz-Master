@@ -18,6 +18,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.model.ReportRowUi
@@ -47,8 +48,17 @@ fun ReportsScreen(state: ReportsUiState) {
         item {
             ExportRow(state)
         }
-        items(state.questionRows, key = { it.question }) { row ->
-            QuestionRow(row)
+        if (state.questionRows.isEmpty()) {
+            item {
+                EmptyState(
+                    title = "No report data",
+                    message = "Run a quiz or assignment to generate item analysis."
+                )
+            }
+        } else {
+            items(state.questionRows, key = { it.question }) { row ->
+                QuestionRow(row)
+            }
         }
     }
 }
@@ -72,8 +82,16 @@ private fun SummaryTiles(state: ReportsUiState) {
     }
     Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
         Text(text = "Top topics", style = MaterialTheme.typography.titleMedium)
-        state.topTopics.forEach { topic ->
-            Text("- $topic")
+        if (state.topTopics.isEmpty()) {
+            Text(
+                text = "No topic progress yet",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        } else {
+            state.topTopics.forEach { topic ->
+                Text("- $topic")
+            }
         }
     }
 }
@@ -101,7 +119,8 @@ private fun ExportRow(state: ReportsUiState) {
         PrimaryButton(text = "Export CSV", onClick = {})
         SecondaryButton(text = "Export PDF", onClick = {})
     }
-    Text(text = "Updated ${state.lastUpdated}", style = MaterialTheme.typography.bodySmall)
+    val updatedLabel = state.lastUpdated.takeIf { it.isNotBlank() } ?: "Not updated"
+    Text(text = "Updated $updatedLabel", style = MaterialTheme.typography.bodySmall)
 }
 
 @Composable

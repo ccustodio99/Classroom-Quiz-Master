@@ -15,16 +15,16 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
 import timber.log.Timber
+import com.classroom.quizmaster.util.switchMapLatest
+import com.google.firebase.firestore.FirebaseFirestoreException
 
 @Singleton
 class AssignmentRepositoryImpl @Inject constructor(
@@ -40,34 +40,31 @@ class AssignmentRepositoryImpl @Inject constructor(
     private val quizDao = database.quizDao()
 
     override val assignments: Flow<List<Assignment>> =
-        flow {
-            authRepository.authState.collectLatest { auth ->
+        authRepository.authState
+            .switchMapLatest { auth ->
                 val teacherId = auth.userId
                 if (teacherId.isNullOrBlank()) {
-                    emit(emptyList())
+                    flowOf(emptyList())
                 } else {
-                    emitAll(
-                        combine(
-                            assignmentDao.observeAssignments(),
-                            classroomDao.observeForTeacher(teacherId),
-                            topicDao.observeForTeacher(teacherId),
-                            quizDao.observeActiveForTeacher(teacherId)
-                        ) { assignments, classrooms, topics, quizzes ->
-                            val activeClassrooms = classrooms.map { it.id }.toSet()
-                            val activeTopics = topics.map { it.id }.toSet()
-                            val quizzesById = quizzes.associateBy { it.quiz.id }
-                            assignments
-                                .filter { assignment ->
-                                    assignment.classroomId in activeClassrooms &&
-                                        assignment.topicId in activeTopics &&
-                                        quizzesById[assignment.quizId]?.quiz?.topicId == assignment.topicId
-                                }
-                                .map { it.toDomain() }
-                        }
-                    )
+                    combine(
+                        assignmentDao.observeAssignments(),
+                        classroomDao.observeForTeacher(teacherId),
+                        topicDao.observeForTeacher(teacherId),
+                        quizDao.observeActiveForTeacher(teacherId)
+                    ) { assignments, classrooms, topics, quizzes ->
+                        val activeClassrooms = classrooms.map { it.id }.toSet()
+                        val activeTopics = topics.map { it.id }.toSet()
+                        val quizzesById = quizzes.associateBy { it.quiz.id }
+                        assignments
+                            .filter { assignment ->
+                                assignment.classroomId in activeClassrooms &&
+                                    assignment.topicId in activeTopics &&
+                                    quizzesById[assignment.quizId]?.quiz?.topicId == assignment.topicId
+                            }
+                            .map { it.toDomain() }
+                    }
                 }
             }
-        }
             .distinctUntilChanged()
 
     override fun submissions(assignmentId: String): Flow<List<Submission>> =
@@ -115,16 +112,30 @@ class AssignmentRepositoryImpl @Inject constructor(
         database.withTransaction {
             assignmentDao.upsertAssignments(listOf(assignment.toEntity()))
         }
-        remote.createAssignment(assignment)
-            .onFailure { Timber.e(it, "Failed to create assignment ${assignment.id}") }
-            .getOrThrow()
+        val remoteResult = remote.createAssignment(assignment)
+        remoteResult.onFailure { err ->
+            if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                Timber.w(err, "Skipping remote assignment create ${assignment.id}")
+            } else {
+                Timber.e(err, "Failed to create assignment ${assignment.id}")
+                throw err
+            }
+        }
+        Unit
     }
 
     override suspend fun submitHomework(submission: Submission) = withContext(ioDispatcher) {
         database.withTransaction { assignmentDao.upsertSubmission(submission.toEntity()) }
-        remote.saveSubmission(submission)
-            .onFailure { Timber.w(it, "Failed to mirror submission ${submission.assignmentId}:${submission.uid}") }
-            .getOrThrow()
+        val remoteResult = remote.saveSubmission(submission)
+        remoteResult.onFailure { err ->
+            if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                Timber.w(err, "Skipping remote submission for ${submission.assignmentId}:${submission.uid}")
+            } else {
+                Timber.w(err, "Failed to mirror submission ${submission.assignmentId}:${submission.uid}")
+                throw err
+            }
+        }
+        Unit
     }
 
     private fun Assignment.toEntity(): AssignmentLocalEntity = AssignmentLocalEntity(
@@ -176,4 +187,11 @@ class AssignmentRepositoryImpl @Inject constructor(
         attempts = attempts,
         updatedAt = Instant.fromEpochMilliseconds(updatedAt)
     )
+
+    private fun shouldIgnorePermissionDenied(error: Throwable?): Boolean =
+        error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+
+    private fun isTransient(error: Throwable?): Boolean =
+        error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
+            error?.cause is java.net.UnknownHostException
 }

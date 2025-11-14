@@ -30,8 +30,10 @@ class AppPreferencesDataSource @Inject constructor(
         val PREFERRED_AVATAR = stringPreferencesKey("preferred_avatar")
         val PREFERRED_NICKNAME = stringPreferencesKey("preferred_nickname")
         val FEATURE_FLAGS = stringSetPreferencesKey("feature_flags")
+        val LOCAL_TEACHER_ACCOUNTS = stringSetPreferencesKey("local_teacher_accounts")
         val LAST_SYNC_EPOCH = longPreferencesKey("last_sync_epoch")
         val LAN_AUTO_JOIN = booleanPreferencesKey("lan_auto_join")
+        val SAMPLE_SEEDED_TEACHERS = stringSetPreferencesKey("sample_seeded_teachers")
     }
 
     val highContrastEnabled: Flow<Boolean> =
@@ -55,8 +57,14 @@ class AppPreferencesDataSource @Inject constructor(
     val featureFlags: Flow<Set<String>> =
         context.prefStore.data.map { it[Keys.FEATURE_FLAGS] ?: emptySet() }
 
+    val localTeacherAccounts: Flow<Set<String>> =
+        context.prefStore.data.map { it[Keys.LOCAL_TEACHER_ACCOUNTS] ?: emptySet() }
+
     val lastSuccessfulSyncEpoch: Flow<Long> =
         context.prefStore.data.map { it[Keys.LAST_SYNC_EPOCH] ?: 0L }
+
+    val sampleSeededTeachers: Flow<Set<String>> =
+        context.prefStore.data.map { it[Keys.SAMPLE_SEEDED_TEACHERS] ?: emptySet() }
 
     val lanAutoJoinEnabled: Flow<Boolean> =
         context.prefStore.data.map { it[Keys.LAN_AUTO_JOIN] ?: false }
@@ -95,11 +103,22 @@ class AppPreferencesDataSource @Inject constructor(
         context.prefStore.edit { it[Keys.FEATURE_FLAGS] = flags }
     }
 
+    suspend fun setLocalTeacherAccounts(accounts: Set<String>) {
+        context.prefStore.edit { it[Keys.LOCAL_TEACHER_ACCOUNTS] = accounts }
+    }
+
     suspend fun updateLastSuccessfulSync(epochMillis: Long) {
         context.prefStore.edit { it[Keys.LAST_SYNC_EPOCH] = epochMillis }
     }
 
     suspend fun setLanAutoJoin(enabled: Boolean) {
         context.prefStore.edit { it[Keys.LAN_AUTO_JOIN] = enabled }
+    }
+
+    suspend fun addSampleSeededTeacher(teacherId: String) {
+        context.prefStore.edit {
+            val current = it[Keys.SAMPLE_SEEDED_TEACHERS] ?: emptySet()
+            it[Keys.SAMPLE_SEEDED_TEACHERS] = current + teacherId
+        }
     }
 }

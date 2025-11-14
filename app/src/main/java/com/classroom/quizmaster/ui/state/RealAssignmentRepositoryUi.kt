@@ -13,6 +13,11 @@ import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsUiState
 import com.classroom.quizmaster.ui.teacher.reports.ReportsUiState
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlin.math.roundToInt
+import kotlin.time.Duration
+import kotlin.time.Duration.Companion.days
+import kotlin.time.Duration.Companion.hours
+import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -25,10 +30,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onStart
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
-import kotlin.math.roundToInt
-import kotlin.time.Duration.Companion.days
-import kotlin.time.Duration.Companion.hours
-import kotlin.time.Duration.Companion.minutes
 
 @Singleton
 class RealAssignmentRepositoryUi @Inject constructor(
@@ -76,16 +77,14 @@ class RealAssignmentRepositoryUi @Inject constructor(
             .flowOn(dispatcher)
 
     private fun submissionMapFlow(assignments: List<Assignment>): Flow<Map<String, List<Submission>>> {
-        val flows = assignments.map { assignment ->
+        if (assignments.isEmpty()) return flowOf(emptyMap())
+        val mappedFlows = assignments.map { assignment ->
             assignmentRepository.submissions(assignment.id)
+                .map { submissions -> assignment.id to submissions }
         }
-        return if (flows.isEmpty()) {
-            flowOf(emptyMap())
-        } else {
-            combine(flows) { submissionLists ->
-                submissionLists.mapIndexed { index, submissions ->
-                    assignments[index].id to submissions
-                }.toMap()
+        return mappedFlows.fold(flowOf(emptyMap())) { acc, flow ->
+            combine(acc, flow) { current, (assignmentId, submissions) ->
+                current + (assignmentId to submissions)
             }
         }
     }
@@ -97,30 +96,39 @@ class RealAssignmentRepositoryUi @Inject constructor(
     ): AssignmentsUiState {
         val quizLookup = quizzes.associateBy { it.id }
         val now = Clock.System.now()
-        val pending = mutableListOf<Pair<AssignmentCardUi, Instant>>()
-        val archived = mutableListOf<Pair<AssignmentCardUi, Instant>>()
+        val upcomingOrOpen = mutableListOf<Pair<AssignmentCardUi, Instant>>()
+        val closedOrArchived = mutableListOf<Pair<AssignmentCardUi, Instant>>()
         assignments.forEach { assignment ->
             val quiz = quizLookup[assignment.quizId]
             val title = quiz?.title?.ifBlank { "Untitled quiz" } ?: "Untitled quiz"
             val submissionCount = submissions[assignment.id]?.size ?: 0
             val dueInstant = assignment.closeAt
-            val statusLabel = if (dueInstant > now) "Open" else "Closed"
+            val statusLabel = when {
+                assignment.isArchived -> "Archived"
+                now < assignment.openAt -> "Scheduled"
+                dueInstant > now -> "Open"
+                else -> "Closed"
+            }
             val card = AssignmentCardUi(
                 id = assignment.id,
                 title = title,
-                dueIn = formatDue(now, dueInstant),
+                dueIn = formatDue(now, assignment.openAt, dueInstant),
                 submissions = submissionCount,
-                total = submissionCount,
+                attemptsAllowed = assignment.attemptsAllowed,
                 statusLabel = statusLabel
             )
-            val bucket = if (dueInstant > now) pending else archived
+            val bucket = if (!assignment.isArchived && dueInstant > now) {
+                upcomingOrOpen
+            } else {
+                closedOrArchived
+            }
             bucket += card to dueInstant
         }
         return AssignmentsUiState(
-            pending = pending
+            pending = upcomingOrOpen
                 .sortedBy { it.second }
                 .map { it.first },
-            archived = archived
+            archived = closedOrArchived
                 .sortedByDescending { it.second }
                 .map { it.first }
         )
@@ -134,67 +142,78 @@ class RealAssignmentRepositoryUi @Inject constructor(
     ): ReportsUiState {
         val scores = submissions.values.flatten().map { it.bestScore }
         val average = if (scores.isEmpty()) 0 else scores.average().roundToInt()
-        val median = if (scores.isEmpty()) 0 else scores.sorted()[scores.size / 2]
+        val median = medianScore(scores)
         val topicLookup = topics.associateBy { it.id }
-        val topicAverages = assignments.mapNotNull { assignment ->
-            val topic = topicLookup[assignment.topicId] ?: return@mapNotNull null
-            val topicScores = submissions[assignment.id].orEmpty().map { it.bestScore }
-            if (topicScores.isEmpty()) return@mapNotNull null
-            topic.id to topicScores.average()
-        }
+        val topicAverages = assignments
+            .mapNotNull { assignment ->
+                val topic = topicLookup[assignment.topicId] ?: return@mapNotNull null
+                val topicScores = submissions[assignment.id].orEmpty().map { it.bestScore }
+                if (topicScores.isEmpty()) return@mapNotNull null
+                topic.id to topicScores.average()
+            }
             .groupBy({ it.first }, { it.second })
             .mapValues { (_, values) -> values.average() }
             .toList()
             .sortedByDescending { it.second }
             .mapNotNull { (topicId, _) -> topicLookup[topicId]?.name }
-        val reportRows = assignments.mapNotNull { assignment ->
-            val quiz = quizzes.firstOrNull { it.id == assignment.quizId } ?: return@mapNotNull null
-            val assignmentScores = submissions[assignment.id].orEmpty()
-            val correctRate = if (assignmentScores.isEmpty()) {
-                0f
-            } else {
-                assignmentScores.map { it.bestScore / 100f }.average().toFloat()
+        val reportRows = assignments
+            .sortedByDescending { it.updatedAt }
+            .mapNotNull { assignment ->
+                val quiz = quizzes.firstOrNull { it.id == assignment.quizId } ?: return@mapNotNull null
+                val assignmentScores = submissions[assignment.id].orEmpty()
+                val correctRate = if (assignmentScores.isEmpty()) {
+                    0f
+                } else {
+                    assignmentScores
+                        .map { it.bestScore.coerceIn(0, 100) / 100f }
+                        .average()
+                        .toFloat()
+                }
+                ReportRowUi(
+                    question = quiz.title.ifBlank { "Untitled quiz" },
+                    pValue = correctRate.coerceIn(0f, 1f),
+                    topDistractor = "n/a",
+                    distractorRate = 0f
+                )
             }
-            ReportRowUi(
-                question = quiz.title.ifBlank { "Untitled quiz" },
-                pValue = correctRate.coerceIn(0f, 1f),
-                topDistractor = "—",
-                distractorRate = 0f
-            )
-        }
-        val lastUpdated = assignments.maxOfOrNull { it.updatedAt } ?: Clock.System.now()
+        val lastUpdatedInstant = assignments.maxOfOrNull { it.updatedAt }
         return ReportsUiState(
             average = average,
             median = median,
             topTopics = topicAverages.take(3),
             questionRows = reportRows,
-            lastUpdated = formatRelativeTime(lastUpdated)
+            lastUpdated = lastUpdatedInstant?.let(::formatRelativeTime) ?: "Not updated"
         )
     }
 
-    private fun formatDue(now: Instant, due: Instant): String {
-        val delta = due - now
-        return if (delta.isNegative()) {
-            val elapsed = -delta
-            when {
-                elapsed < 1.minutes -> "closed just now"
-                elapsed < 1.hours -> "closed ${elapsed.inWholeMinutes} min ago"
-                elapsed < 1.days -> "closed ${elapsed.inWholeHours} hr ago"
-                else -> "closed ${elapsed.inWholeDays} d ago"
-            }
+    private fun formatDue(now: Instant, openAt: Instant, closeAt: Instant): String =
+        when {
+            now < openAt -> "Opens in ${formatDuration(openAt - now)}"
+            closeAt > now -> "Due in ${formatDuration(closeAt - now)}"
+            else -> "Closed ${formatDuration(now - closeAt)} ago"
+        }
+
+    private fun formatDuration(duration: Duration): String = when {
+        duration < 1.minutes -> "<1 min"
+        duration < 1.hours -> "${duration.inWholeMinutes} min"
+        duration < 1.days -> "${duration.inWholeHours} hr"
+        else -> "${duration.inWholeDays} d"
+    }
+
+    private fun medianScore(scores: List<Int>): Int {
+        if (scores.isEmpty()) return 0
+        val sorted = scores.sorted()
+        val mid = sorted.size / 2
+        return if (sorted.size % 2 == 0) {
+            ((sorted[mid - 1] + sorted[mid]) / 2.0).roundToInt()
         } else {
-            when {
-                delta < 1.minutes -> "due in <1 min"
-                delta < 1.hours -> "due in ${delta.inWholeMinutes} min"
-                delta < 1.days -> "due in ${delta.inWholeHours} hr"
-                else -> "due in ${delta.inWholeDays} d"
-            }
+            sorted[mid]
         }
     }
 
     private fun formatRelativeTime(instant: Instant): String {
         val now = Clock.System.now()
-        val delta = now - instant
+        val delta = (now - instant).coerceAtLeast(Duration.ZERO)
         return when {
             delta < 1.minutes -> "just now"
             delta < 1.hours -> "${delta.inWholeMinutes} min ago"
@@ -203,5 +222,5 @@ class RealAssignmentRepositoryUi @Inject constructor(
         }
     }
 
-    private fun defaultReportsState() = ReportsUiState()
+    private fun defaultReportsState() = ReportsUiState(lastUpdated = "Not updated")
 }

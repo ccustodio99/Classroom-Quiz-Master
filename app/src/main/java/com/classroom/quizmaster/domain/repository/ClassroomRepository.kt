@@ -9,6 +9,8 @@ import kotlinx.datetime.Instant
 interface ClassroomRepository {
     val classrooms: Flow<List<Classroom>>
     val topics: Flow<List<Topic>>
+    val archivedClassrooms: Flow<List<Classroom>>
+    val archivedTopics: Flow<List<Topic>>
 
     suspend fun refresh()
     suspend fun upsertClassroom(classroom: Classroom): String

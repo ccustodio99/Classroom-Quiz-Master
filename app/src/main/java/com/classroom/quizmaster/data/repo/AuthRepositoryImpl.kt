@@ -3,6 +3,7 @@ package com.classroom.quizmaster.data.repo
 import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.data.local.dao.TeacherDao
 import com.classroom.quizmaster.data.local.entity.TeacherEntity
+import com.classroom.quizmaster.data.auth.LocalAuthManager
 import com.classroom.quizmaster.data.remote.FirebaseAuthDataSource
 import com.classroom.quizmaster.data.remote.FirebaseClassroomDataSource
 import com.classroom.quizmaster.domain.model.AuthState
@@ -15,10 +16,10 @@ import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.datetime.Clock
+import com.classroom.quizmaster.util.switchMapLatest
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -35,13 +36,14 @@ class AuthRepositoryImpl @Inject constructor(
     ) { state, flags, lastTeacherId ->
         Triple(state, flags, lastTeacherId)
     }
-        .flatMapLatest { (state, flags, lastTeacherId) ->
+        .switchMapLatest { (state, flags, lastTeacherId) ->
             when {
                 state.isAuthenticated && state.role == UserRole.TEACHER -> flow {
                     val resolved = classroomDataSource.fetchTeacherProfile().getOrNull()
                     emit(resolved?.let { state.copy(teacherProfile = it) } ?: state)
                 }
-                flags.contains(DemoMode.OFFLINE_FLAG) && !lastTeacherId.isNullOrBlank() -> flow {
+                (flags.contains(DemoMode.OFFLINE_FLAG) || flags.contains(LocalAuthManager.LOCAL_TEACHER_FLAG)) &&
+                    !lastTeacherId.isNullOrBlank() -> flow {
                     val teacher = teacherDao.get(lastTeacherId)?.toDomain()
                         ?: Teacher(
                             id = lastTeacherId,

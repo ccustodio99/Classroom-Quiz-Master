@@ -3,6 +3,8 @@ package com.classroom.quizmaster.ui.auth
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.data.demo.OfflineDemoManager
+import com.classroom.quizmaster.data.auth.LocalAuthManager
+import com.classroom.quizmaster.domain.repository.AuthRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -10,6 +12,7 @@ import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 
 data class LoginFormState(
@@ -55,7 +58,9 @@ sealed interface AuthEffect {
 
 @HiltViewModel
 class AuthViewModel @Inject constructor(
-    private val offlineDemoManager: OfflineDemoManager
+    private val offlineDemoManager: OfflineDemoManager,
+    private val localAuthManager: LocalAuthManager,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
@@ -122,8 +127,24 @@ class AuthViewModel @Inject constructor(
             emitError("Enter a valid email and 6+ char password.")
             return@launchWithProgress
         }
-        delay(500)
-        _effects.emit(AuthEffect.TeacherAuthenticated)
+        val email = login.email.trim()
+        val password = login.password
+        runCatching { authRepository.signInWithEmail(email, password) }
+            .onSuccess {
+                cacheCredentialsFromFirebase(email, password)
+                _effects.emit(AuthEffect.TeacherAuthenticated)
+            }
+            .onFailure { error ->
+                val fallback = localAuthManager.tryOfflineLogin(email, password)
+                if (fallback) {
+                    _uiState.value = _uiState.value.copy(
+                        bannerMessage = "Working offline. Changes will sync after you reconnect."
+                    )
+                    _effects.emit(AuthEffect.TeacherAuthenticated)
+                } else {
+                    emitError(error.message ?: "Unable to sign in.")
+                }
+            }
     }
 
     fun signUpTeacher() = launchWithProgress {
@@ -197,13 +218,32 @@ class AuthViewModel @Inject constructor(
             profile.role == SignupRole.Student && profile.nickname.isBlank() -> emitError("Add a nickname so your teacher recognizes you.")
             else -> {
                 delay(600)
-                _uiState.value = _uiState.value.copy(
-                    signup = SignupFormState(),
-                    profile = ProfileFormState(),
-                    signupStep = SignupStep.Credentials
-                )
-                _effects.emit(AuthEffect.TeacherAuthenticated)
+                val signup = _uiState.value.signup
+                val displayName = profile.fullName.ifBlank { profile.school.ifBlank { signup.email.substringBefore('@') } }
+                val email = signup.email.trim()
+                val password = signup.password
+                runCatching {
+                    authRepository.signUpWithEmail(email, password, displayName)
+                }.onSuccess {
+                    localAuthManager.cacheCredentials(email, password, displayName)
+                    _uiState.value = _uiState.value.copy(
+                        signup = SignupFormState(),
+                        profile = ProfileFormState(),
+                        signupStep = SignupStep.Credentials
+                    )
+                    _effects.emit(AuthEffect.TeacherAuthenticated)
+                }.onFailure { error ->
+                    emitError(error.message ?: "Unable to create account.")
+                }
             }
         }
+    }
+
+    private suspend fun cacheCredentialsFromFirebase(email: String, password: String) {
+        val authState = authRepository.authState.first { it.isAuthenticated && !it.userId.isNullOrBlank() }
+        val displayName = authState.teacherProfile?.displayName
+            ?: authState.displayName
+            ?: email.substringBefore('@')
+        localAuthManager.cacheCredentials(email, password, displayName)
     }
 }

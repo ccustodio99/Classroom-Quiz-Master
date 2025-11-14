@@ -26,6 +26,7 @@ fun TeacherClassroomDetailRoute(
     onBack: () -> Unit,
     onTopicSelected: (String) -> Unit,
     onLaunchLive: (String) -> Unit,
+    onCreateTopic: () -> Unit,
     viewModel: TeacherClassroomDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -33,7 +34,8 @@ fun TeacherClassroomDetailRoute(
         state = state,
         onBack = onBack,
         onLaunchLive = { onLaunchLive(viewModel.classroomId) },
-        onTopicSelected = onTopicSelected
+        onTopicSelected = onTopicSelected,
+        onCreateTopic = onCreateTopic
     )
 }
 
@@ -42,7 +44,8 @@ fun TeacherClassroomDetailScreen(
     state: ClassroomDetailUiState,
     onBack: () -> Unit,
     onLaunchLive: () -> Unit,
-    onTopicSelected: (String) -> Unit
+    onTopicSelected: (String) -> Unit,
+    onCreateTopic: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -68,6 +71,10 @@ fun TeacherClassroomDetailScreen(
             text = "Launch live",
             onClick = onLaunchLive,
             enabled = state.topics.isNotEmpty()
+        )
+        SecondaryButton(
+            text = "Add topic",
+            onClick = onCreateTopic
         )
         if (state.topics.isEmpty()) {
             EmptyState(

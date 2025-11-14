@@ -34,15 +34,37 @@ fun AssignmentsScreen(state: AssignmentsUiState) {
         modifier = Modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
     ) {
+        item {
+            Text(text = "Active assignments", style = MaterialTheme.typography.titleLarge)
+        }
         if (state.pending.isEmpty()) {
             item {
                 EmptyState(
-                    title = "No assignments",
-                    message = "Create one from Teacher Home."
+                    title = "No active assignments",
+                    message = "Create one from Teacher Home to share work with students."
                 )
             }
         } else {
             items(state.pending, key = { it.id }) { assignment ->
+                AssignmentCard(assignment)
+            }
+        }
+        item {
+            Text(
+                text = "Closed & archived",
+                style = MaterialTheme.typography.titleMedium,
+                modifier = Modifier.padding(top = 8.dp)
+            )
+        }
+        if (state.archived.isEmpty()) {
+            item {
+                EmptyState(
+                    title = "No closed assignments",
+                    message = "Assignments move here automatically after the due date or when archived."
+                )
+            }
+        } else {
+            items(state.archived, key = { it.id }) { assignment ->
                 AssignmentCard(assignment)
             }
         }
@@ -61,8 +83,21 @@ private fun AssignmentCard(assignment: AssignmentCardUi) {
             verticalArrangement = Arrangement.spacedBy(4.dp)
         ) {
             Text(assignment.title, style = MaterialTheme.typography.titleMedium)
-            Text("${assignment.submissions}/${assignment.total} submitted")
-            Text("Due ${assignment.dueIn} - ${assignment.statusLabel}")
+            Text(assignment.dueIn, style = MaterialTheme.typography.bodyMedium)
+            val attemptsLabel = assignment.attemptsAllowed.takeIf { it > 0 }?.let {
+                "up to $it attempts"
+            }
+            Text(
+                text = buildString {
+                    append("${assignment.submissions} submissions")
+                    if (attemptsLabel != null) {
+                        append(" | $attemptsLabel")
+                    }
+                    append(" | ${assignment.statusLabel}")
+                },
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
         }
     }
 }

@@ -82,6 +82,14 @@ fun LaunchLobbyScreen(
             supportingText = "${state.discoveredPeers} peers nearby",
             statusChips = state.statusChips
         )
+        state.snackbarMessage
+            ?.takeIf { it.isNotBlank() }
+            ?.let { message ->
+                TagChip(
+                    text = message,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         JoinCodeCard(
             code = state.joinCode,
             expiresIn = state.qrSubtitle,

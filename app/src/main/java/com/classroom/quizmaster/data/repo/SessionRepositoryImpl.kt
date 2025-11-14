@@ -31,6 +31,7 @@ import com.classroom.quizmaster.sync.SyncScheduler
 import com.classroom.quizmaster.util.JoinCodeGenerator
 import com.classroom.quizmaster.util.NicknamePolicy
 import com.classroom.quizmaster.util.ScoreCalculator
+import com.classroom.quizmaster.util.switchMapLatest
 import com.google.firebase.auth.FirebaseAuth
 import dagger.hilt.android.qualifiers.ApplicationContext
 import javax.inject.Inject
@@ -43,11 +44,9 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.SharingStarted
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emitAll
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -102,22 +101,19 @@ class SessionRepositoryImpl @Inject constructor(
             .distinctUntilChanged()
 
     override val participants: Flow<List<Participant>> =
-        flow {
-            sessionDao.observeCurrentSession().collectLatest { entity ->
+        sessionDao.observeCurrentSession()
+            .switchMapLatest { entity ->
                 if (entity == null) {
-                    emit(emptyList())
+                    flowOf(emptyList())
                 } else {
-                    emitAll(
-                        sessionDao.observeParticipants(entity.id)
-                            .map { list ->
-                                list.mapIndexed { index, participant ->
-                                    participant.toDomain(index + 1)
-                                }
+                    sessionDao.observeParticipants(entity.id)
+                        .map { list ->
+                            list.mapIndexed { index, participant ->
+                                participant.toDomain(index + 1)
                             }
-                    )
+                        }
                 }
             }
-        }
             .distinctUntilChanged()
 
     override val pendingOpCount: Flow<Int> = opLogDao.observePendingCount()

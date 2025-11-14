@@ -8,6 +8,7 @@ import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
 import com.classroom.quizmaster.domain.model.SessionStatus
 import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.domain.usecase.StartSessionUseCase
@@ -53,6 +54,7 @@ import com.classroom.quizmaster.util.NicknamePolicy
 class RealSessionRepositoryUi @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val quizRepository: QuizRepository,
+    private val classroomRepository: ClassroomRepository,
     private val authRepository: AuthRepository,
     private val submitAnswerUseCase: SubmitAnswerUseCase,
     private val startSessionUseCase: StartSessionUseCase,
@@ -74,6 +76,7 @@ class RealSessionRepositoryUi @Inject constructor(
         )
     )
     private val submissionStatus = MutableStateFlow(SubmissionStatus.Idle to "")
+    private val hostStatusMessage = MutableStateFlow<String?>(null)
 
     private val sessionState = sessionRepository.session
         .stateIn(scope, SharingStarted.Eagerly, null)
@@ -89,8 +92,8 @@ class RealSessionRepositoryUi @Inject constructor(
     private var discoveryJob: Job? = null
 
     override val launchLobby: Flow<LaunchLobbyUiState> =
-        combine(sessionState, participantsState, pendingOps) { session, participants, pending ->
-            if (session == null) {
+        combine(sessionState, participantsState, pendingOps, hostStatusMessage) { session, participants, pending, message ->
+            val base = if (session == null) {
                 LaunchLobbyUiState()
             } else {
                 LaunchLobbyUiState(
@@ -100,10 +103,10 @@ class RealSessionRepositoryUi @Inject constructor(
                     players = participants.map { it.toPlayerLobby(session.teacherId) },
                     hideLeaderboard = session.hideLeaderboard,
                     lockAfterFirst = session.lockAfterQ1,
-                    statusChips = buildStatusChips(pending),
-                    snackbarMessage = null
+                    statusChips = buildStatusChips(pending)
                 )
             }
+            if (message.isNullOrBlank()) base else base.copy(snackbarMessage = message)
         }
             .distinctUntilChanged()
 
@@ -242,7 +245,58 @@ class RealSessionRepositoryUi @Inject constructor(
             .distinctUntilChanged()
 
     override suspend fun configureHostContext(classroomId: String, topicId: String?, quizId: String?) {
-        hostContext.value = HostContext(classroomId = classroomId, topicId = topicId, quizId = quizId)
+        if (classroomId.isBlank()) {
+            failHostContext("Select a classroom to host")
+            return
+        }
+        val teacherId = authState.value.userId
+        if (teacherId.isNullOrBlank()) {
+            failHostContext("Sign in as a teacher to host a quiz")
+            return
+        }
+        val classroom = classroomRepository.getClassroom(classroomId)
+        if (classroom == null) {
+            failHostContext("Classroom not available")
+            return
+        }
+
+        var resolvedTopicId: String? = null
+        val normalizedTopicId = topicId?.takeIf { it.isNotBlank() }
+        if (normalizedTopicId != null) {
+            val topic = classroomRepository.getTopic(normalizedTopicId)
+            if (topic == null || topic.classroomId != classroom.id) {
+                failHostContext("Topic not found in this classroom")
+                return
+            }
+            resolvedTopicId = topic.id
+        }
+
+        var resolvedQuizId: String? = null
+        val normalizedQuizId = quizId?.takeIf { it.isNotBlank() }
+        if (normalizedQuizId != null) {
+            val quiz = quizRepository.getQuiz(normalizedQuizId)
+            if (quiz == null) {
+                failHostContext("Quiz is unavailable")
+                return
+            }
+            if (quiz.classroomId != classroom.id) {
+                failHostContext("Quiz does not belong to this classroom")
+                return
+            }
+            if (resolvedTopicId != null && quiz.topicId != resolvedTopicId) {
+                failHostContext("Quiz does not belong to this topic")
+                return
+            }
+            resolvedTopicId = resolvedTopicId ?: quiz.topicId
+            resolvedQuizId = quiz.id
+        }
+
+        hostContext.value = HostContext(
+            classroomId = classroom.id,
+            topicId = resolvedTopicId,
+            quizId = resolvedQuizId
+        )
+        hostStatusMessage.value = null
         muteSfx.value = false
     }
 
@@ -273,6 +327,7 @@ class RealSessionRepositoryUi @Inject constructor(
     override suspend fun endSession() {
         sessionRepository.endSession()
         hostContext.value = null
+        hostStatusMessage.value = null
         muteSfx.value = false
         studentReady.value = false
         selectedHost.value = null
@@ -536,6 +591,11 @@ class RealSessionRepositoryUi @Inject constructor(
             listOf(Color(0xFF6EE7B7), Color(0xFF3B82F6))
         }
         return AvatarOption(name.ifBlank { label.lowercase() }, label, colors, palette[index].iconName)
+    }
+
+    private fun failHostContext(message: String) {
+        hostContext.value = null
+        hostStatusMessage.value = message
     }
 
     private data class HostContext(

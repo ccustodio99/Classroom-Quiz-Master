@@ -2,7 +2,7 @@
   "formatVersion": 1,
   "database": {
     "version": 9,
-    "identityHash": "74383293be9df30f036ff70e84f41fc4",
+    "identityHash": "ede9bf2838c04b5e0a626be9dbd917d7",
     "entities": [
       {
         "tableName": "teachers",
@@ -904,7 +904,7 @@
       },
       {
         "tableName": "assignments",
-        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `quizId` TEXT NOT NULL, `classroomId` TEXT NOT NULL, `topicId` TEXT NOT NULL, `openAt` INTEGER NOT NULL, `closeAt` INTEGER NOT NULL, `attemptsAllowed` INTEGER NOT NULL, `scoringMode` TEXT NOT NULL, `revealAfterSubmit` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL, `archivedAt` INTEGER, PRIMARY KEY(`id`))",
+        "createSql": "CREATE TABLE IF NOT EXISTS `${TABLE_NAME}` (`id` TEXT NOT NULL, `quizId` TEXT NOT NULL, `classroomId` TEXT NOT NULL, `topicId` TEXT NOT NULL DEFAULT '', `openAt` INTEGER NOT NULL, `closeAt` INTEGER NOT NULL, `attemptsAllowed` INTEGER NOT NULL, `scoringMode` TEXT NOT NULL DEFAULT 'BEST', `revealAfterSubmit` INTEGER NOT NULL, `createdAt` INTEGER NOT NULL, `updatedAt` INTEGER NOT NULL, `isArchived` INTEGER NOT NULL DEFAULT 0, `archivedAt` INTEGER, PRIMARY KEY(`id`))",
         "fields": [
           {
             "fieldPath": "id",
@@ -928,7 +928,8 @@
             "fieldPath": "topicId",
             "columnName": "topicId",
             "affinity": "TEXT",
-            "notNull": true
+            "notNull": true,
+            "defaultValue": "''"
           },
           {
             "fieldPath": "openAt",
@@ -952,7 +953,8 @@
             "fieldPath": "scoringMode",
             "columnName": "scoringMode",
             "affinity": "TEXT",
-            "notNull": true
+            "notNull": true,
+            "defaultValue": "'BEST'"
           },
           {
             "fieldPath": "revealAfterSubmit",
@@ -976,7 +978,8 @@
             "fieldPath": "isArchived",
             "columnName": "isArchived",
             "affinity": "INTEGER",
-            "notNull": true
+            "notNull": true,
+            "defaultValue": "0"
           },
           {
             "fieldPath": "archivedAt",
@@ -1018,6 +1021,24 @@
             ],
             "orders": [],
             "createSql": "CREATE INDEX IF NOT EXISTS `index_assignments_openAt` ON `${TABLE_NAME}` (`openAt`)"
+          },
+          {
+            "name": "index_assignments_topicId",
+            "unique": false,
+            "columnNames": [
+              "topicId"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_assignments_topicId` ON `${TABLE_NAME}` (`topicId`)"
+          },
+          {
+            "name": "index_assignments_isArchived",
+            "unique": false,
+            "columnNames": [
+              "isArchived"
+            ],
+            "orders": [],
+            "createSql": "CREATE INDEX IF NOT EXISTS `index_assignments_isArchived` ON `${TABLE_NAME}` (`isArchived`)"
           }
         ],
         "foreignKeys": []
@@ -1148,7 +1169,7 @@
     "views": [],
     "setupQueries": [
       "CREATE TABLE IF NOT EXISTS room_master_table (id INTEGER PRIMARY KEY,identity_hash TEXT)",
-      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, '74383293be9df30f036ff70e84f41fc4')"
+      "INSERT OR REPLACE INTO room_master_table (id,identity_hash) VALUES(42, 'ede9bf2838c04b5e0a626be9dbd917d7')"
     ]
   }
 }

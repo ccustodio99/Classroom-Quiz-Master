@@ -24,12 +24,10 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.firstOrNull
-import kotlinx.coroutines.flow.flow
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
@@ -39,6 +37,8 @@ import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.util.UUID
+import com.classroom.quizmaster.util.switchMapLatest
+import com.google.firebase.firestore.FirebaseFirestoreException
 
 @Singleton
 class QuizRepositoryImpl @Inject constructor(
@@ -56,31 +56,28 @@ class QuizRepositoryImpl @Inject constructor(
     private val topicDao = database.topicDao()
 
     override val quizzes: Flow<List<Quiz>> =
-        flow {
-            authRepository.authState.collectLatest { auth ->
+        authRepository.authState
+            .switchMapLatest { auth ->
                 val teacherId = auth.userId
                 if (teacherId.isNullOrBlank()) {
-                    emit(emptyList())
+                    flowOf(emptyList())
                 } else {
-                    emitAll(
-                        combine(
-                            quizDao.observeActiveForTeacher(teacherId),
-                            classroomDao.observeForTeacher(teacherId),
-                            topicDao.observeForTeacher(teacherId)
-                        ) { stored, classrooms, topics ->
-                            val classroomIds = classrooms.map { it.id }.toSet()
-                            val topicIds = topics.map { it.id }.toSet()
-                            stored
-                                .filter { quiz ->
-                                    quiz.quiz.classroomId in classroomIds &&
-                                        quiz.quiz.topicId in topicIds
-                                }
-                                .map { it.toDomain(json) }
-                        }
-                    )
+                    combine(
+                        quizDao.observeActiveForTeacher(teacherId),
+                        classroomDao.observeForTeacher(teacherId),
+                        topicDao.observeForTeacher(teacherId)
+                    ) { stored, classrooms, topics ->
+                        val classroomIds = classrooms.map { it.id }.toSet()
+                        val topicIds = topics.map { it.id }.toSet()
+                        stored
+                            .filter { quiz ->
+                                quiz.quiz.classroomId in classroomIds &&
+                                    quiz.quiz.topicId in topicIds
+                            }
+                            .map { it.toDomain(json) }
+                    }
                 }
             }
-        }
             .distinctUntilChanged()
 
     override suspend fun refresh() = withContext(ioDispatcher) {
@@ -133,9 +130,16 @@ class QuizRepositoryImpl @Inject constructor(
                 }
             )
         }
-        remote.upsertQuiz(normalized)
-            .onFailure { Timber.e(it, "Failed to upsert quiz ${normalized.id}") }
-            .getOrThrow()
+        val remoteResult = remote.upsertQuiz(normalized)
+        remoteResult.onFailure { err ->
+                if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                    Timber.w(err, "Skipping remote quiz upsert due to permissions")
+                } else {
+                    Timber.e(err, "Failed to upsert quiz ${normalized.id}")
+                throw err
+            }
+        }
+        Unit
     }
 
     override suspend fun delete(id: String) = withContext(ioDispatcher) {
@@ -154,9 +158,16 @@ class QuizRepositoryImpl @Inject constructor(
                 existing.questions
             )
         }
-        remote.archiveQuiz(id, now)
-            .onFailure { Timber.e(it, "Failed to archive quiz $id remotely") }
-            .getOrThrow()
+        val remoteResult = remote.archiveQuiz(id, now)
+        remoteResult.onFailure { err ->
+                if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                    Timber.w(err, "Skipping remote quiz archive for $id")
+                } else {
+                    Timber.e(err, "Failed to archive quiz $id remotely")
+                throw err
+            }
+        }
+        Unit
     }
 
     override suspend fun getQuiz(id: String): Quiz? = withContext(ioDispatcher) {
@@ -326,4 +337,10 @@ class QuizRepositoryImpl @Inject constructor(
     )
 
     private fun generateLocalQuizId(): String = "local-${UUID.randomUUID()}"
+    private fun shouldIgnorePermissionDenied(error: Throwable?): Boolean =
+        error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED
+
+    private fun isTransient(error: Throwable?): Boolean =
+        error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
+            error?.cause is java.net.UnknownHostException
 }

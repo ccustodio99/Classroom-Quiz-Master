@@ -195,21 +195,26 @@ data class OpLogEntity(
     indices = [
         Index(value = ["classroomId"]),
         Index(value = ["quizId"]),
-        Index(value = ["openAt"])
+        Index(value = ["openAt"]),
+        Index(value = ["topicId"]),
+        Index(value = ["isArchived"])
     ]
 )
 data class AssignmentLocalEntity(
     @PrimaryKey val id: String,
     val quizId: String,
     val classroomId: String,
+    @ColumnInfo(defaultValue = "''")
     val topicId: String,
     val openAt: Long,
     val closeAt: Long,
     val attemptsAllowed: Int,
+    @ColumnInfo(defaultValue = "'BEST'")
     val scoringMode: String,
     val revealAfterSubmit: Boolean,
     val createdAt: Long,
     val updatedAt: Long,
+    @ColumnInfo(defaultValue = "0")
     val isArchived: Boolean,
     val archivedAt: Long?
 )

@@ -27,6 +27,7 @@ import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
+import com.classroom.quizmaster.ui.teacher.classrooms.archived.ArchivedClassroomsRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.CreateClassroomRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.detail.TeacherClassroomDetailRoute
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeRoute
@@ -35,6 +36,7 @@ import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyRoute
 import com.classroom.quizmaster.ui.teacher.quiz_editor.QuizEditorRoute
 import com.classroom.quizmaster.ui.teacher.reports.ReportsRoute
 import com.classroom.quizmaster.ui.teacher.topics.detail.TeacherTopicDetailRoute
+import com.classroom.quizmaster.ui.teacher.topics.create.CreateTopicRoute
 
 sealed class AppRoute(val route: String) {
     data object Welcome : AppRoute("neutral/welcome")
@@ -46,6 +48,9 @@ sealed class AppRoute(val route: String) {
     }
     data object TeacherTopicDetail : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}") {
         fun build(classroomId: String, topicId: String) = "teacher/classrooms/$classroomId/topics/$topicId"
+    }
+    data object TeacherTopicCreate : AppRoute("teacher/classrooms/{classroomId}/topics/create") {
+        fun build(classroomId: String) = "teacher/classrooms/$classroomId/topics/create"
     }
     data object TeacherQuizCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/quizzes/create") {
         fun build(classroomId: String, topicId: String) = "teacher/classrooms/$classroomId/topics/$topicId/quizzes/create"
@@ -67,6 +72,7 @@ sealed class AppRoute(val route: String) {
     data object TeacherHost : AppRoute("teacher/host")
     data object TeacherReports : AppRoute("teacher/reports")
     data object TeacherAssignments : AppRoute("teacher/assignments")
+    data object TeacherArchived : AppRoute("teacher/classrooms/archived")
 
     data object StudentEntry : AppRoute("student/entry")
     data object StudentJoinLan : AppRoute("student/joinLan")
@@ -165,6 +171,7 @@ fun AppNav(
                     },
                     onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
                     onReports = { navController.navigate(AppRoute.TeacherReports.route) },
+                    onViewArchived = { navController.navigate(AppRoute.TeacherArchived.route) },
                     onClassroomSelected = { classroomId ->
                         navController.navigate(AppRoute.TeacherClassroomDetail.build(classroomId))
                     }
@@ -185,9 +192,12 @@ fun AppNav(
                 } else {
                     TeacherClassroomDetailRoute(
                         onBack = { navController.popBackStack() },
-                        onTopicSelected = { topicId ->
-                            navController.navigate(AppRoute.TeacherTopicDetail.build(classroomId, topicId))
-                        },
+                    onTopicSelected = { topicId ->
+                        navController.navigate(AppRoute.TeacherTopicDetail.build(classroomId, topicId))
+                    },
+                    onCreateTopic = {
+                        navController.navigate(AppRoute.TeacherTopicCreate.build(classroomId))
+                    },
                         onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.build(classroomId)) }
                     )
                 }
@@ -218,6 +228,12 @@ fun AppNav(
                         onViewAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) }
                     )
                 }
+            }
+            composable(
+                route = AppRoute.TeacherTopicCreate.route,
+                arguments = listOf(navArgument("classroomId") { type = NavType.StringType })
+            ) {
+                CreateTopicRoute(onDone = { navController.popBackStack() })
             }
             composable(
                 route = AppRoute.TeacherQuizCreate.route,
@@ -271,6 +287,9 @@ fun AppNav(
             }
             composable(AppRoute.TeacherAssignments.route) {
                 AssignmentsRoute()
+            }
+            composable(AppRoute.TeacherArchived.route) {
+                ArchivedClassroomsRoute(onBack = { navController.popBackStack() })
             }
             composable(AppRoute.StudentEntry.route) {
                 StudentEntryRoute(

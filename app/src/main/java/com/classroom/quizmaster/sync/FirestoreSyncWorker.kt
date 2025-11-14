@@ -1,24 +1,30 @@
 package com.classroom.quizmaster.sync
 
 import android.content.Context
-import androidx.hilt.work.HiltWorker
 import androidx.work.CoroutineWorker
 import androidx.work.WorkerParameters
 import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.domain.usecase.SyncPendingOpsUseCase
-import dagger.assisted.Assisted
-import dagger.assisted.AssistedInject
+import dagger.hilt.EntryPoint
+import dagger.hilt.InstallIn
+import dagger.hilt.android.EntryPointAccessors
+import dagger.hilt.components.SingletonComponent
 import kotlinx.coroutines.CancellationException
 import kotlinx.datetime.Clock
 import timber.log.Timber
 
-@HiltWorker
-class FirestoreSyncWorker @AssistedInject constructor(
-    @Assisted appContext: Context,
-    @Assisted workerParameters: WorkerParameters,
-    private val syncPendingOpsUseCase: SyncPendingOpsUseCase,
-    private val preferences: AppPreferencesDataSource
+class FirestoreSyncWorker(
+    appContext: Context,
+    workerParameters: WorkerParameters
 ) : CoroutineWorker(appContext, workerParameters) {
+
+    private val entryPoint = EntryPointAccessors.fromApplication(
+        appContext.applicationContext,
+        FirestoreSyncWorkerEntryPoint::class.java
+    )
+
+    private val syncPendingOpsUseCase: SyncPendingOpsUseCase = entryPoint.syncPendingOpsUseCase()
+    private val preferences: AppPreferencesDataSource = entryPoint.preferences()
 
     private val reason: String =
         workerParameters.inputData.getString(KEY_REASON) ?: REASON_UNKNOWN
@@ -73,5 +79,12 @@ class FirestoreSyncWorker @AssistedInject constructor(
         const val REASON_STARTUP = "startup"
         private const val REASON_UNKNOWN = "unknown"
         private const val MAX_RETRY_ATTEMPTS = 5
+    }
+
+    @EntryPoint
+    @InstallIn(SingletonComponent::class)
+    interface FirestoreSyncWorkerEntryPoint {
+        fun syncPendingOpsUseCase(): SyncPendingOpsUseCase
+        fun preferences(): AppPreferencesDataSource
     }
 }

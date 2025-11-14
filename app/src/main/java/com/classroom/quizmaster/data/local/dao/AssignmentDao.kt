@@ -11,11 +11,7 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface AssignmentDao {
 
-    @Query(
-        "SELECT * FROM assignments " +
-            "WHERE isArchived = 0 " +
-            "ORDER BY openAt DESC"
-    )
+    @Query("SELECT * FROM assignments ORDER BY openAt DESC")
     fun observeAssignments(): Flow<List<AssignmentLocalEntity>>
 
     @Query("SELECT * FROM assignments WHERE id = :id LIMIT 1")
