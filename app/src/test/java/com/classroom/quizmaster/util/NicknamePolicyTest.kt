@@ -1,14 +1,14 @@
 package com.classroom.quizmaster.util
 
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Assertions.assertNull
-import org.junit.jupiter.api.Assertions.assertTrue
-import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
+import kotlin.test.assertNull
+import kotlin.test.assertTrue
+import org.junit.After
+import org.junit.Test
 
 class NicknamePolicyTest {
 
-    @AfterEach
+    @After
     fun tearDown() {
         ProfanityFilter.clearCustomWords()
     }
