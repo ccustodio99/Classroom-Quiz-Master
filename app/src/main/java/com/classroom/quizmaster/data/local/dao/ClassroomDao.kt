@@ -16,15 +16,14 @@ interface ClassroomDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(classrooms: List<ClassroomEntity>)
 
-    @Query("SELECT * FROM classrooms WHERE teacherId = :teacherId ORDER BY createdAt DESC")
+    @Query(
+        "SELECT * FROM classrooms " +
+            "WHERE teacherId = :teacherId AND isArchived = 0 " +
+            "ORDER BY createdAt DESC"
+    )
     fun observeForTeacher(teacherId: String): Flow<List<ClassroomEntity>>
 
     @Query("SELECT * FROM classrooms WHERE id = :id LIMIT 1")
     suspend fun get(id: String): ClassroomEntity?
 
-    @Query("DELETE FROM classrooms WHERE id = :id")
-    suspend fun delete(id: String)
-
-    @Query("DELETE FROM classrooms")
-    suspend fun clear()
 }

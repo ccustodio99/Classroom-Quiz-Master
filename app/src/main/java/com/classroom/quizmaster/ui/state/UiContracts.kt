@@ -14,7 +14,7 @@ import kotlinx.coroutines.flow.Flow
 
 interface QuizRepositoryUi {
     val teacherHome: Flow<TeacherHomeUiState>
-    fun quizEditorState(quizId: String?): Flow<QuizEditorUiState>
+    fun quizEditorState(classroomId: String, topicId: String, quizId: String?): Flow<QuizEditorUiState>
     suspend fun persistDraft(state: QuizEditorUiState)
 }
 
@@ -26,6 +26,7 @@ interface SessionRepositoryUi {
     val studentPlay: Flow<StudentPlayUiState>
     val studentEnd: Flow<StudentEndUiState>
 
+    suspend fun configureHostContext(classroomId: String, topicId: String? = null, quizId: String? = null)
     suspend fun updateLeaderboardHidden(hidden: Boolean)
     suspend fun updateLockAfterFirst(lock: Boolean)
     suspend fun updateMuteSfx(muted: Boolean)

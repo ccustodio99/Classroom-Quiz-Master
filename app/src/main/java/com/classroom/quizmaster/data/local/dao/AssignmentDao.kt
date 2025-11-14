@@ -11,7 +11,11 @@ import kotlinx.coroutines.flow.Flow
 @Dao
 interface AssignmentDao {
 
-    @Query("SELECT * FROM assignments ORDER BY openAt DESC")
+    @Query(
+        "SELECT * FROM assignments " +
+            "WHERE isArchived = 0 " +
+            "ORDER BY openAt DESC"
+    )
     fun observeAssignments(): Flow<List<AssignmentLocalEntity>>
 
     @Query("SELECT * FROM assignments WHERE id = :id LIMIT 1")
@@ -19,9 +23,6 @@ interface AssignmentDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAssignments(assignments: List<AssignmentLocalEntity>)
-
-    @Query("DELETE FROM assignments WHERE id = :id")
-    suspend fun deleteAssignment(id: String)
 
     @Query("SELECT * FROM submissions WHERE assignmentId = :assignmentId")
     fun observeSubmissions(assignmentId: String): Flow<List<SubmissionLocalEntity>>
@@ -32,6 +33,4 @@ interface AssignmentDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSubmissions(submissions: List<SubmissionLocalEntity>)
 
-    @Query("DELETE FROM submissions WHERE assignmentId = :assignmentId AND uid = :uid")
-    suspend fun deleteSubmission(assignmentId: String, uid: String)
 }

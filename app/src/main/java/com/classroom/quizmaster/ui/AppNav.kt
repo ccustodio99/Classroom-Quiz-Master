@@ -22,22 +22,42 @@ import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.CreateClassroomRoute
+import com.classroom.quizmaster.ui.teacher.classrooms.detail.TeacherClassroomDetailRoute
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeRoute
 import com.classroom.quizmaster.ui.teacher.host.HostLiveRoute
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyRoute
 import com.classroom.quizmaster.ui.teacher.quiz_editor.QuizEditorRoute
 import com.classroom.quizmaster.ui.teacher.reports.ReportsRoute
+import com.classroom.quizmaster.ui.teacher.topics.detail.TeacherTopicDetailRoute
 
 sealed class AppRoute(val route: String) {
     data object Welcome : AppRoute("neutral/welcome")
     data object Auth : AppRoute("auth")
     data object TeacherHome : AppRoute("teacher/home")
     data object TeacherClassroomCreate : AppRoute("teacher/classrooms/create")
-    data object TeacherQuizCreate : AppRoute("teacher/quiz/create")
-    data object TeacherQuizEdit : AppRoute("teacher/quiz/edit/{quizId}") {
-        fun build(id: String) = "teacher/quiz/edit/$id"
+    data object TeacherClassroomDetail : AppRoute("teacher/classrooms/{classroomId}") {
+        fun build(classroomId: String) = "teacher/classrooms/$classroomId"
     }
-    data object TeacherLaunch : AppRoute("teacher/launch")
+    data object TeacherTopicDetail : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}") {
+        fun build(classroomId: String, topicId: String) = "teacher/classrooms/$classroomId/topics/$topicId"
+    }
+    data object TeacherQuizCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/quizzes/create") {
+        fun build(classroomId: String, topicId: String) = "teacher/classrooms/$classroomId/topics/$topicId/quizzes/create"
+    }
+    data object TeacherQuizEdit : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/quizzes/{quizId}/edit") {
+        fun build(classroomId: String, topicId: String, quizId: String) =
+            "teacher/classrooms/$classroomId/topics/$topicId/quizzes/$quizId/edit"
+    }
+    data object TeacherLaunch : AppRoute("teacher/classrooms/{classroomId}/launch?topicId={topicId}&quizId={quizId}") {
+        fun build(classroomId: String, topicId: String? = null, quizId: String? = null): String {
+            val params = buildList<String> {
+                topicId?.takeIf { it.isNotBlank() }?.let { add("topicId=$it") }
+                quizId?.takeIf { it.isNotBlank() }?.let { add("quizId=$it") }
+            }
+            val query = if (params.isEmpty()) "" else "?${'$'}{params.joinToString("&")}"
+            return "teacher/classrooms/$classroomId/launch$query"
+        }
+    }
     data object TeacherHost : AppRoute("teacher/host")
     data object TeacherReports : AppRoute("teacher/reports")
     data object TeacherAssignments : AppRoute("teacher/assignments")
@@ -121,10 +141,14 @@ fun AppNav(
                     onCreateClassroom = {
                         navController.navigate(AppRoute.TeacherClassroomCreate.route)
                     },
-                    onCreateQuiz = { navController.navigate(AppRoute.TeacherQuizCreate.route) },
-                    onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.route) },
+                    onCreateQuiz = { classroomId, topicId ->
+                        navController.navigate(AppRoute.TeacherQuizCreate.build(classroomId, topicId))
+                    },
                     onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
-                    onReports = { navController.navigate(AppRoute.TeacherReports.route) }
+                    onReports = { navController.navigate(AppRoute.TeacherReports.route) },
+                    onClassroomSelected = { classroomId ->
+                        navController.navigate(AppRoute.TeacherClassroomDetail.build(classroomId))
+                    }
                 )
             }
             composable(AppRoute.TeacherClassroomCreate.route) {
@@ -132,7 +156,57 @@ fun AppNav(
                     onDone = { navController.popBackStack() }
                 )
             }
-            composable(AppRoute.TeacherQuizCreate.route) {
+            composable(
+                route = AppRoute.TeacherClassroomDetail.route,
+                arguments = listOf(navArgument("classroomId") { type = NavType.StringType })
+            ) { entry ->
+                val classroomId = entry.arguments?.getString("classroomId").orEmpty()
+                if (classroomId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    TeacherClassroomDetailRoute(
+                        onBack = { navController.popBackStack() },
+                        onTopicSelected = { topicId ->
+                            navController.navigate(AppRoute.TeacherTopicDetail.build(classroomId, topicId))
+                        },
+                        onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.build(classroomId)) }
+                    )
+                }
+            }
+            composable(
+                route = AppRoute.TeacherTopicDetail.route,
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType },
+                    navArgument("topicId") { type = NavType.StringType }
+                )
+            ) { entry ->
+                val classroomId = entry.arguments?.getString("classroomId").orEmpty()
+                val topicId = entry.arguments?.getString("topicId").orEmpty()
+                if (classroomId.isBlank() || topicId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    TeacherTopicDetailRoute(
+                        onBack = { navController.popBackStack() },
+                        onCreateQuiz = { classId, topicIdArg ->
+                            navController.navigate(AppRoute.TeacherQuizCreate.build(classId, topicIdArg))
+                        },
+                        onEditQuiz = { classId, topicIdArg, quizId ->
+                            navController.navigate(AppRoute.TeacherQuizEdit.build(classId, topicIdArg, quizId))
+                        },
+                        onLaunchLive = { classId, topicIdArg, quizId ->
+                            navController.navigate(AppRoute.TeacherLaunch.build(classId, topicIdArg, quizId))
+                        },
+                        onViewAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) }
+                    )
+                }
+            }
+            composable(
+                route = AppRoute.TeacherQuizCreate.route,
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType },
+                    navArgument("topicId") { type = NavType.StringType }
+                )
+            ) {
                 QuizEditorRoute(
                     onSaved = { navController.popBackStack() },
                     onDiscarded = { navController.popBackStack() }
@@ -140,14 +214,25 @@ fun AppNav(
             }
             composable(
                 route = AppRoute.TeacherQuizEdit.route,
-                arguments = listOf(navArgument("quizId") { type = NavType.StringType })
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType },
+                    navArgument("topicId") { type = NavType.StringType },
+                    navArgument("quizId") { type = NavType.StringType }
+                )
             ) {
                 QuizEditorRoute(
                     onSaved = { navController.popBackStack() },
                     onDiscarded = { navController.popBackStack() }
                 )
             }
-            composable(AppRoute.TeacherLaunch.route) {
+            composable(
+                route = AppRoute.TeacherLaunch.route,
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType },
+                    navArgument("topicId") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("quizId") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) {
                 LaunchLobbyRoute(
                     onHostStarted = { navController.navigate(AppRoute.TeacherHost.route) },
                     onHostEnded = { navController.popBackStack() }

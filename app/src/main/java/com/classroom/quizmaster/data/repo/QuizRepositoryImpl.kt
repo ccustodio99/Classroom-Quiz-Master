@@ -17,14 +17,18 @@ import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
 import com.classroom.quizmaster.domain.model.Quiz
 import com.classroom.quizmaster.domain.model.Topic
+import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
@@ -42,6 +46,7 @@ class QuizRepositoryImpl @Inject constructor(
     private val topicRemote: FirebaseTopicDataSource,
     private val database: QuizMasterDatabase,
     private val json: Json,
+    private val authRepository: AuthRepository,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : QuizRepository {
 
@@ -50,8 +55,23 @@ class QuizRepositoryImpl @Inject constructor(
     private val topicDao = database.topicDao()
 
     override val quizzes: Flow<List<Quiz>> =
-        quizDao.observeQuizzes()
-            .map { stored -> stored.map { it.toDomain(json) } }
+        authRepository.authState.flatMapLatest { auth ->
+            val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
+            combine(
+                quizDao.observeActiveForTeacher(teacherId),
+                classroomDao.observeForTeacher(teacherId),
+                topicDao.observeForTeacher(teacherId)
+            ) { stored, classrooms, topics ->
+                val classroomIds = classrooms.map { it.id }.toSet()
+                val topicIds = topics.map { it.id }.toSet()
+                stored
+                    .filter { quiz ->
+                        quiz.quiz.classroomId in classroomIds &&
+                            quiz.quiz.topicId in topicIds
+                    }
+                    .map { it.toDomain(json) }
+            }
+        }
             .distinctUntilChanged()
 
     override suspend fun refresh() = withContext(ioDispatcher) {
@@ -76,20 +96,25 @@ class QuizRepositoryImpl @Inject constructor(
     override suspend fun upsert(quiz: Quiz) = withContext(ioDispatcher) {
         val resolvedId = quiz.id.ifBlank { generateLocalQuizId() }
         val now = Clock.System.now()
+        val authState = authRepository.authState.firstOrNull()
+            ?: error("No authenticated teacher available")
+        val teacherId = authState.userId ?: error("No authenticated teacher available")
         require(quiz.classroomId.isNotBlank()) { "Quiz must have a classroom" }
         require(quiz.topicId.isNotBlank()) { "Quiz must have a topic" }
         val classroom = classroomDao.get(quiz.classroomId)
             ?: error("Parent classroom ${quiz.classroomId} not found")
+        check(classroom.teacherId == teacherId) { "Cannot use another teacher's classroom" }
         check(!classroom.isArchived) { "Cannot attach quiz to archived classroom" }
         val topic = topicDao.get(quiz.topicId)
             ?: error("Parent topic ${quiz.topicId} not found")
         check(topic.classroomId == quiz.classroomId) { "Topic ${quiz.topicId} not in classroom ${quiz.classroomId}" }
+        check(topic.teacherId == teacherId) { "Cannot use another teacher's topic" }
         check(!topic.isArchived) { "Cannot attach quiz to archived topic" }
 
         val normalized = if (quiz.id == resolvedId) {
-            quiz.copy(updatedAt = now)
+            quiz.copy(updatedAt = now, teacherId = teacherId)
         } else {
-            quiz.copy(id = resolvedId, updatedAt = now)
+            quiz.copy(id = resolvedId, updatedAt = now, teacherId = teacherId)
         }
         database.withTransaction {
             quizDao.upsertQuizWithQuestions(
@@ -105,7 +130,9 @@ class QuizRepositoryImpl @Inject constructor(
     }
 
     override suspend fun delete(id: String) = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: return@withContext
         val existing = quizDao.getQuiz(id) ?: return@withContext
+        if (existing.quiz.teacherId != teacherId) return@withContext
         val now = Clock.System.now()
         val archivedEntity = existing.quiz.copy(
             isArchived = true,
@@ -124,12 +151,22 @@ class QuizRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getQuiz(id: String): Quiz? = withContext(ioDispatcher) {
-        quizDao.getQuiz(id)?.toDomain(json)
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: return@withContext null
+        val stored = quizDao.getQuiz(id) ?: return@withContext null
+        if (stored.quiz.teacherId != teacherId || stored.quiz.isArchived) return@withContext null
+        val classroom = classroomDao.get(stored.quiz.classroomId)
+            ?.takeUnless { it.isArchived || it.teacherId != teacherId }
+            ?: return@withContext null
+        val topic = topicDao.get(stored.quiz.topicId)
+            ?.takeUnless { it.isArchived || it.teacherId != teacherId }
+            ?: return@withContext null
+        if (topic.classroomId != classroom.id) return@withContext null
+        stored.toDomain(json)
     }
 
     override suspend fun seedDemoData() = withContext(ioDispatcher) {
         val teacherId = remote.currentTeacherId() ?: return@withContext
-        val existing = quizDao.observeQuizzes().firstOrNull()
+        val existing = quizDao.observeActiveForTeacher(teacherId).firstOrNull()
         if (!existing.isNullOrEmpty()) return@withContext
         val now = Clock.System.now()
         val classroomId = "demo-classroom"

@@ -42,15 +42,25 @@ class QuizEditorViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val quizId: String? = savedStateHandle[QUIZ_ID_KEY]
+    private val classroomId: String = savedStateHandle[CLASSROOM_ID_KEY]
+        ?: throw IllegalArgumentException("classroomId is required")
+    private val topicId: String = savedStateHandle[TOPIC_ID_KEY]
+        ?: throw IllegalArgumentException("topicId is required")
 
-    private val _uiState = MutableStateFlow(QuizEditorUiState(quizId = quizId))
+    private val _uiState = MutableStateFlow(
+        QuizEditorUiState(
+            quizId = quizId,
+            classroomId = classroomId,
+            topicId = topicId
+        )
+    )
     val uiState: StateFlow<QuizEditorUiState> = _uiState
 
     private var hasPrimedState = false
 
     init {
         viewModelScope.launch {
-            quizRepositoryUi.quizEditorState(quizId).collect { draft ->
+            quizRepositoryUi.quizEditorState(classroomId, topicId, quizId).collect { draft ->
                 _uiState.update { current ->
                     if (!hasPrimedState) {
                         hasPrimedState = true
@@ -196,5 +206,7 @@ class QuizEditorViewModel @Inject constructor(
 
     companion object {
         const val QUIZ_ID_KEY = "quizId"
+        const val CLASSROOM_ID_KEY = "classroomId"
+        const val TOPIC_ID_KEY = "topicId"
     }
 }

@@ -15,8 +15,12 @@ import kotlinx.coroutines.flow.Flow
 interface QuizDao {
 
     @Transaction
-    @Query("SELECT * FROM quizzes ORDER BY createdAt DESC")
-    fun observeQuizzes(): Flow<List<QuizWithQuestions>>
+    @Query(
+        "SELECT * FROM quizzes " +
+            "WHERE teacherId = :teacherId AND isArchived = 0 " +
+            "ORDER BY createdAt DESC"
+    )
+    fun observeActiveForTeacher(teacherId: String): Flow<List<QuizWithQuestions>>
 
     @Transaction
     @Query("SELECT * FROM quizzes WHERE id = :id LIMIT 1")
@@ -33,9 +37,6 @@ interface QuizDao {
 
     @Query("DELETE FROM questions WHERE quizId = :quizId")
     suspend fun deleteQuestionsForQuiz(quizId: String)
-
-    @Query("DELETE FROM quizzes WHERE id = :id")
-    suspend fun deleteQuiz(id: String)
 
     @Transaction
     suspend fun upsertQuizWithQuestions(quiz: QuizEntity, questions: List<QuestionEntity>) {

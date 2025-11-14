@@ -17,7 +17,6 @@ import com.classroom.quizmaster.ui.model.QuizOverviewUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
-import com.classroom.quizmaster.ui.teacher.home.ACTION_LAUNCH_SESSION
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
 import com.classroom.quizmaster.ui.teacher.home.ClassroomOverviewUi
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
@@ -56,10 +55,10 @@ class RealQuizRepositoryUi @Inject constructor(
             classroomRepository.topics,
             quizRepository.quizzes
         ) { auth, classrooms, topics, quizzes ->
-            val greeting = buildGreeting(
-                displayName = auth.teacherProfile?.displayName ?: auth.displayName,
-                email = auth.teacherProfile?.email ?: auth.email
-            )
+            val displayName = auth.teacherProfile?.displayName ?: auth.displayName
+            val email = auth.teacherProfile?.email ?: auth.email
+            val teacherName = resolveTeacherName(displayName, email)
+            val greeting = buildGreeting(teacherName)
 
             val activeClassrooms = classrooms.filterNot { it.isArchived }
             val activeTopics = topics.filterNot { it.isArchived }
@@ -68,19 +67,29 @@ class RealQuizRepositoryUi @Inject constructor(
                     activeClassrooms.any { it.id == quiz.classroomId } &&
                         activeTopics.any { it.id == quiz.topicId }
                 }
+            val defaultClassroomId = activeTopics.firstOrNull()?.classroomId
+                ?: activeClassrooms.firstOrNull()?.id
+            val defaultTopicId = activeTopics.firstOrNull { it.classroomId == defaultClassroomId }?.id
             val recent = buildRecentQuizzes(activeQuizzes, activeClassrooms, activeTopics)
             TeacherHomeUiState(
                 greeting = greeting,
+                teacherName = teacherName,
                 classrooms = buildClassrooms(activeClassrooms, activeTopics, activeQuizzes),
                 actionCards = defaultActionCards,
                 recentQuizzes = recent,
                 emptyMessage = if (recent.isEmpty()) DEFAULT_QUIZ_EMPTY_MESSAGE else "",
-                isOfflineDemo = false
+                isOfflineDemo = false,
+                defaultClassroomId = defaultClassroomId,
+                defaultTopicId = defaultTopicId
             )
         }
             .flowOn(dispatcher)
 
-    override fun quizEditorState(quizId: String?): Flow<QuizEditorUiState> =
+    override fun quizEditorState(
+        classroomId: String,
+        topicId: String,
+        quizId: String?
+    ): Flow<QuizEditorUiState> =
         combine(
             classroomRepository.classrooms,
             classroomRepository.topics,
@@ -121,28 +130,34 @@ class RealQuizRepositoryUi @Inject constructor(
                 quizzes.firstOrNull { it.id == id }?.toEditorState()
             }
 
-            val defaultClassroomId = when {
+            val validClassroomId = when {
                 existingState?.classroomId?.let { id ->
                     activeClassrooms.any { it.id == id }
                 } == true -> existingState.classroomId
+                activeClassrooms.any { it.id == classroomId } -> classroomId
                 else -> classroomOptions.firstOrNull()?.id.orEmpty()
             }
 
-            val resolvedTopics = topicsByClassroom[defaultClassroomId].orEmpty()
-            val defaultTopicId = when {
+            val resolvedTopics = topicsByClassroom[validClassroomId].orEmpty()
+            val validTopicId = when {
                 existingState?.topicId?.let { id ->
                     resolvedTopics.any { it.id == id }
                 } == true -> existingState.topicId
+                resolvedTopics.any { it.id == topicId } -> topicId
                 else -> resolvedTopics.firstOrNull()?.id.orEmpty()
             }
 
-            val selectedClassroom = activeClassrooms.firstOrNull { it.id == defaultClassroomId }
-            val baseState = existingState ?: QuizEditorUiState(isNewQuiz = quizId.isNullOrBlank())
+            val selectedClassroom = activeClassrooms.firstOrNull { it.id == validClassroomId }
+            val baseState = existingState ?: QuizEditorUiState(
+                isNewQuiz = quizId.isNullOrBlank(),
+                classroomId = validClassroomId,
+                topicId = validTopicId
+            )
 
             baseState.copy(
                 quizId = existingState?.quizId ?: quizId,
-                classroomId = defaultClassroomId,
-                topicId = defaultTopicId,
+                classroomId = validClassroomId,
+                topicId = validTopicId,
                 grade = baseState.grade.ifBlank { selectedClassroom?.grade.orEmpty() },
                 subject = baseState.subject.ifBlank { selectedClassroom?.subject.orEmpty() },
                 classroomOptions = classroomOptions,
@@ -150,7 +165,15 @@ class RealQuizRepositoryUi @Inject constructor(
             )
         }
             .distinctUntilChanged()
-            .onStart { emit(QuizEditorUiState(quizId = quizId)) }
+            .onStart {
+                emit(
+                    QuizEditorUiState(
+                        quizId = quizId,
+                        classroomId = classroomId,
+                        topicId = topicId
+                    )
+                )
+            }
             .flowOn(dispatcher)
 
     override suspend fun persistDraft(state: QuizEditorUiState) {
@@ -194,16 +217,18 @@ class RealQuizRepositoryUi @Inject constructor(
         }
     }
 
-    private fun buildGreeting(displayName: String?, email: String?): String {
+    private fun resolveTeacherName(displayName: String?, email: String?): String {
         val trimmedDisplay = displayName?.trim().orEmpty()
         val firstName = trimmedDisplay.substringBefore(' ').takeIf { it.isNotBlank() }
         val emailPrefix = email?.substringBefore('@')?.trim()
-        val resolvedName = sequenceOf(trimmedDisplay, firstName, emailPrefix)
+        return sequenceOf(trimmedDisplay, firstName, emailPrefix)
             .mapNotNull { it }
             .firstOrNull { it.isNotBlank() }
-            ?: "there"
-        return "Welcome back, $resolvedName"
+            ?: "Teacher"
     }
+
+    private fun buildGreeting(name: String): String =
+        if (name.isBlank()) "Welcome back" else "Welcome back, $name"
 
     private fun buildClassrooms(
         classrooms: List<Classroom>,
@@ -348,14 +373,6 @@ class RealQuizRepositoryUi @Inject constructor(
             description = "Build standards-aligned quizzes with templates.",
             route = ACTION_CREATE_QUIZ,
             ctaLabel = "Create quiz",
-            primary = true
-        ),
-        HomeActionCard(
-            id = ACTION_LAUNCH_SESSION,
-            title = "Launch live",
-            description = "Open a LAN lobby and start hosting.",
-            route = ACTION_LAUNCH_SESSION,
-            ctaLabel = "Launch lobby",
             primary = true
         ),
         HomeActionCard(
