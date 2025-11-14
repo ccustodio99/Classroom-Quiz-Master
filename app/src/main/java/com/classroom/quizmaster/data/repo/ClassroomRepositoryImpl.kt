@@ -17,10 +17,11 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.collectLatest
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.emitAll
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
@@ -38,28 +39,44 @@ class ClassroomRepositoryImpl @Inject constructor(
 ) : ClassroomRepository {
 
     override val classrooms: Flow<List<Classroom>> =
-        authRepository.authState.flatMapLatest { auth ->
-            val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
-            classroomDao.observeForTeacher(teacherId)
-                .map { entities ->
-                    entities
-                        .filterNot { it.isArchived }
-                        .map { it.toDomain() }
+        flow {
+            authRepository.authState.collectLatest { auth ->
+                val teacherId = auth.userId
+                if (teacherId.isNullOrBlank()) {
+                    emit(emptyList())
+                } else {
+                    emitAll(
+                        classroomDao.observeForTeacher(teacherId)
+                            .map { entities ->
+                                entities
+                                    .filterNot { it.isArchived }
+                                    .map { it.toDomain() }
+                            }
+                    )
                 }
+            }
         }
             .distinctUntilChanged()
 
     override val topics: Flow<List<Topic>> =
-        authRepository.authState.flatMapLatest { auth ->
-            val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
-            combine(
-                classroomDao.observeForTeacher(teacherId),
-                topicDao.observeForTeacher(teacherId)
-            ) { classrooms, topics ->
-                val activeClassroomIds = classrooms.filterNot { it.isArchived }.map { it.id }.toSet()
-                topics
-                    .filter { topic -> !topic.isArchived && topic.classroomId in activeClassroomIds }
-                    .map { it.toDomain() }
+        flow {
+            authRepository.authState.collectLatest { auth ->
+                val teacherId = auth.userId
+                if (teacherId.isNullOrBlank()) {
+                    emit(emptyList())
+                } else {
+                    emitAll(
+                        combine(
+                            classroomDao.observeForTeacher(teacherId),
+                            topicDao.observeForTeacher(teacherId)
+                        ) { classrooms, topics ->
+                            val activeClassroomIds = classrooms.filterNot { it.isArchived }.map { it.id }.toSet()
+                            topics
+                                .filter { topic -> !topic.isArchived && topic.classroomId in activeClassroomIds }
+                                .map { it.toDomain() }
+                        }
+                    )
+                }
             }
         }
             .distinctUntilChanged()
