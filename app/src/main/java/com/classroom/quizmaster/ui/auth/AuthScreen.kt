@@ -62,7 +62,10 @@ fun AuthRoute(
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 AuthEffect.TeacherAuthenticated -> onTeacherAuthenticated()
-                AuthEffect.DemoMode -> snackbarHost.showSnackbar("Offline demo enabled")
+                AuthEffect.DemoMode -> {
+                    snackbarHost.showSnackbar("Offline demo enabled")
+                    onTeacherAuthenticated()
+                }
                 is AuthEffect.Error -> snackbarHost.showSnackbar(effect.message)
             }
         }

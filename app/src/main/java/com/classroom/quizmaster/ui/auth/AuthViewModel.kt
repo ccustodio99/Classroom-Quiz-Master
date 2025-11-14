@@ -2,6 +2,7 @@ package com.classroom.quizmaster.ui.auth
 
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.classroom.quizmaster.data.demo.OfflineDemoManager
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.delay
@@ -53,7 +54,9 @@ sealed interface AuthEffect {
 }
 
 @HiltViewModel
-class AuthViewModel @Inject constructor() : ViewModel() {
+class AuthViewModel @Inject constructor(
+    private val offlineDemoManager: OfflineDemoManager
+) : ViewModel() {
 
     private val _uiState = MutableStateFlow(AuthUiState())
     val uiState: StateFlow<AuthUiState> = _uiState
@@ -132,11 +135,17 @@ class AuthViewModel @Inject constructor() : ViewModel() {
 
     fun continueOfflineDemo() = launchWithProgress {
         delay(300)
-        _uiState.value = _uiState.value.copy(
-            demoModeEnabled = true,
-            bannerMessage = "Demo lessons unlocked offline"
-        )
-        _effects.emit(AuthEffect.DemoMode)
+        offlineDemoManager.enableDemoMode()
+            .onSuccess {
+                _uiState.value = _uiState.value.copy(
+                    demoModeEnabled = true,
+                    bannerMessage = "Demo lessons unlocked offline"
+                )
+                _effects.emit(AuthEffect.DemoMode)
+            }
+            .onFailure { error ->
+                emitError(error.message ?: "Unable to prepare offline demo.")
+            }
     }
 
     private fun emitError(message: String) {
