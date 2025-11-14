@@ -475,7 +475,7 @@ private fun TeacherHomePreview() {
                 emptyMessage = "Import quizzes or create a new one to see it here"
             ),
             onCreateClassroom = {},
-            onCreateQuiz = {},
+            onCreateQuiz = { _, _ -> },
             onAssignments = {},
             onReports = {},
             onClassroomSelected = {}

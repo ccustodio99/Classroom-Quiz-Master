@@ -13,28 +13,28 @@ import kotlin.test.assertTrue
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.test.runTest
 import kotlinx.datetime.Clock
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.junit5.RobolectricExtension
-import org.junit.jupiter.api.extension.ExtendWith
 
-@ExtendWith(RobolectricExtension::class)
+@RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class QuizMasterDaoTest {
 
     private lateinit var database: QuizMasterDatabase
     private val context: Context = ApplicationProvider.getApplicationContext()
 
-    @BeforeEach
+    @Before
     fun setUp() {
         database = Room.inMemoryDatabaseBuilder(context, QuizMasterDatabase::class.java)
             .allowMainThreadQueries()
             .build()
     }
 
-    @AfterEach
+    @After
     fun tearDown() {
         database.close()
     }
@@ -98,13 +98,16 @@ class QuizMasterDaoTest {
             id = "a1",
             quizId = "q1",
             classroomId = "c1",
+            topicId = "t1",
             openAt = 1_000,
             closeAt = 2_000,
             attemptsAllowed = 2,
             scoringMode = "BEST",
             revealAfterSubmit = true,
             createdAt = 1_000,
-            updatedAt = 1_000
+            updatedAt = 1_000,
+            isArchived = false,
+            archivedAt = null
         )
         val second = first.copy(id = "a2", openAt = 2_000, updatedAt = 2_000)
         assignmentDao.upsertAssignments(listOf(first, second))

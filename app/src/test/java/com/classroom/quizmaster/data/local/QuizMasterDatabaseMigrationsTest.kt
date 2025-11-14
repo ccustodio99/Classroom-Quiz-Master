@@ -6,13 +6,13 @@ import androidx.sqlite.db.framework.FrameworkSQLiteOpenHelperFactory
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.platform.app.InstrumentationRegistry
 import kotlin.test.assertTrue
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.After
+import org.junit.Test
+import org.junit.runner.RunWith
+import org.robolectric.RobolectricTestRunner
 import org.robolectric.annotation.Config
-import org.robolectric.junit5.RobolectricExtension
 
-@ExtendWith(RobolectricExtension::class)
+@RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class QuizMasterDatabaseMigrationsTest {
 
@@ -24,7 +24,7 @@ class QuizMasterDatabaseMigrationsTest {
     )
     private val dbName = "migration-test"
 
-    @AfterEach
+    @After
     fun tearDown() {
         context.deleteDatabase(dbName)
     }

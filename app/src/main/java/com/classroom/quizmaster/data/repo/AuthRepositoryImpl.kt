@@ -8,11 +8,8 @@ import com.classroom.quizmaster.domain.repository.AuthRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.flow.Flow
-import kotlinx.coroutines.flow.catch
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
 
 @Singleton
 class AuthRepositoryImpl @Inject constructor(
@@ -21,14 +18,17 @@ class AuthRepositoryImpl @Inject constructor(
 ) : AuthRepository {
 
     override val authState: Flow<AuthState> = authDataSource.authState
-        .flatMapLatest { state ->
+        .map { state ->
             if (state.isAuthenticated && state.role == UserRole.TEACHER) {
-                flow {
-                    val profile = classroomDataSource.fetchTeacherProfile().getOrNull()
-                    emit(state.copy(teacherProfile = profile))
-                }.catch { emit(state) }
+                val resolved = classroomDataSource.fetchTeacherProfile()
+                    .getOrNull()
+                if (resolved != null) {
+                    state.copy(teacherProfile = resolved)
+                } else {
+                    state
+                }
             } else {
-                flowOf(state)
+                state
             }
         }
         .distinctUntilChanged()
