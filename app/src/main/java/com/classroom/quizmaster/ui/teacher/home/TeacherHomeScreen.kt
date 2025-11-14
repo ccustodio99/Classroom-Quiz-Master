@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.teacher.home
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -12,7 +13,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.ArrowForward
-import androidx.compose.material.icons.outlined.FlashOn
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
@@ -20,18 +20,16 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
-import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.classroom.quizmaster.R
 import com.classroom.quizmaster.ui.components.ConnectivityBanner
+import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.components.TagChip
@@ -42,16 +40,15 @@ import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
-import com.classroom.quizmaster.ui.teacher.home.ACTION_LAUNCH_SESSION
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
 
 @Composable
 fun TeacherHomeRoute(
     onCreateClassroom: () -> Unit,
-    onCreateQuiz: () -> Unit,
-    onLaunchLive: () -> Unit,
+    onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
+    onClassroomSelected: (String) -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -59,9 +56,9 @@ fun TeacherHomeRoute(
         state = state,
         onCreateClassroom = onCreateClassroom,
         onCreateQuiz = onCreateQuiz,
-        onLaunchLive = onLaunchLive,
         onAssignments = onAssignments,
-        onReports = onReports
+        onReports = onReports,
+        onClassroomSelected = onClassroomSelected
     )
 }
 
@@ -69,13 +66,21 @@ fun TeacherHomeRoute(
 fun TeacherHomeScreen(
     state: TeacherHomeUiState,
     onCreateClassroom: () -> Unit,
-    onCreateQuiz: () -> Unit,
-    onLaunchLive: () -> Unit,
+    onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
-    onReports: () -> Unit
+    onReports: () -> Unit,
+    onClassroomSelected: (String) -> Unit
 ) {
     val hasClassrooms = state.classrooms.isNotEmpty()
     val hasTopics = state.classrooms.any { it.topicCount > 0 }
+    val defaultClassroomId = state.defaultClassroomId
+    val defaultTopicId = state.defaultTopicId
+    val canCreateQuiz = !defaultClassroomId.isNullOrBlank() && !defaultTopicId.isNullOrBlank()
+    val createQuizAction = {
+        if (canCreateQuiz) {
+            onCreateQuiz(defaultClassroomId!!, defaultTopicId!!)
+        }
+    }
 
     Column(
         modifier = Modifier
@@ -85,6 +90,13 @@ fun TeacherHomeScreen(
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(text = state.greeting, style = MaterialTheme.typography.headlineLarge)
+        if (state.teacherName.isNotBlank()) {
+            Text(
+                text = state.teacherName,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
         if (
             state.connectivityHeadline.isNotBlank() ||
             state.connectivitySupporting.isNotBlank() ||
@@ -101,23 +113,22 @@ fun TeacherHomeScreen(
         }
         ClassroomsSection(
             classrooms = state.classrooms,
-            onCreateClassroom = onCreateClassroom
+            onCreateClassroom = onCreateClassroom,
+            onClassroomSelected = onClassroomSelected
         )
         ActionCards(
             actionCards = state.actionCards,
-            hasClassrooms = hasClassrooms,
             hasTopics = hasTopics,
-            onCreateQuiz = onCreateQuiz,
-            onLaunchLive = onLaunchLive,
+            canCreateQuiz = canCreateQuiz,
+            onCreateQuiz = createQuizAction,
             onAssignments = onAssignments,
             onReports = onReports
         )
         RecentQuizzesSection(
             quizzes = state.recentQuizzes,
-            hasClassrooms = hasClassrooms,
             hasTopics = hasTopics,
-            onLaunchLive = onLaunchLive,
-            onCreateQuiz = if (hasTopics) onCreateQuiz else onCreateClassroom,
+            canCreateQuiz = canCreateQuiz,
+            onCreateQuiz = if (hasTopics) createQuizAction else onCreateClassroom,
             emptyMessage = state.emptyMessage
         )
         Spacer(modifier = Modifier.height(32.dp))
@@ -127,27 +138,27 @@ fun TeacherHomeScreen(
 @Composable
 private fun ClassroomsSection(
     classrooms: List<ClassroomOverviewUi>,
-    onCreateClassroom: () -> Unit
+    onCreateClassroom: () -> Unit,
+    onClassroomSelected: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
         if (classrooms.isEmpty()) {
-            Text(
-                text = "Here's how to set up your first classroom:",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+            EmptyState(
+                title = "No classrooms yet",
+                message = "Create a classroom to start organizing topics and quizzes."
             )
-            QuickStartSteps()
-            Spacer(modifier = Modifier.height(8.dp))
             PrimaryButton(
-                text = "Create your first classroom",
+                text = "Create classroom",
                 onClick = onCreateClassroom,
                 modifier = Modifier.fillMaxWidth()
             )
         } else {
             classrooms.forEach { classroom ->
                 Surface(
-                    modifier = Modifier.fillMaxWidth(),
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onClassroomSelected(classroom.id) },
                     shape = MaterialTheme.shapes.large,
                     tonalElevation = 2.dp
                 ) {
@@ -183,57 +194,14 @@ private fun ClassroomsSection(
     }
 }
 
-@Composable
-private fun QuickStartSteps() {
-    val steps = listOf(
-        stringResource(id = R.string.teacher_home_quickstart_step_one),
-        stringResource(id = R.string.teacher_home_quickstart_step_two),
-        stringResource(id = R.string.teacher_home_quickstart_step_three)
-    )
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        steps.forEachIndexed { index, step ->
-            Surface(
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.large,
-                tonalElevation = 2.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(vertical = 12.dp, horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    Surface(
-                        shape = MaterialTheme.shapes.small,
-                        color = MaterialTheme.colorScheme.primary.copy(alpha = 0.12f)
-                    ) {
-                        Text(
-                            text = "${index + 1}",
-                            modifier = Modifier
-                                .padding(horizontal = 12.dp, vertical = 4.dp),
-                            style = MaterialTheme.typography.labelLarge,
-                            color = MaterialTheme.colorScheme.primary
-                        )
-                    }
-                    Text(
-                        text = step,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurface
-                    )
-                }
-            }
-        }
-    }
-}
+
 
 @Composable
 private fun ActionCards(
     actionCards: List<HomeActionCard>,
-    hasClassrooms: Boolean,
     hasTopics: Boolean,
+    canCreateQuiz: Boolean,
     onCreateQuiz: () -> Unit,
-    onLaunchLive: () -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit
 ) {
@@ -244,15 +212,13 @@ private fun ActionCards(
             val baseAction = resolveAction(
                 card = card,
                 onCreateQuiz = onCreateQuiz,
-                onLaunchLive = onLaunchLive,
                 onAssignments = onAssignments,
                 onReports = onReports
             )
 
             val allowed = when (card.id) {
-                ACTION_CREATE_QUIZ -> hasTopics
+                ACTION_CREATE_QUIZ -> hasTopics && canCreateQuiz
                 ACTION_ASSIGNMENTS -> hasTopics
-                ACTION_LAUNCH_SESSION -> hasClassrooms
                 ACTION_REPORTS -> true
                 else -> true
             }
@@ -274,13 +240,11 @@ private fun ActionCards(
 private fun resolveAction(
     card: HomeActionCard,
     onCreateQuiz: () -> Unit,
-    onLaunchLive: () -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit
 ): (() -> Unit)? {
     val primary = when (card.id) {
         ACTION_CREATE_QUIZ -> onCreateQuiz
-        ACTION_LAUNCH_SESSION -> onLaunchLive
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
         else -> null
@@ -288,7 +252,6 @@ private fun resolveAction(
     if (primary != null) return primary
     return when (card.route) {
         ACTION_CREATE_QUIZ -> onCreateQuiz
-        ACTION_LAUNCH_SESSION -> onLaunchLive
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
         else -> null
@@ -298,31 +261,28 @@ private fun resolveAction(
 @Composable
 private fun RecentQuizzesSection(
     quizzes: List<QuizOverviewUi>,
-    hasClassrooms: Boolean,
     hasTopics: Boolean,
-    onLaunchLive: () -> Unit,
+    canCreateQuiz: Boolean,
     onCreateQuiz: () -> Unit,
-    emptyMessage: String?
+    emptyMessage: String?,
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(text = "Recent quizzes", style = MaterialTheme.typography.titleLarge)
         if (quizzes.isEmpty()) {
             val message = when {
-                !hasClassrooms ->
-                    "Create a classroom and add a topic to start building quizzes."
                 !hasTopics ->
                     "Add a topic inside one of your classrooms to start building quizzes."
                 else ->
                     emptyMessage?.takeIf { it.isNotBlank() }
-                        ?: "Build a quiz inside a topic to see it here."
+                        ?: "No recent quizzes"
             }
             Text(message)
 
-            val buttonLabel = if (hasTopics) "Create quiz" else "Create classroom"
+            val buttonLabel = if (hasTopics && canCreateQuiz) "Create quiz" else "Create classroom"
             PrimaryButton(
                 text = buttonLabel,
                 onClick = onCreateQuiz,
-                enabled = hasTopics
+                enabled = if (hasTopics) canCreateQuiz else true
             )
         } else {
             quizzes.forEach { quiz ->
@@ -354,19 +314,7 @@ private fun RecentQuizzesSection(
                         if (subjectAndGrade.isNotBlank()) {
                             Text(subjectAndGrade)
                         }
-                        Row(
-                            horizontalArrangement = Arrangement.SpaceBetween,
-                            modifier = Modifier.fillMaxWidth(),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Text(text = "${quiz.questionCount} questions - ${quiz.averageScore}% avg")
-                            TextButton(
-                                onClick = onLaunchLive,
-                                enabled = hasClassrooms
-                            ) {
-                                Text("Launch")
-                            }
-                        }
+                        Text(text = "${quiz.questionCount} questions - ${quiz.averageScore}% avg")
                         Text(
                             text = quiz.updatedAgo,
                             style = MaterialTheme.typography.bodySmall,
@@ -378,6 +326,7 @@ private fun RecentQuizzesSection(
         }
     }
 }
+
 
 @Composable
 private fun ActionCard(
@@ -435,7 +384,6 @@ private fun ActionCard(
 
 private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
-    ACTION_LAUNCH_SESSION -> Icons.Outlined.FlashOn
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
     ACTION_REPORTS -> Icons.Outlined.Timeline
     else -> Icons.Outlined.ArrowForward
@@ -448,14 +396,6 @@ private val defaultActionCards = listOf(
         description = "Build standards-aligned quizzes with question templates.",
         route = ACTION_CREATE_QUIZ,
         ctaLabel = "Create quiz",
-        primary = true
-    ),
-    HomeActionCard(
-        id = ACTION_LAUNCH_SESSION,
-        title = "Launch a live session",
-        description = "Open a LAN lobby and start playing instantly with your class.",
-        route = ACTION_LAUNCH_SESSION,
-        ctaLabel = "Launch lobby",
         primary = true
     ),
     HomeActionCard(
@@ -474,6 +414,7 @@ private val defaultActionCards = listOf(
     )
 )
 
+
 @QuizPreviews
 @Composable
 private fun TeacherHomePreview() {
@@ -481,6 +422,7 @@ private fun TeacherHomePreview() {
         TeacherHomeScreen(
             state = TeacherHomeUiState(
                 greeting = "Welcome back, Ms. Ramos",
+                teacherName = "Ms. Ramos",
                 connectivityHeadline = "LAN connected | Cloud synced",
                 connectivitySupporting = "Last sync 2 min ago",
                 statusChips = listOf(
@@ -534,9 +476,9 @@ private fun TeacherHomePreview() {
             ),
             onCreateClassroom = {},
             onCreateQuiz = {},
-            onLaunchLive = {},
             onAssignments = {},
-            onReports = {}
+            onReports = {},
+            onClassroomSelected = {}
         )
     }
 }

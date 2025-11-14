@@ -27,7 +27,6 @@ import com.classroom.quizmaster.ui.student.play.SubmissionStatus
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsUiState
 import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
-import com.classroom.quizmaster.ui.teacher.home.ACTION_LAUNCH_SESSION
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
 import com.classroom.quizmaster.ui.teacher.home.ClassroomOverviewUi
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
@@ -54,6 +53,7 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
     private val homeState = MutableStateFlow(
         TeacherHomeUiState(
             greeting = "Welcome back, Ms. Ramos",
+            teacherName = "Ms. Ramos",
             connectivityHeadline = "LAN connected | Cloud synced",
             connectivitySupporting = "Last sync 2 min ago",
             statusChips = listOf(
@@ -84,14 +84,6 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
                     description = "Build standards-aligned quizzes with templates.",
                     route = ACTION_CREATE_QUIZ,
                     ctaLabel = "Create quiz",
-                    primary = true
-                ),
-                HomeActionCard(
-                    id = ACTION_LAUNCH_SESSION,
-                    title = "Launch live",
-                    description = "Open a LAN lobby and start hosting.",
-                    route = ACTION_LAUNCH_SESSION,
-                    ctaLabel = "Launch lobby",
                     primary = true
                 ),
                 HomeActionCard(
@@ -176,7 +168,18 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
 
     override val teacherHome: Flow<TeacherHomeUiState> = homeState.asStateFlow()
 
-    override fun quizEditorState(quizId: String?): Flow<QuizEditorUiState> = editorState.asStateFlow()
+    override fun quizEditorState(
+        classroomId: String,
+        topicId: String,
+        quizId: String?
+    ): Flow<QuizEditorUiState> {
+        editorState.value = editorState.value.copy(
+            quizId = quizId,
+            classroomId = classroomId.ifBlank { editorState.value.classroomId },
+            topicId = topicId.ifBlank { editorState.value.topicId }
+        )
+        return editorState.asStateFlow()
+    }
 
     override suspend fun persistDraft(state: QuizEditorUiState) {
         editorState.value = state.copy(showSaveDialog = false)
@@ -200,6 +203,14 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
             )
         )
     )
+
+    private data class HostContext(
+        val classroomId: String,
+        val topicId: String?,
+        val quizId: String?
+    )
+
+    private var hostContext: HostContext? = null
 
     private val hostFlow = MutableStateFlow(
         HostLiveUiState(
@@ -311,6 +322,11 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
     override val studentPlay: Flow<StudentPlayUiState> = playFlow.asStateFlow()
     override val studentEnd: Flow<StudentEndUiState> = endFlow.asStateFlow()
 
+    override suspend fun configureHostContext(classroomId: String, topicId: String?, quizId: String?) {
+        hostContext = HostContext(classroomId, topicId, quizId)
+        lobbyFlow.value = lobbyFlow.value.copy(snackbarMessage = null)
+    }
+
     override suspend fun updateLeaderboardHidden(hidden: Boolean) {
         lobbyFlow.value = lobbyFlow.value.copy(hideLeaderboard = hidden)
         hostFlow.value = hostFlow.value.copy(showLeaderboard = !hidden)
@@ -328,6 +344,11 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
     }
 
     override suspend fun startSession() {
+        val context = hostContext
+        if (context == null || context.classroomId.isBlank()) {
+            lobbyFlow.value = lobbyFlow.value.copy(snackbarMessage = "Select a classroom before starting")
+            return
+        }
         playFlow.value = playFlow.value.copy(
             submissionStatus = SubmissionStatus.Idle,
             submissionMessage = "Game starting"

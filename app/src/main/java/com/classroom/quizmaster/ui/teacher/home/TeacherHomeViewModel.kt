@@ -30,6 +30,7 @@ data class HomeActionCard(
 
 data class TeacherHomeUiState(
     val greeting: String = "Good day",
+    val teacherName: String = "",
     val connectivityHeadline: String = "",
     val connectivitySupporting: String = "",
     val statusChips: List<StatusChipUi> = emptyList(),
@@ -37,11 +38,12 @@ data class TeacherHomeUiState(
     val actionCards: List<HomeActionCard> = emptyList(),
     val recentQuizzes: List<QuizOverviewUi> = emptyList(),
     val emptyMessage: String = "",
-    val isOfflineDemo: Boolean = false
+    val isOfflineDemo: Boolean = false,
+    val defaultClassroomId: String? = null,
+    val defaultTopicId: String? = null
 )
 
 const val ACTION_CREATE_QUIZ = "teacher_home:create_quiz"
-const val ACTION_LAUNCH_SESSION = "teacher_home:launch_session"
 const val ACTION_ASSIGNMENTS = "teacher_home:assignments"
 const val ACTION_REPORTS = "teacher_home:reports"
 

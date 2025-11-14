@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.teacher.launch
 
+import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.ui.model.PlayerLobbyUi
@@ -26,8 +27,14 @@ data class LaunchLobbyUiState(
 
 @HiltViewModel
 class LaunchLobbyViewModel @Inject constructor(
-    private val sessionRepositoryUi: SessionRepositoryUi
+    private val sessionRepositoryUi: SessionRepositoryUi,
+    savedStateHandle: SavedStateHandle
 ) : ViewModel() {
+
+    private val classroomId: String = savedStateHandle[CLASSROOM_ID_KEY]
+        ?: throw IllegalArgumentException("classroomId is required")
+    private val topicId: String? = savedStateHandle[TOPIC_ID_KEY]
+    private val quizId: String? = savedStateHandle[QUIZ_ID_KEY]
 
     val uiState: StateFlow<LaunchLobbyUiState> = sessionRepositoryUi.launchLobby
         .map { it }
@@ -36,6 +43,13 @@ class LaunchLobbyViewModel @Inject constructor(
             SharingStarted.WhileSubscribed(5_000),
             LaunchLobbyUiState()
         )
+
+    init {
+        require(classroomId.isNotBlank()) { "classroomId is required" }
+        viewModelScope.launch {
+            sessionRepositoryUi.configureHostContext(classroomId, topicId, quizId)
+        }
+    }
 
     fun toggleLeaderboard(hidden: Boolean) {
         viewModelScope.launch { sessionRepositoryUi.updateLeaderboardHidden(hidden) }
@@ -55,5 +69,11 @@ class LaunchLobbyViewModel @Inject constructor(
 
     fun kick(uid: String) {
         viewModelScope.launch { sessionRepositoryUi.kickParticipant(uid) }
+    }
+
+    companion object {
+        const val CLASSROOM_ID_KEY = "classroomId"
+        const val TOPIC_ID_KEY = "topicId"
+        const val QUIZ_ID_KEY = "quizId"
     }
 }

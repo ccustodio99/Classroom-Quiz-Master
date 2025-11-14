@@ -9,13 +9,18 @@ import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.ScoringMode
 import com.classroom.quizmaster.domain.model.Submission
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
+import com.classroom.quizmaster.domain.repository.AuthRepository
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Instant
 import timber.log.Timber
@@ -24,6 +29,7 @@ import timber.log.Timber
 class AssignmentRepositoryImpl @Inject constructor(
     private val remote: FirebaseAssignmentDataSource,
     private val database: QuizMasterDatabase,
+    private val authRepository: AuthRepository,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : AssignmentRepository {
 
@@ -33,8 +39,26 @@ class AssignmentRepositoryImpl @Inject constructor(
     private val quizDao = database.quizDao()
 
     override val assignments: Flow<List<Assignment>> =
-        assignmentDao.observeAssignments()
-            .map { entities -> entities.map { it.toDomain() } }
+        authRepository.authState.flatMapLatest { auth ->
+            val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
+            combine(
+                assignmentDao.observeAssignments(),
+                classroomDao.observeForTeacher(teacherId),
+                topicDao.observeForTeacher(teacherId),
+                quizDao.observeActiveForTeacher(teacherId)
+            ) { assignments, classrooms, topics, quizzes ->
+                val activeClassrooms = classrooms.map { it.id }.toSet()
+                val activeTopics = topics.map { it.id }.toSet()
+                val quizzesById = quizzes.associateBy { it.quiz.id }
+                assignments
+                    .filter { assignment ->
+                        assignment.classroomId in activeClassrooms &&
+                            assignment.topicId in activeTopics &&
+                            quizzesById[assignment.quizId]?.quiz?.topicId == assignment.topicId
+                    }
+                    .map { it.toDomain() }
+            }
+        }
             .distinctUntilChanged()
 
     override fun submissions(assignmentId: String): Flow<List<Submission>> =
@@ -60,18 +84,23 @@ class AssignmentRepositoryImpl @Inject constructor(
     }
 
     override suspend fun createAssignment(assignment: Assignment) = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId
+            ?: error("No authenticated teacher available")
         require(assignment.classroomId.isNotBlank()) { "Assignment requires a classroom" }
         require(assignment.topicId.isNotBlank()) { "Assignment requires a topic" }
         val classroom = classroomDao.get(assignment.classroomId)
             ?: error("Classroom ${assignment.classroomId} not found")
+        check(classroom.teacherId == teacherId) { "Cannot assign work to another teacher's classroom" }
         check(!classroom.isArchived) { "Cannot assign work to an archived classroom" }
         val topic = topicDao.get(assignment.topicId)
             ?: error("Topic ${assignment.topicId} not found")
         check(topic.classroomId == assignment.classroomId) { "Topic ${assignment.topicId} not in classroom ${assignment.classroomId}" }
+        check(topic.teacherId == teacherId) { "Cannot assign work to another teacher's topic" }
         check(!topic.isArchived) { "Cannot assign work to an archived topic" }
         val quiz = quizDao.getQuiz(assignment.quizId)
             ?: error("Quiz ${assignment.quizId} not found")
         check(!quiz.quiz.isArchived) { "Cannot assign an archived quiz" }
+        check(quiz.quiz.teacherId == teacherId) { "Cannot assign another teacher's quiz" }
         check(quiz.quiz.topicId == assignment.topicId) { "Quiz ${assignment.quizId} does not belong to topic ${assignment.topicId}" }
 
         database.withTransaction {

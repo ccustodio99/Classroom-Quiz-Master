@@ -17,6 +17,7 @@ import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.flowOf
@@ -40,15 +41,26 @@ class ClassroomRepositoryImpl @Inject constructor(
         authRepository.authState.flatMapLatest { auth ->
             val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
             classroomDao.observeForTeacher(teacherId)
-                .map { entities -> entities.map { it.toDomain() } }
+                .map { entities ->
+                    entities
+                        .filterNot { it.isArchived }
+                        .map { it.toDomain() }
+                }
         }
             .distinctUntilChanged()
 
     override val topics: Flow<List<Topic>> =
         authRepository.authState.flatMapLatest { auth ->
             val teacherId = auth.userId ?: return@flatMapLatest flowOf(emptyList())
-            topicDao.observeForTeacher(teacherId)
-                .map { entities -> entities.map { it.toDomain() } }
+            combine(
+                classroomDao.observeForTeacher(teacherId),
+                topicDao.observeForTeacher(teacherId)
+            ) { classrooms, topics ->
+                val activeClassroomIds = classrooms.filterNot { it.isArchived }.map { it.id }.toSet()
+                topics
+                    .filter { topic -> !topic.isArchived && topic.classroomId in activeClassroomIds }
+                    .map { it.toDomain() }
+            }
         }
             .distinctUntilChanged()
 
@@ -143,11 +155,16 @@ class ClassroomRepositoryImpl @Inject constructor(
     }
 
     override suspend fun getClassroom(id: String): Classroom? = withContext(ioDispatcher) {
-        classroomDao.get(id)?.toDomain()
+        classroomDao.get(id)
+            ?.takeUnless { it.isArchived }
+            ?.toDomain()
     }
 
     override suspend fun getTopic(id: String): Topic? = withContext(ioDispatcher) {
-        topicDao.get(id)?.toDomain()
+        val entity = topicDao.get(id)?.takeUnless { it.isArchived } ?: return@withContext null
+        val classroom = classroomDao.get(entity.classroomId)?.takeUnless { it.isArchived }
+            ?: return@withContext null
+        entity.toDomain()
     }
 
     private fun Classroom.toEntity(): ClassroomEntity = ClassroomEntity(

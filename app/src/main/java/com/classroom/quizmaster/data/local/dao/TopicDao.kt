@@ -16,7 +16,11 @@ interface TopicDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertAll(topics: List<TopicEntity>)
 
-    @Query("SELECT * FROM topics WHERE teacherId = :teacherId ORDER BY createdAt DESC")
+    @Query(
+        "SELECT * FROM topics " +
+            "WHERE teacherId = :teacherId AND isArchived = 0 " +
+            "ORDER BY createdAt DESC"
+    )
     fun observeForTeacher(teacherId: String): Flow<List<TopicEntity>>
 
     @Query("SELECT * FROM topics WHERE classroomId = :classroomId AND isArchived = 0 ORDER BY createdAt DESC")
