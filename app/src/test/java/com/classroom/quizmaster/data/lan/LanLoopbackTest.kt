@@ -9,14 +9,14 @@ import kotlinx.coroutines.runBlocking
 import kotlinx.coroutines.withTimeout
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
-import org.junit.jupiter.api.AfterEach
-import org.junit.jupiter.api.BeforeEach
-import org.junit.jupiter.api.Test
-import org.junit.jupiter.api.extension.ExtendWith
+import org.junit.After
+import org.junit.Before
+import org.junit.Test
+import org.junit.runner.RunWith
 import org.robolectric.annotation.Config
-import org.robolectric.junit5.RobolectricExtension
+import org.robolectric.RobolectricTestRunner
 
-@ExtendWith(RobolectricExtension::class)
+@RunWith(RobolectricTestRunner::class)
 @Config(manifest = Config.NONE)
 class LanLoopbackTest {
 
@@ -24,13 +24,13 @@ class LanLoopbackTest {
     private lateinit var host: LanHostServer
     private lateinit var client: LanClient
 
-    @BeforeEach
+    @Before
     fun setUp() {
         host = LanHostServer(json)
         client = LanClient(json)
     }
 
-    @AfterEach
+    @After
     fun tearDown() {
         client.disconnect()
         host.stop()

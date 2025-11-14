@@ -1,7 +1,7 @@
 package com.classroom.quizmaster.util
 
-import org.junit.jupiter.api.Assertions.assertEquals
-import org.junit.jupiter.api.Test
+import kotlin.test.assertEquals
+import org.junit.Test
 
 class ScoreCalculatorTest {
 
