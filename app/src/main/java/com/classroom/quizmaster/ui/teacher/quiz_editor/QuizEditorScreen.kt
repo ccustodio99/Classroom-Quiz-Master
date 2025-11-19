@@ -121,7 +121,10 @@ fun QuizEditorScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(text = if (state.isNewQuiz) "Create quiz" else "Edit quiz", style = MaterialTheme.typography.headlineMedium)
+        Text(
+            text = state.headerTitle(),
+            style = MaterialTheme.typography.headlineMedium
+        )
         ClassroomTopicSelector(
             classroomOptions = state.classroomOptions,
             selectedClassroomId = state.classroomId,
@@ -212,6 +215,19 @@ fun QuizEditorScreen(
             onDismiss = onDismissDiscardDialog,
             onConfirm = onDiscardConfirmed
         )
+    }
+}
+
+private fun QuizEditorUiState.headerTitle(): String = when {
+    isNewQuiz -> when (quizCategory) {
+        QuizCategoryUi.Standard -> "Create quiz"
+        QuizCategoryUi.PreTest -> "Create pre-test"
+        QuizCategoryUi.PostTest -> "Create post-test"
+    }
+    else -> when (quizCategory) {
+        QuizCategoryUi.Standard -> "Edit quiz"
+        QuizCategoryUi.PreTest -> "Edit pre-test"
+        QuizCategoryUi.PostTest -> "Edit post-test"
     }
 }
 

@@ -196,6 +196,8 @@ class QuizEditorViewModel @Inject constructor(
             topicsForClassroom.any { it.id == incoming.topicId } -> incoming.topicId
             else -> topicsForClassroom.firstOrNull()?.id.orEmpty()
         }
+        val shouldAdoptPersistedQuiz =
+            !incoming.quizId.isNullOrBlank() && questions.isEmpty() && incoming.questions.isNotEmpty()
         val resolvedCategory = if (incoming.quizId.isNullOrBlank()) {
             quizCategory
         } else {
@@ -208,8 +210,21 @@ class QuizEditorViewModel @Inject constructor(
             topicId = resolvedTopicId,
             classroomOptions = incoming.classroomOptions,
             topicsByClassroom = resolvedTopicsByClassroom,
+            title = title.ifBlank { incoming.title },
             grade = grade.ifBlank { incoming.grade },
             subject = subject.ifBlank { incoming.subject },
+            timePerQuestionSeconds = if (shouldAdoptPersistedQuiz) {
+                incoming.timePerQuestionSeconds
+            } else {
+                timePerQuestionSeconds
+            },
+            shuffleQuestions = if (shouldAdoptPersistedQuiz) {
+                incoming.shuffleQuestions
+            } else {
+                shuffleQuestions
+            },
+            questions = if (shouldAdoptPersistedQuiz) incoming.questions else questions,
+            lastSavedRelative = if (shouldAdoptPersistedQuiz) incoming.lastSavedRelative else lastSavedRelative,
             quizCategory = resolvedCategory,
             isNewQuiz = isNewQuiz && incoming.isNewQuiz
         )
