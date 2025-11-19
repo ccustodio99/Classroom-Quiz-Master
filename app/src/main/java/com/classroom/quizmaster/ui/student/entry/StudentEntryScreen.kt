@@ -26,6 +26,8 @@ import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.text.input.KeyboardCapitalization
+import androidx.compose.ui.text.input.KeyboardOptions
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
@@ -33,11 +35,14 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.ui.components.AvatarPicker
+import com.classroom.quizmaster.ui.components.AssistiveInfoCard
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.NickNameField
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SegmentOption
 import com.classroom.quizmaster.ui.components.SegmentedControl
+import com.classroom.quizmaster.ui.components.ScreenHeader
+import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.components.TagChip
 import com.classroom.quizmaster.ui.model.AvatarOption
@@ -282,15 +287,16 @@ fun StudentEntryScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Text(
-            text = "Join Classroom",
-            style = MaterialTheme.typography.headlineMedium
+        ScreenHeader(
+            title = "Join Classroom",
+            subtitle = "Discover nearby sessions or use a join code from your teacher."
         )
-        Text(
-            text = "Join LAN sessions nearby or enter a code shared by your teacher.",
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
+        if (!state.networkAvailable) {
+            AssistiveInfoCard(
+                title = "You're offline",
+                body = "You can still get ready and your answers will sync once a connection is restored."
+            )
+        }
         if (onTeacherSignIn != null) {
             TextButton(
                 onClick = onTeacherSignIn,
@@ -299,24 +305,34 @@ fun StudentEntryScreen(
                 Text("Are you a teacher? Sign in")
             }
         }
-        SegmentedControl(
-            options = listOf(
-                SegmentOption(EntryTab.Lan.name, "Nearby", "Discover LAN hosts"),
-                SegmentOption(EntryTab.Code.name, "Join code", "Enter 6-8 characters")
-            ),
-            selectedId = state.tab.name,
-            onSelected = { onTabSelect(EntryTab.valueOf(it)) }
-        )
-        NickNameField(
-            value = state.nickname,
-            onValueChange = onNicknameChange,
-            errorText = state.nicknameError
-        )
-        AvatarPicker(
-            avatars = state.avatarOptions,
-            selectedId = state.selectedAvatarId,
-            onAvatarSelected = { onAvatarSelect(it.id) }
-        )
+        SectionCard(
+            title = "Your profile",
+            subtitle = "Pick the name and avatar everyone will see when you join."
+        ) {
+            NickNameField(
+                value = state.nickname,
+                onValueChange = onNicknameChange,
+                errorText = state.nicknameError
+            )
+            AvatarPicker(
+                avatars = state.avatarOptions,
+                selectedId = state.selectedAvatarId,
+                onAvatarSelected = { onAvatarSelect(it.id) }
+            )
+        }
+        SectionCard(
+            title = "How do you want to join?",
+            subtitle = "Switch between nearby sessions and code entry."
+        ) {
+            SegmentedControl(
+                options = listOf(
+                    SegmentOption(EntryTab.Lan.name, "Nearby", "Discover LAN hosts"),
+                    SegmentOption(EntryTab.Code.name, "Join code", "Enter 6-8 characters")
+                ),
+                selectedId = state.tab.name,
+                onSelected = { onTabSelect(EntryTab.valueOf(it)) }
+            )
+        }
         when (state.tab) {
             EntryTab.Lan -> LanHostList(
                 state = state,
@@ -373,53 +389,62 @@ private fun LanHostList(
     onRefresh: () -> Unit,
     onJoin: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Text("Nearby hosts", style = MaterialTheme.typography.titleMedium)
-            SecondaryButton(
-                text = if (state.isDiscovering) "Scanning..." else "Refresh",
-                onClick = onRefresh,
-                enabled = !state.isDiscovering
-            )
+    SectionCard(
+        title = "Nearby hosts",
+        subtitle = if (state.networkAvailable) {
+            "Pick a classroom running on the same network."
+        } else {
+            "Connect to Wi‑Fi to see teachers hosting a lobby."
         }
-        if (state.isDiscovering) {
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                CircularProgressIndicator(modifier = Modifier.height(24.dp))
-                Text("Searching for LAN hosts", style = MaterialTheme.typography.bodyMedium)
+                Text("Available sessions", style = MaterialTheme.typography.titleMedium)
+                SecondaryButton(
+                    text = if (state.isDiscovering) "Scanning..." else "Refresh",
+                    onClick = onRefresh,
+                    enabled = !state.isDiscovering
+                )
             }
-        }
-        if (state.lanHosts.isEmpty()) {
-            EmptyState(
-                title = "No hosts detected",
-                message = "Ask your teacher to open the lobby or use a join code."
-            )
-        } else {
-            LazyColumn(
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 8.dp)
-            ) {
-                items(state.lanHosts, key = { it.id }) { host ->
-                    LanHostCard(
-                        host = host,
-                        selected = host.id == state.selectedHostId,
-                        onSelect = { onHostSelect(host.id) }
-                    )
+            if (state.isDiscovering) {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    CircularProgressIndicator(modifier = Modifier.height(24.dp))
+                    Text("Searching for LAN hosts", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            PrimaryButton(
-                text = if (state.isJoining) "Joining..." else "Join selected host",
-                onClick = onJoin,
-                enabled = state.canJoin && !state.isJoining,
-                modifier = Modifier.fillMaxWidth()
-            )
+            if (state.lanHosts.isEmpty()) {
+                EmptyState(
+                    title = "No hosts detected",
+                    message = "Ask your teacher to open the lobby or use a join code."
+                )
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 8.dp)
+                ) {
+                    items(state.lanHosts, key = { it.id }) { host ->
+                        LanHostCard(
+                            host = host,
+                            selected = host.id == state.selectedHostId,
+                            onSelect = { onHostSelect(host.id) }
+                        )
+                    }
+                }
+                PrimaryButton(
+                    text = if (state.isJoining) "Joining..." else "Join selected host",
+                    onClick = onJoin,
+                    enabled = state.canJoin && !state.isJoining,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
         }
     }
 }
@@ -448,7 +473,7 @@ private fun LanHostCard(
     ) {
         Column(
             modifier = Modifier.padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(4.dp)
+            verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
                 text = host.subject,
@@ -456,10 +481,23 @@ private fun LanHostCard(
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
-            Text("Host: ${host.teacherName} · ${host.players} players")
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                Text(
+                    text = "Host: ${host.teacherName}",
+                    style = MaterialTheme.typography.bodyMedium
+                )
+                TagChip(text = "${host.players} players")
+            }
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                 TagChip(text = "Code ${host.joinCode}")
-                TagChip(text = qualityLabel(host.quality, host.latencyMs))
+                Text(
+                    text = qualityLabel(host.quality, host.latencyMs),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = qualityColor(host.quality)
+                )
             }
             Text(
                 text = "Last seen ${host.lastSeen}",
@@ -479,30 +517,52 @@ private fun qualityLabel(quality: ConnectionQuality, latencyMs: Int): String =
         ConnectionQuality.Offline -> "Offline"
     }
 
+private fun qualityColor(quality: ConnectionQuality) = when (quality) {
+    ConnectionQuality.Excellent -> MaterialTheme.colorScheme.primary
+    ConnectionQuality.Good -> MaterialTheme.colorScheme.tertiary
+    ConnectionQuality.Fair -> MaterialTheme.colorScheme.onSurfaceVariant
+    ConnectionQuality.Weak -> MaterialTheme.colorScheme.error
+    ConnectionQuality.Offline -> MaterialTheme.colorScheme.onSurfaceVariant
+}
+
 @Composable
 private fun JoinCodeCard(
     state: StudentEntryUiState,
     onJoinCodeChange: (String) -> Unit,
     onJoin: () -> Unit
 ) {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text("Join with code", style = MaterialTheme.typography.titleMedium)
-        androidx.compose.material3.OutlinedTextField(
-            value = state.joinCode,
-            onValueChange = onJoinCodeChange,
-            label = { Text("Enter join code") },
-            isError = state.joinCodeError != null,
-            supportingText = {
-                state.joinCodeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
-            },
-            modifier = Modifier.fillMaxWidth()
-        )
-        PrimaryButton(
-            text = if (state.isJoining) "Joining..." else "Join session",
-            onClick = onJoin,
-            enabled = state.canJoin && !state.isJoining,
-            modifier = Modifier.fillMaxWidth()
-        )
+    SectionCard(
+        title = "Join with a code",
+        subtitle = "Enter 6-8 letters shared by your teacher. We automatically uppercase letters."
+    ) {
+        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+            androidx.compose.material3.OutlinedTextField(
+                value = state.joinCode,
+                onValueChange = onJoinCodeChange,
+                label = { Text("Enter join code") },
+                isError = state.joinCodeError != null,
+                keyboardOptions = KeyboardOptions(
+                    capitalization = KeyboardCapitalization.Characters
+                ),
+                supportingText = {
+                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                        Text(
+                            text = "Use letters only; you'll be able to paste and we'll keep it tidy.",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        state.joinCodeError?.let { Text(it, color = MaterialTheme.colorScheme.error) }
+                    }
+                },
+                modifier = Modifier.fillMaxWidth()
+            )
+            PrimaryButton(
+                text = if (state.isJoining) "Joining..." else "Join session",
+                onClick = onJoin,
+                enabled = state.canJoin && !state.isJoining,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
     }
 }
 
