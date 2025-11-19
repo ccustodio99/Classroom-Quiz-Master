@@ -298,15 +298,15 @@ private fun ActionCards(
     Text(text = "Actions", style = MaterialTheme.typography.titleLarge)
     val cards = if (actionCards.isEmpty()) defaultActionCards else actionCards
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        cards.forEach { card ->
+        cards.forEach {
             val baseAction = resolveAction(
-                card = card,
+                card = it,
                 onCreateQuiz = onCreateQuiz,
                 onAssignments = onAssignments,
                 onReports = onReports
             )
 
-            val allowed = when (card.id) {
+            val allowed = when (it.id) {
                 ACTION_CREATE_QUIZ -> hasTopics && canCreateQuiz
                 ACTION_ASSIGNMENTS -> hasTopics
                 ACTION_REPORTS -> true
@@ -315,7 +315,7 @@ private fun ActionCards(
 
             val enabled = baseAction != null && allowed
             ActionCard(
-                card = card,
+                card = it,
                 onClick = {
                     if (enabled) {
                         baseAction?.invoke()
@@ -566,16 +566,6 @@ private fun TeacherHomePreview() {
                 sampleSeedMessage = "Sample data is available"
             ),
             onCreateClassroom = {},
-            onCreateQuiz = { _: String, _: String -> },
-            onAssignments = {},
-            onReports = {},
-            onViewArchived = {},
-                        topicName = "Space"
-                    )
-                ),
-                emptyMessage = "Import quizzes or create a new one to see it here"
-            ),
-            onCreateClassroom = {},
             onCreateQuiz = { _: String, _: String -> },
             onAssignments = {},
             onReports = {},
