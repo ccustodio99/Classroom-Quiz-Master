@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.teacher.launch
 
+import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
@@ -19,9 +20,14 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.classroom.quizmaster.R
 import com.classroom.quizmaster.ui.components.ConfirmEndDialog
 import com.classroom.quizmaster.ui.components.ConfirmStartDialog
 import com.classroom.quizmaster.ui.components.ConnectivityBanner
@@ -70,6 +76,10 @@ fun LaunchLobbyScreen(
 ) {
     var showStartDialog by rememberSaveable { mutableStateOf(false) }
     var showEndDialog by rememberSaveable { mutableStateOf(false) }
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copyConfirmation = stringResource(R.string.launch_lobby_copy_confirmation)
+    val scanInstructions = stringResource(R.string.launch_lobby_scan_instructions)
 
     Column(
         modifier = Modifier
@@ -94,7 +104,18 @@ fun LaunchLobbyScreen(
             code = state.joinCode,
             expiresIn = state.qrSubtitle,
             peersConnected = state.discoveredPeers,
-            onCopy = { /* TODO copy */ }
+            qrData = state.qrPayload,
+            onCopy = {
+                val payload = state.qrPayload.ifBlank { state.joinCode }
+                if (payload.isBlank() || payload == "----") return@JoinCodeCard
+                clipboard.setText(AnnotatedString(payload))
+                Toast.makeText(context, copyConfirmation, Toast.LENGTH_SHORT).show()
+            }
+        )
+        Text(
+            text = scanInstructions,
+            style = MaterialTheme.typography.bodyMedium,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         Surface(shape = MaterialTheme.shapes.large, tonalElevation = 2.dp) {
             Column(
@@ -168,6 +189,7 @@ private fun LaunchLobbyPreview() {
             state = LaunchLobbyUiState(
                 joinCode = "R7FT",
                 qrSubtitle = "09:12",
+                qrPayload = "ws://192.168.0.10:48765/ws?token=demo",
                 discoveredPeers = 6,
                 statusChips = listOf(
                     StatusChipUi("lan", "LAN", StatusChipType.Lan),

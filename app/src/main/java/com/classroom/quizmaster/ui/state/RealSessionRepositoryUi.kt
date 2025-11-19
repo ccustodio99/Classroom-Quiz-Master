@@ -109,9 +109,11 @@ class RealSessionRepositoryUi @Inject constructor(
             val base = if (session == null) {
                 LaunchLobbyUiState()
             } else {
+                val lanMeta = session.lanMeta
                 LaunchLobbyUiState(
                     joinCode = session.joinCode.ifBlank { "----" },
-                    qrSubtitle = session.lanMeta?.let { "${it.hostIp}:${it.port}" }.orEmpty(),
+                    qrSubtitle = lanMeta?.let { "${it.hostIp}:${it.port}" }.orEmpty(),
+                    qrPayload = lanMeta?.let { "ws://${it.hostIp}:${it.port}/ws?token=${it.token}" }.orEmpty(),
                     discoveredPeers = participants.size,
                     players = participants.map { it.toPlayerLobby(session.teacherId) },
                     hideLeaderboard = session.hideLeaderboard,

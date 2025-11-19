@@ -68,6 +68,7 @@ robolectric = "4.13"
 timber = "5.0.1"
 truth = "1.4.4"
 turbine = "1.1.0"
+zxing = "3.5.3"
 javaxInject = "1"
 
 [libraries]
@@ -208,6 +209,7 @@ test-arch = { group = "androidx.arch.core", name = "core-testing", version.ref =
 timber = { group = "com.jakewharton.timber", name = "timber", version.ref = "timber" }
 truth = { group = "com.google.truth", name = "truth", version.ref = "truth" }
 turbine = { group = "app.cash.turbine", name = "turbine", version.ref = "turbine" }
+zxing = { group = "com.google.zxing", name = "core", version.ref = "zxing" }
 
 [bundles]
 compose-core = [

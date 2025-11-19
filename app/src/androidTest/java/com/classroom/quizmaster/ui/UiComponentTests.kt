@@ -239,6 +239,7 @@ class UiComponentTests {
         val lobbyState = LaunchLobbyUiState(
             joinCode = "R7FT",
             qrSubtitle = "09:12",
+            qrPayload = "ws://192.168.0.10:48765/ws?token=demo",
             discoveredPeers = 3,
             players = listOf(
                 PlayerLobbyUi("1", "Kai", AvatarOption("1", "K", emptyList(), "spark"), true, "Ready")

@@ -113,6 +113,8 @@
     <string name="launch_lobby_lock_after_q1">Lock after question one</string>
     <string name="launch_lobby_hide_leaderboard">Hide leaderboard</string>
     <string name="launch_lobby_ready_badge">Ready</string>
+    <string name="launch_lobby_qr_content_description">QR code for LAN join link</string>
+    <string name="launch_lobby_copy_confirmation">Join link copied</string>
 
     <!-- Host live -->
     <string name="host_live_title">Host controls</string>

@@ -17,6 +17,7 @@ import kotlinx.coroutines.launch
 data class LaunchLobbyUiState(
     val joinCode: String = "----",
     val qrSubtitle: String = "",
+    val qrPayload: String = "",
     val discoveredPeers: Int = 0,
     val players: List<PlayerLobbyUi> = emptyList(),
     val hideLeaderboard: Boolean = false,
