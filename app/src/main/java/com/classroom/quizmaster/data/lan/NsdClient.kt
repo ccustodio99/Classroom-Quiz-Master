@@ -71,6 +71,7 @@ class NsdClient @Inject constructor(
                         val token = attributes["token"]?.decodeToString().orEmpty()
                         val joinCode = attributes["join"]?.decodeToString().orEmpty()
                         val ts = attributes["ts"]?.decodeToString()?.toLongOrNull() ?: 0L
+                        val teacherName = attributes["teacher"]?.decodeToString()
                         val host = serviceInfo.primaryHostAddress()
                         trySend(
                             LanDiscoveryEvent.ServiceFound(
@@ -80,7 +81,8 @@ class NsdClient @Inject constructor(
                                     serviceInfo.port,
                                     token,
                                     joinCode,
-                                    timestamp = ts
+                                    timestamp = ts,
+                                    teacherName = teacherName
                                 )
                             )
                         )

@@ -6,7 +6,8 @@ data class LanServiceDescriptor(
     val port: Int,
     val token: String,
     val joinCode: String,
-    val timestamp: Long
+    val timestamp: Long,
+    val teacherName: String? = null
 ) {
     val wsUri: String get() = "ws://$host:$port/ws"
     val qrUri: String get() = "$wsUri?token=$token"

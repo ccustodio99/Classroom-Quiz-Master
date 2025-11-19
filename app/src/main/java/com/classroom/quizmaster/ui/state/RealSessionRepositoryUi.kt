@@ -610,9 +610,11 @@ class RealSessionRepositoryUi @Inject constructor(
         }
 
     private fun LanServiceDescriptor.toSnapshot(): LanHostSnapshot {
-        val label = serviceName.substringBefore('.').ifBlank { serviceName }
+        val serviceLabel = serviceName.substringBefore('.')
+        val label = teacherName?.takeIf { it.isNotBlank() }
+            ?: serviceLabel.substringBeforeLast('-').ifBlank { serviceLabel }
         val ui = LanHostUi(
-            id = serviceName,
+            id = token.ifBlank { serviceName },
             teacherName = label,
             subject = "Live quiz",
             players = 0,

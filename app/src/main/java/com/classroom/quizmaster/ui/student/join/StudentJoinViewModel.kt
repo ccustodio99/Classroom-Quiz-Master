@@ -50,7 +50,7 @@ class StudentJoinViewModel @Inject constructor(
                 when (event) {
                     is LanDiscoveryEvent.ServiceFound -> {
                         val updated = (_uiState.value.services + event.descriptor)
-                            .distinctBy { it.serviceName }
+                            .distinctBy { it.token.ifBlank { it.serviceName } }
                         _uiState.value = _uiState.value.copy(
                             services = updated,
                             isDiscovering = false
@@ -147,7 +147,8 @@ class StudentJoinViewModel @Inject constructor(
             port = if (parsed.port == -1) 80 else parsed.port,
             token = queryToken,
             joinCode = "",
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            teacherName = null
         )
     }
 
@@ -157,7 +158,7 @@ class StudentJoinViewModel @Inject constructor(
                 when (event) {
                     is LanDiscoveryEvent.ServiceFound -> {
                         val updated = (_uiState.value.services + event.descriptor)
-                            .distinctBy { it.serviceName }
+                            .distinctBy { it.token.ifBlank { it.serviceName } }
                         _uiState.value = _uiState.value.copy(services = updated)
                     }
 
