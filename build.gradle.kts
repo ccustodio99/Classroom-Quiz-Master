@@ -1,3 +1,6 @@
+import com.android.build.gradle.BaseExtension
+import org.gradle.api.Project
+
 plugins {
     alias(libs.plugins.androidApplication) apply false
     alias(libs.plugins.androidLibrary) apply false
@@ -19,8 +22,20 @@ tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
 
-android {
-    lint {
-        baseline = file("lint-baseline.xml")
+subprojects {
+    fun Project.configureLintBaseline() {
+        extensions.findByType(BaseExtension::class.java)?.apply {
+            lint {
+                baseline = rootProject.file("lint-baseline.xml")
+            }
+        }
+    }
+
+    plugins.withId("com.android.application") {
+        configureLintBaseline()
+    }
+
+    plugins.withId("com.android.library") {
+        configureLintBaseline()
     }
 }
