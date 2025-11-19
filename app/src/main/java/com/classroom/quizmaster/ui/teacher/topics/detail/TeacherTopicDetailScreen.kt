@@ -24,6 +24,7 @@ import com.classroom.quizmaster.ui.components.SecondaryButton
 @Composable
 fun TeacherTopicDetailRoute(
     onBack: () -> Unit,
+    onEditTopic: () -> Unit,
     onCreateQuiz: (String, String) -> Unit,
     onEditQuiz: (String, String, String) -> Unit,
     onLaunchLive: (String, String, String?) -> Unit,
@@ -36,6 +37,7 @@ fun TeacherTopicDetailRoute(
     TeacherTopicDetailScreen(
         state = state,
         onBack = onBack,
+        onEditTopic = onEditTopic,
         onCreateQuiz = { onCreateQuiz(viewModel.classroomId, viewModel.topicId) },
         onEditQuiz = { quizId -> onEditQuiz(viewModel.classroomId, viewModel.topicId, quizId) },
         onLaunchLive = { quizId -> onLaunchLive(viewModel.classroomId, viewModel.topicId, quizId) },
@@ -49,6 +51,7 @@ fun TeacherTopicDetailRoute(
 fun TeacherTopicDetailScreen(
     state: TopicDetailUiState,
     onBack: () -> Unit,
+    onEditTopic: () -> Unit,
     onCreateQuiz: () -> Unit,
     onEditQuiz: (String) -> Unit,
     onLaunchLive: (String) -> Unit,
@@ -76,6 +79,12 @@ fun TeacherTopicDetailScreen(
             text = state.classroomName,
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        SecondaryButton(
+            text = "Edit topic",
+            onClick = onEditTopic,
+            enabled = !state.isLoading,
+            modifier = Modifier.fillMaxWidth()
         )
         if (state.errorMessage != null) {
             EmptyState(title = "Topic unavailable", message = state.errorMessage)
