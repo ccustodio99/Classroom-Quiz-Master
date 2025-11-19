@@ -21,6 +21,7 @@ import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.withContext
+import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import timber.log.Timber
 import com.classroom.quizmaster.util.switchMapLatest
@@ -118,6 +119,81 @@ class AssignmentRepositoryImpl @Inject constructor(
                 Timber.w(err, "Skipping remote assignment create ${assignment.id}")
             } else {
                 Timber.e(err, "Failed to create assignment ${assignment.id}")
+                throw err
+            }
+        }
+        Unit
+    }
+
+    override suspend fun getAssignment(id: String): Assignment? = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: return@withContext null
+        val stored = assignmentDao.getAssignment(id) ?: return@withContext null
+        val classroom = classroomDao.get(stored.classroomId)
+            ?.takeUnless { it.teacherId != teacherId }
+            ?: return@withContext null
+        val topic = topicDao.get(stored.topicId)
+            ?.takeUnless { it.teacherId != teacherId || it.classroomId != classroom.id }
+            ?: return@withContext null
+        if (topic.isArchived || classroom.isArchived) return@withContext null
+        stored.toDomain()
+    }
+
+    override suspend fun updateAssignment(assignment: Assignment) = withContext(ioDispatcher) {
+        require(assignment.id.isNotBlank()) { "Assignment id required" }
+        val teacherId = authRepository.authState.firstOrNull()?.userId
+            ?: error("No authenticated teacher available")
+        val existing = assignmentDao.getAssignment(assignment.id)
+            ?: error("Assignment ${assignment.id} not found")
+        check(!existing.isArchived) { "Cannot edit an archived assignment" }
+        check(existing.classroomId == assignment.classroomId) { "Cannot move assignment to another classroom" }
+        check(existing.topicId == assignment.topicId) { "Cannot move assignment to another topic" }
+        val classroom = classroomDao.get(assignment.classroomId)
+            ?: error("Classroom ${assignment.classroomId} not found")
+        check(classroom.teacherId == teacherId) { "Cannot edit another teacher's assignment" }
+        check(!classroom.isArchived) { "Cannot edit assignments from archived classrooms" }
+        val topic = topicDao.get(assignment.topicId)
+            ?: error("Topic ${assignment.topicId} not found")
+        check(topic.classroomId == assignment.classroomId) { "Topic ${assignment.topicId} not in classroom ${assignment.classroomId}" }
+        check(topic.teacherId == teacherId) { "Cannot edit another teacher's assignment" }
+        check(!topic.isArchived) { "Cannot edit assignments from archived topics" }
+        val quiz = quizDao.getQuiz(assignment.quizId)
+            ?: error("Quiz ${assignment.quizId} not found")
+        check(quiz.quiz.teacherId == teacherId) { "Cannot assign another teacher's quiz" }
+        check(!quiz.quiz.isArchived) { "Cannot assign an archived quiz" }
+        check(quiz.quiz.topicId == assignment.topicId) { "Quiz ${assignment.quizId} does not belong to topic ${assignment.topicId}" }
+
+        database.withTransaction {
+            assignmentDao.upsertAssignments(listOf(assignment.toEntity()))
+        }
+        val remoteResult = remote.updateAssignment(assignment)
+        remoteResult.onFailure { err ->
+            if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                Timber.w(err, "Skipping remote assignment update ${assignment.id}")
+            } else {
+                Timber.e(err, "Failed to update assignment ${assignment.id}")
+                throw err
+            }
+        }
+        Unit
+    }
+
+    override suspend fun archiveAssignment(id: String, archivedAt: Instant) = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: return@withContext
+        val existing = assignmentDao.getAssignment(id) ?: return@withContext
+        val classroom = classroomDao.get(existing.classroomId) ?: return@withContext
+        if (classroom.teacherId != teacherId) return@withContext
+        val archivedEntity = existing.copy(
+            isArchived = true,
+            archivedAt = archivedAt.toEpochMilliseconds(),
+            updatedAt = archivedAt.toEpochMilliseconds()
+        )
+        database.withTransaction { assignmentDao.upsertAssignments(listOf(archivedEntity)) }
+        val remoteResult = remote.archiveAssignment(id, archivedAt)
+        remoteResult.onFailure { err ->
+            if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                Timber.w(err, "Skipping remote assignment archive for $id")
+            } else {
+                Timber.e(err, "Failed to archive assignment $id")
                 throw err
             }
         }

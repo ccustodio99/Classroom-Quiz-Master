@@ -25,6 +25,14 @@ class FirebaseAssignmentDataSource @Inject constructor(
         Unit
     }
 
+    suspend fun updateAssignment(assignment: Assignment): Result<Unit> = runCatching {
+        assignments()
+            .document(assignment.id)
+            .set(FirestoreAssignment.fromDomain(assignment))
+            .await()
+        Unit
+    }
+
     suspend fun fetchAssignments(): Result<List<Assignment>> = runCatching {
         assignments()
             .get()
@@ -53,6 +61,20 @@ class FirebaseAssignmentDataSource @Inject constructor(
             .collection("submissions")
             .document(submission.uid)
             .set(FirestoreSubmission.fromDomain(submission))
+            .await()
+        Unit
+    }
+
+    suspend fun archiveAssignment(id: String, archivedAt: Instant): Result<Unit> = runCatching {
+        assignments()
+            .document(id)
+            .update(
+                mapOf(
+                    "isArchived" to true,
+                    "archivedAt" to archivedAt.toEpochMilliseconds(),
+                    "updatedAt" to archivedAt.toEpochMilliseconds()
+                )
+            )
             .await()
         Unit
     }

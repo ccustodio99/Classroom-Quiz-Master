@@ -27,6 +27,7 @@ import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
+import com.classroom.quizmaster.ui.teacher.assignments.editor.AssignmentEditorRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.CreateClassroomRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.EditClassroomRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.archived.ArchivedClassroomsRoute
@@ -76,6 +77,13 @@ sealed class AppRoute(val route: String) {
     data object TeacherHost : AppRoute("teacher/host")
     data object TeacherReports : AppRoute("teacher/reports")
     data object TeacherAssignments : AppRoute("teacher/assignments")
+    data object TeacherAssignmentCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/assignments/create") {
+        fun build(classroomId: String, topicId: String) =
+            "teacher/classrooms/$classroomId/topics/$topicId/assignments/create"
+    }
+    data object TeacherAssignmentEdit : AppRoute("teacher/assignments/{assignmentId}/edit") {
+        fun build(assignmentId: String) = "teacher/assignments/$assignmentId/edit"
+    }
     data object TeacherArchived : AppRoute("teacher/classrooms/archived")
 
     data object StudentEntry : AppRoute("student/entry")
@@ -250,7 +258,13 @@ fun AppNav(
                         onLaunchLive = { classId, topicIdArg, quizId ->
                             navController.navigate(AppRoute.TeacherLaunch.build(classId, topicIdArg, quizId))
                         },
-                        onViewAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) }
+                        onViewAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
+                        onCreateAssignment = { classId, topicIdArg ->
+                            navController.navigate(AppRoute.TeacherAssignmentCreate.build(classId, topicIdArg))
+                        },
+                        onEditAssignment = { assignmentId ->
+                            navController.navigate(AppRoute.TeacherAssignmentEdit.build(assignmentId))
+                        }
                     )
                 }
             }
@@ -311,7 +325,34 @@ fun AppNav(
                 ReportsRoute()
             }
             composable(AppRoute.TeacherAssignments.route) {
-                AssignmentsRoute()
+                AssignmentsRoute(
+                    onAssignmentSelected = { assignmentId ->
+                        navController.navigate(AppRoute.TeacherAssignmentEdit.build(assignmentId))
+                    }
+                )
+            }
+            composable(
+                route = AppRoute.TeacherAssignmentCreate.route,
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType },
+                    navArgument("topicId") { type = NavType.StringType }
+                )
+            ) {
+                AssignmentEditorRoute(
+                    onDone = { navController.popBackStack() },
+                    onArchived = { navController.popBackStack() }
+                )
+            }
+            composable(
+                route = AppRoute.TeacherAssignmentEdit.route,
+                arguments = listOf(navArgument("assignmentId") { type = NavType.StringType })
+            ) {
+                AssignmentEditorRoute(
+                    onDone = { navController.popBackStack() },
+                    onArchived = {
+                        navController.popBackStack()
+                    }
+                )
             }
             composable(AppRoute.TeacherArchived.route) {
                 ArchivedClassroomsRoute(onBack = { navController.popBackStack() })

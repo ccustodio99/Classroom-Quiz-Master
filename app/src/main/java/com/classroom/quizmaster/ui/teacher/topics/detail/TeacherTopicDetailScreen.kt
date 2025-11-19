@@ -28,6 +28,8 @@ fun TeacherTopicDetailRoute(
     onEditQuiz: (String, String, String) -> Unit,
     onLaunchLive: (String, String, String?) -> Unit,
     onViewAssignments: () -> Unit,
+    onCreateAssignment: (String, String) -> Unit,
+    onEditAssignment: (String) -> Unit,
     viewModel: TeacherTopicDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -37,7 +39,9 @@ fun TeacherTopicDetailRoute(
         onCreateQuiz = { onCreateQuiz(viewModel.classroomId, viewModel.topicId) },
         onEditQuiz = { quizId -> onEditQuiz(viewModel.classroomId, viewModel.topicId, quizId) },
         onLaunchLive = { quizId -> onLaunchLive(viewModel.classroomId, viewModel.topicId, quizId) },
-        onViewAssignments = onViewAssignments
+        onViewAssignments = onViewAssignments,
+        onCreateAssignment = { onCreateAssignment(viewModel.classroomId, viewModel.topicId) },
+        onEditAssignment = onEditAssignment
     )
 }
 
@@ -48,7 +52,9 @@ fun TeacherTopicDetailScreen(
     onCreateQuiz: () -> Unit,
     onEditQuiz: (String) -> Unit,
     onLaunchLive: (String) -> Unit,
-    onViewAssignments: () -> Unit
+    onViewAssignments: () -> Unit,
+    onCreateAssignment: () -> Unit,
+    onEditAssignment: (String) -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -118,6 +124,12 @@ fun TeacherTopicDetailScreen(
             }
         }
         Text(text = "Assignments", style = MaterialTheme.typography.titleLarge)
+        PrimaryButton(
+            text = "Assign quiz",
+            onClick = onCreateAssignment,
+            enabled = !state.isLoading,
+            modifier = Modifier.fillMaxWidth()
+        )
         if (state.assignments.isEmpty()) {
             EmptyState(
                 title = "No assignments",
@@ -149,6 +161,11 @@ fun TeacherTopicDetailScreen(
                             text = "Opens ${assignment.openAt} · Closes ${assignment.closeAt}",
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                        SecondaryButton(
+                            text = "Edit assignment",
+                            onClick = { onEditAssignment(assignment.id) },
+                            modifier = Modifier.fillMaxWidth()
                         )
                     }
                 }
