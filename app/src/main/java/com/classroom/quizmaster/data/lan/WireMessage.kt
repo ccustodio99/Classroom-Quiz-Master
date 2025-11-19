@@ -80,4 +80,13 @@ sealed interface WireMessage {
     ) : WireMessage {
         override val type: String = "system_notice"
     }
+
+    @Serializable
+    @SerialName("materials_snapshot")
+    data class MaterialsSnapshot(
+        val classroomId: String,
+        val payload: String
+    ) : WireMessage {
+        override val type: String = "materials_snapshot"
+    }
 }

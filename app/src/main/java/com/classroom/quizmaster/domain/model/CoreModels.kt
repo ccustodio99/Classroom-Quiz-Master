@@ -200,6 +200,58 @@ data class Attempt(
 )
 
 /**
+ * Reference materials that can be authored by teachers and synced over LAN.
+ */
+@Serializable
+data class LearningMaterial(
+    val id: String,
+    val teacherId: String,
+    val classroomId: String,
+    val classroomName: String = "",
+    val topicId: String = "",
+    val topicName: String = "",
+    val title: String,
+    val description: String = "",
+    val body: String = "",
+    val attachments: List<MaterialAttachment> = emptyList(),
+    val createdAt: Instant,
+    val updatedAt: Instant,
+    val isArchived: Boolean = false,
+    val archivedAt: Instant? = null
+)
+
+/**
+ * Attachment metadata describing the payload students should receive.
+ */
+@Serializable
+data class MaterialAttachment(
+    val id: String,
+    val materialId: String,
+    val displayName: String,
+    val type: MaterialAttachmentType = MaterialAttachmentType.TEXT,
+    val uri: String = "",
+    val mimeType: String? = null,
+    val sizeBytes: Long = 0,
+    val downloadedAt: Instant? = null,
+    val metadata: Map<String, String> = emptyMap()
+)
+
+@Serializable
+enum class MaterialAttachmentType {
+    @SerialName("text")
+    TEXT,
+
+    @SerialName("file")
+    FILE,
+
+    @SerialName("link")
+    LINK,
+
+    @SerialName("video")
+    VIDEO
+}
+
+/**
  * Assignment metadata for asynchronous quiz delivery.
  */
 @Serializable

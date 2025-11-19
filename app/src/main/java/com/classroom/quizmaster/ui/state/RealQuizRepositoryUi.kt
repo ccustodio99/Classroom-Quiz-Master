@@ -398,6 +398,13 @@ class RealQuizRepositoryUi @Inject constructor(
             primary = true
         ),
         HomeActionCard(
+            id = ACTION_MATERIALS,
+            title = "Learning materials",
+            description = "Prepare notes, files, and videos for offline sync.",
+            route = ACTION_MATERIALS,
+            ctaLabel = "Manage"
+        ),
+        HomeActionCard(
             id = ACTION_ASSIGNMENTS,
             title = "Assignments",
             description = "Schedule asynchronous practice.",

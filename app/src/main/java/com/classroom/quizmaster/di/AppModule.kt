@@ -8,6 +8,7 @@ import com.classroom.quizmaster.data.local.dao.AssignmentDao
 import com.classroom.quizmaster.data.local.dao.AttemptDao
 import com.classroom.quizmaster.data.local.dao.ClassroomDao
 import com.classroom.quizmaster.data.local.dao.LanSessionDao
+import com.classroom.quizmaster.data.local.dao.MaterialDao
 import com.classroom.quizmaster.data.local.dao.OpLogDao
 import com.classroom.quizmaster.data.local.dao.QuizDao
 import com.classroom.quizmaster.data.local.dao.SessionDao
@@ -91,4 +92,8 @@ object AppModule {
     @Provides
     @Singleton
     fun provideTeacherDao(database: QuizMasterDatabase): TeacherDao = database.teacherDao()
+
+    @Provides
+    @Singleton
+    fun provideMaterialDao(database: QuizMasterDatabase): MaterialDao = database.materialDao()
 }

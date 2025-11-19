@@ -1,0 +1,266 @@
+package com.classroom.quizmaster.data.repo
+
+import androidx.room.withTransaction
+import com.classroom.quizmaster.data.lan.LanHostServer
+import com.classroom.quizmaster.data.lan.WireMessage
+import com.classroom.quizmaster.data.local.QuizMasterDatabase
+import com.classroom.quizmaster.data.local.dao.ClassroomDao
+import com.classroom.quizmaster.data.local.dao.MaterialDao
+import com.classroom.quizmaster.data.local.dao.SessionDao
+import com.classroom.quizmaster.data.local.dao.TopicDao
+import com.classroom.quizmaster.data.local.entity.LearningMaterialEntity
+import com.classroom.quizmaster.data.local.entity.MaterialAttachmentEntity
+import com.classroom.quizmaster.data.local.entity.MaterialWithAttachments
+import com.classroom.quizmaster.domain.model.LearningMaterial
+import com.classroom.quizmaster.domain.model.MaterialAttachment
+import com.classroom.quizmaster.domain.model.MaterialAttachmentType
+import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
+import com.classroom.quizmaster.util.switchMapLatest
+import javax.inject.Inject
+import javax.inject.Singleton
+import kotlinx.coroutines.CoroutineDispatcher
+import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.firstOrNull
+import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.withContext
+import kotlinx.datetime.Clock
+import kotlinx.datetime.Instant
+import kotlinx.serialization.decodeFromString
+import kotlinx.serialization.encodeToString
+import kotlinx.serialization.json.Json
+import java.util.UUID
+
+@Singleton
+class LearningMaterialRepositoryImpl @Inject constructor(
+    private val database: QuizMasterDatabase,
+    private val materialDao: MaterialDao,
+    private val classroomDao: ClassroomDao,
+    private val topicDao: TopicDao,
+    private val sessionDao: SessionDao,
+    private val authRepository: AuthRepository,
+    private val lanHostServer: LanHostServer,
+    private val json: Json,
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
+) : LearningMaterialRepository {
+
+    override fun observeTeacherMaterials(
+        classroomId: String?,
+        includeArchived: Boolean
+    ): Flow<List<LearningMaterial>> =
+        authRepository.authState
+            .switchMapLatest { auth ->
+                val teacherId = auth.userId
+                if (teacherId.isNullOrBlank()) {
+                    flowOf(emptyList())
+                } else {
+                    val baseFlow = if (includeArchived) {
+                        materialDao.observeArchivedForTeacher(teacherId)
+                    } else {
+                        materialDao.observeActiveForTeacher(teacherId)
+                    }
+                    baseFlow.map { list ->
+                        list
+                            .filter { classroomId == null || it.material.classroomId == classroomId }
+                            .map { it.toDomain(json) }
+                    }
+                }
+            }
+            .distinctUntilChanged()
+
+    override fun observeStudentMaterials(classroomId: String?): Flow<List<LearningMaterial>> =
+        materialDao.observeAllActive()
+            .map { list ->
+                list
+                    .filter { classroomId == null || it.material.classroomId == classroomId }
+                    .map { it.toDomain(json) }
+            }
+            .distinctUntilChanged()
+
+    override fun observeMaterial(materialId: String): Flow<LearningMaterial?> =
+        materialDao.observeMaterial(materialId)
+            .map { it?.toDomain(json) }
+            .distinctUntilChanged()
+
+    override suspend fun get(materialId: String): LearningMaterial? = withContext(ioDispatcher) {
+        materialDao.getMaterial(materialId)?.toDomain(json)
+    }
+
+    override suspend fun upsert(material: LearningMaterial): String = withContext(ioDispatcher) {
+        val authState = authRepository.authState.firstOrNull()
+            ?: error("No authenticated teacher available")
+        val teacherId = authState.userId ?: error("No authenticated teacher available")
+        val classroomId = material.classroomId.takeIf { it.isNotBlank() }
+            ?: error("Classroom is required")
+        val classroom = classroomDao.get(classroomId)
+            ?: error("Classroom $classroomId not found")
+        check(classroom.teacherId == teacherId) { "Cannot use another teacher's classroom" }
+        val topicId = material.topicId.takeIf { it.isNotBlank() }
+        val topic = topicId?.let { topicDao.get(it) }
+        if (topicId != null) {
+            requireNotNull(topic) { "Topic $topicId not found" }
+            check(topic.classroomId == classroomId) { "Topic does not belong to classroom" }
+            check(topic.teacherId == teacherId) { "Cannot use another teacher's topic" }
+        }
+        val now = Clock.System.now()
+        val resolvedMaterialId = material.id.ifBlank { generateMaterialId() }
+        val createdAt = material.createdAt.takeIf { material.id.isNotBlank() } ?: now
+        val normalized = material.copy(
+            id = resolvedMaterialId,
+            teacherId = teacherId,
+            classroomId = classroomId,
+            classroomName = classroom.name,
+            topicId = topic?.id.orEmpty(),
+            topicName = topic?.name.orEmpty(),
+            createdAt = createdAt,
+            updatedAt = now,
+            attachments = material.attachments.map { attachment ->
+                val resolvedAttachmentId = attachment.id.ifBlank { generateAttachmentId() }
+                attachment.copy(
+                    id = resolvedAttachmentId,
+                    materialId = resolvedMaterialId
+                )
+            }
+        )
+        database.withTransaction {
+            materialDao.upsertMaterial(normalized.toEntity())
+            if (normalized.attachments.isNotEmpty()) {
+                materialDao.upsertAttachments(normalized.attachments.map { it.toEntity(json) })
+                val keepIds = normalized.attachments.map { it.id }
+                materialDao.pruneAttachments(normalized.id, keepIds)
+            } else {
+                materialDao.clearAttachments(normalized.id)
+            }
+        }
+        broadcastIfHosting(normalized.classroomId)
+        resolvedMaterialId
+    }
+
+    override suspend fun archive(materialId: String, archivedAt: Instant): Unit = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: return@withContext
+        val stored = materialDao.getMaterial(materialId) ?: return@withContext
+        if (stored.material.teacherId != teacherId) return@withContext
+        val archivedEntity = stored.material.copy(
+            isArchived = true,
+            archivedAt = archivedAt.toEpochMilliseconds(),
+            updatedAt = archivedAt.toEpochMilliseconds()
+        )
+        database.withTransaction {
+            materialDao.upsertMaterial(archivedEntity)
+        }
+        broadcastIfHosting(archivedEntity.classroomId)
+    }
+
+    override suspend fun delete(materialId: String): Unit = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: return@withContext
+        val stored = materialDao.getMaterial(materialId) ?: return@withContext
+        if (stored.material.teacherId != teacherId) return@withContext
+        database.withTransaction {
+            materialDao.clearAttachments(materialId)
+            materialDao.deleteMaterial(materialId)
+        }
+        broadcastIfHosting(stored.material.classroomId)
+    }
+
+    override suspend fun shareSnapshotForClassroom(classroomId: String): Unit = withContext(ioDispatcher) {
+        if (lanHostServer.activePort == null) return@withContext
+        val snapshot = materialDao.listForClassroom(classroomId)
+        if (snapshot.isEmpty()) return@withContext
+        val payload = json.encodeToString(snapshot.map { it.toDomain(json) })
+        lanHostServer.broadcast(WireMessage.MaterialsSnapshot(classroomId, payload))
+    }
+
+    override suspend fun importSnapshot(
+        classroomId: String,
+        materials: List<LearningMaterial>
+    ): Unit = withContext(ioDispatcher) {
+        database.withTransaction {
+            materialDao.deleteAttachmentsForClassroom(classroomId)
+            materialDao.deleteMaterialsForClassroom(classroomId)
+            materials.forEach { material ->
+                materialDao.upsertMaterial(material.toEntity())
+                if (material.attachments.isNotEmpty()) {
+                    materialDao.upsertAttachments(material.attachments.map { it.toEntity(json) })
+                }
+            }
+        }
+    }
+
+    private suspend fun broadcastIfHosting(classroomId: String) {
+        if (lanHostServer.activePort == null) return
+        val currentSession = sessionDao.currentSession() ?: return
+        if (currentSession.classroomId != classroomId) return
+        shareSnapshotForClassroom(classroomId)
+    }
+
+    private fun LearningMaterial.toEntity(): LearningMaterialEntity =
+        LearningMaterialEntity(
+            id = id,
+            teacherId = teacherId,
+            classroomId = classroomId,
+            classroomName = classroomName,
+            topicId = topicId,
+            topicName = topicName,
+            title = title,
+            description = description,
+            body = body,
+            createdAt = createdAt.toEpochMilliseconds(),
+            updatedAt = updatedAt.toEpochMilliseconds(),
+            isArchived = isArchived,
+            archivedAt = archivedAt?.toEpochMilliseconds()
+        )
+
+    private fun MaterialAttachment.toEntity(json: Json): MaterialAttachmentEntity =
+        MaterialAttachmentEntity(
+            id = id,
+            materialId = materialId,
+            displayName = displayName,
+            type = type.name,
+            uri = uri,
+            mimeType = mimeType,
+            sizeBytes = sizeBytes,
+            downloadedAt = downloadedAt?.toEpochMilliseconds(),
+            metadataJson = json.encodeToString(metadata)
+        )
+
+    private fun MaterialWithAttachments.toDomain(json: Json): LearningMaterial =
+        LearningMaterial(
+            id = material.id,
+            teacherId = material.teacherId,
+            classroomId = material.classroomId,
+            classroomName = material.classroomName,
+            topicId = material.topicId,
+            topicName = material.topicName,
+            title = material.title,
+            description = material.description,
+            body = material.body,
+            createdAt = Instant.fromEpochMilliseconds(material.createdAt),
+            updatedAt = Instant.fromEpochMilliseconds(material.updatedAt),
+            isArchived = material.isArchived,
+            archivedAt = material.archivedAt?.let(Instant::fromEpochMilliseconds),
+            attachments = attachments.map { entity ->
+                val metadata: Map<String, String> = runCatching {
+                    json.decodeFromString(entity.metadataJson)
+                }.getOrDefault(emptyMap())
+                MaterialAttachment(
+                    id = entity.id,
+                    materialId = entity.materialId,
+                    displayName = entity.displayName,
+                    type = runCatching { MaterialAttachmentType.valueOf(entity.type) }
+                        .getOrDefault(MaterialAttachmentType.TEXT),
+                    uri = entity.uri,
+                    mimeType = entity.mimeType,
+                    sizeBytes = entity.sizeBytes,
+                    downloadedAt = entity.downloadedAt?.let(Instant::fromEpochMilliseconds),
+                    metadata = metadata
+                )
+            }
+        )
+
+    private fun generateMaterialId(): String = "mat-${UUID.randomUUID()}"
+
+    private fun generateAttachmentId(): String = "att-${UUID.randomUUID()}"
+}

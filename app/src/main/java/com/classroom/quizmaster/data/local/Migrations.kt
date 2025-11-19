@@ -165,6 +165,50 @@ object QuizMasterMigrations {
         }
     }
 
+    val MIGRATION_10_11 = object : Migration(10, 11) {
+        override fun migrate(db: SupportSQLiteDatabase) {
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS learning_materials (" +
+                    "id TEXT NOT NULL, " +
+                    "teacherId TEXT NOT NULL, " +
+                    "classroomId TEXT NOT NULL, " +
+                    "classroomName TEXT NOT NULL, " +
+                    "topicId TEXT NOT NULL, " +
+                    "topicName TEXT NOT NULL, " +
+                    "title TEXT NOT NULL, " +
+                    "description TEXT NOT NULL, " +
+                    "body TEXT NOT NULL, " +
+                    "createdAt INTEGER NOT NULL, " +
+                    "updatedAt INTEGER NOT NULL, " +
+                    "isArchived INTEGER NOT NULL, " +
+                    "archivedAt INTEGER, " +
+                    "PRIMARY KEY(id)" +
+                    ")"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_learning_materials_teacherId ON learning_materials(teacherId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_learning_materials_classroomId ON learning_materials(classroomId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_learning_materials_topicId ON learning_materials(topicId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_learning_materials_isArchived ON learning_materials(isArchived)")
+
+            db.execSQL(
+                "CREATE TABLE IF NOT EXISTS material_attachments (" +
+                    "id TEXT NOT NULL, " +
+                    "materialId TEXT NOT NULL, " +
+                    "displayName TEXT NOT NULL, " +
+                    "type TEXT NOT NULL, " +
+                    "uri TEXT NOT NULL, " +
+                    "mimeType TEXT, " +
+                    "sizeBytes INTEGER NOT NULL, " +
+                    "downloadedAt INTEGER, " +
+                    "metadataJson TEXT NOT NULL, " +
+                    "PRIMARY KEY(id)" +
+                    ")"
+            )
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_material_attachments_materialId ON material_attachments(materialId)")
+            db.execSQL("CREATE INDEX IF NOT EXISTS index_material_attachments_type ON material_attachments(type)")
+        }
+    }
+
     val ALL = arrayOf(
         MIGRATION_1_2,
         MIGRATION_2_3,
@@ -174,6 +218,7 @@ object QuizMasterMigrations {
         MIGRATION_6_7,
         MIGRATION_7_8,
         MIGRATION_8_9,
-        MIGRATION_9_10
+        MIGRATION_9_10,
+        MIGRATION_10_11
     )
 }
