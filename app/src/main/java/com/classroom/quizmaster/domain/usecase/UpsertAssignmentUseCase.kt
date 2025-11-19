@@ -9,7 +9,7 @@ import javax.inject.Inject
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 
-class CreateAssignmentUseCase @Inject constructor(
+class UpsertAssignmentUseCase @Inject constructor(
     private val assignmentRepository: AssignmentRepository,
     private val quizRepository: QuizRepository
 ) {
@@ -23,7 +23,8 @@ class CreateAssignmentUseCase @Inject constructor(
         val attemptsAllowed: Int,
         val scoringMode: ScoringMode,
         val revealAfterSubmit: Boolean,
-        val assignmentId: String? = null
+        val assignmentId: String? = null,
+        val createdAt: Instant? = null
     )
 
     suspend operator fun invoke(params: Params): Assignment {
@@ -39,6 +40,7 @@ class CreateAssignmentUseCase @Inject constructor(
 
         val now = Clock.System.now()
         val resolvedId = params.assignmentId?.takeIf { it.isNotBlank() } ?: "assign-${UUID.randomUUID()}"
+        val createdAt = params.createdAt ?: now
         val assignment = Assignment(
             id = resolvedId,
             quizId = params.quizId,
@@ -49,10 +51,16 @@ class CreateAssignmentUseCase @Inject constructor(
             attemptsAllowed = params.attemptsAllowed,
             scoringMode = params.scoringMode,
             revealAfterSubmit = params.revealAfterSubmit,
-            createdAt = now,
-            updatedAt = now
+            createdAt = createdAt,
+            updatedAt = now,
+            isArchived = false,
+            archivedAt = null
         )
-        assignmentRepository.createAssignment(assignment)
+        if (params.assignmentId.isNullOrBlank()) {
+            assignmentRepository.createAssignment(assignment)
+        } else {
+            assignmentRepository.updateAssignment(assignment)
+        }
         return assignment
     }
 

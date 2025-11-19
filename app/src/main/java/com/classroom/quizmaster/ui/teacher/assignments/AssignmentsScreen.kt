@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.teacher.assignments
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -22,14 +23,15 @@ import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 
 @Composable
 fun AssignmentsRoute(
+    onAssignmentSelected: (String) -> Unit,
     viewModel: AssignmentsViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
-    AssignmentsScreen(state)
+    AssignmentsScreen(state, onAssignmentSelected)
 }
 
 @Composable
-fun AssignmentsScreen(state: AssignmentsUiState) {
+fun AssignmentsScreen(state: AssignmentsUiState, onAssignmentSelected: (String) -> Unit) {
     LazyColumn(
         modifier = Modifier.padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp)
@@ -46,7 +48,7 @@ fun AssignmentsScreen(state: AssignmentsUiState) {
             }
         } else {
             items(state.pending, key = { it.id }) { assignment ->
-                AssignmentCard(assignment)
+                AssignmentCard(assignment, onAssignmentSelected)
             }
         }
         item {
@@ -65,16 +67,18 @@ fun AssignmentsScreen(state: AssignmentsUiState) {
             }
         } else {
             items(state.archived, key = { it.id }) { assignment ->
-                AssignmentCard(assignment)
+                AssignmentCard(assignment, onAssignmentSelected)
             }
         }
     }
 }
 
 @Composable
-private fun AssignmentCard(assignment: AssignmentCardUi) {
+private fun AssignmentCard(assignment: AssignmentCardUi, onAssignmentSelected: (String) -> Unit) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onAssignmentSelected(assignment.id) },
         shape = MaterialTheme.shapes.large,
         tonalElevation = 2.dp
     ) {
@@ -111,7 +115,8 @@ private fun AssignmentsPreview() {
                 pending = listOf(
                     AssignmentCardUi("1", "Homework 1", "2d", 18, 24, "Open")
                 )
-            )
+            ),
+            onAssignmentSelected = {}
         )
     }
 }
