@@ -17,7 +17,13 @@ class NsdHost @Inject constructor(
     private val nsdManager = context.getSystemService(Context.NSD_SERVICE) as NsdManager
     private var registrationListener: NsdManager.RegistrationListener? = null
 
-    fun advertise(serviceName: String, port: Int, token: String, joinCode: String) {
+    fun advertise(
+        serviceName: String,
+        port: Int,
+        token: String,
+        joinCode: String,
+        teacherName: String?
+    ) {
         stop()
         val serviceInfo = NsdServiceInfo().apply {
             serviceType = BuildConfig.LAN_SERVICE_TYPE
@@ -26,6 +32,12 @@ class NsdHost @Inject constructor(
             setAttribute("token", token)
             setAttribute("join", joinCode)
             setAttribute("ts", System.currentTimeMillis().toString())
+            teacherName
+                ?.takeIf { it.isNotBlank() }
+                ?.let { safeName ->
+                    val truncated = safeName.take(MAX_ATTR_BYTES)
+                    setAttribute("teacher", truncated.encodeToByteArray())
+                }
         }
         val listener = object : NsdManager.RegistrationListener {
             override fun onRegistrationFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
@@ -53,5 +65,9 @@ class NsdHost @Inject constructor(
             runCatching { nsdManager.unregisterService(it) }
             registrationListener = null
         }
+    }
+
+    companion object {
+        private const val MAX_ATTR_BYTES = 120
     }
 }

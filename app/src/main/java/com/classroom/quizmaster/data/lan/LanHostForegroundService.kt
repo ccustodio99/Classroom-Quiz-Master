@@ -57,10 +57,11 @@ class LanHostForegroundService : Service() {
         val token = intent.getStringExtra(EXTRA_TOKEN) ?: return
         val joinCode = intent.getStringExtra(EXTRA_JOIN_CODE) ?: return
         val serviceName = intent.getStringExtra(EXTRA_SERVICE_NAME) ?: "QuizMaster"
+        val teacherName = intent.getStringExtra(EXTRA_TEACHER_NAME)
         val requestedPort = intent.getIntExtra(EXTRA_PORT, DEFAULT_PORT)
         scope.launch {
             val boundPort = lanHostServer.start(token, requestedPort)
-            nsdHost.advertise(serviceName, boundPort, token, joinCode)
+            nsdHost.advertise(serviceName, boundPort, token, joinCode, teacherName)
             updateNotification(boundPort)
         }
     }
@@ -121,13 +122,15 @@ class LanHostForegroundService : Service() {
         const val EXTRA_SERVICE_NAME = "extra_service_name"
         const val EXTRA_JOIN_CODE = "extra_join_code"
         const val EXTRA_PORT = "extra_port"
+        const val EXTRA_TEACHER_NAME = "extra_teacher_name"
 
         fun start(
             context: Context,
             token: String,
             joinCode: String,
             serviceName: String,
-            port: Int
+            port: Int,
+            teacherName: String
         ) {
             val intent = Intent(context, LanHostForegroundService::class.java).apply {
                 action = ACTION_START
@@ -135,6 +138,7 @@ class LanHostForegroundService : Service() {
                 putExtra(EXTRA_JOIN_CODE, joinCode)
                 putExtra(EXTRA_SERVICE_NAME, serviceName)
                 putExtra(EXTRA_PORT, port)
+                putExtra(EXTRA_TEACHER_NAME, teacherName)
             }
             ContextCompat.startForegroundService(context, intent)
         }

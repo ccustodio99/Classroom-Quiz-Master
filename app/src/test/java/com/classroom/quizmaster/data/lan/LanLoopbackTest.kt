@@ -46,7 +46,8 @@ class LanLoopbackTest {
             port = port,
             token = token,
             joinCode = "ABC123",
-            timestamp = System.currentTimeMillis()
+            timestamp = System.currentTimeMillis(),
+            teacherName = "TestHost"
         )
 
         val connected = async { client.status.filterIsInstance<LanClientStatus.Connected>().first() }

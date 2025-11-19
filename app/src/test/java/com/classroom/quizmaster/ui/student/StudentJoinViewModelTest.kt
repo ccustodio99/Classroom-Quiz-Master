@@ -51,7 +51,7 @@ class StudentJoinViewModelTest {
     fun `join delegates to repository and clears joining flag`() = runTest(dispatcher) {
         val repository = FakeSessionRepository()
         val viewModel = StudentJoinViewModel(repository, NearbyFallbackManager())
-        val descriptor = LanServiceDescriptor("demo-ABC123", "0.0.0.0", 8080, "ABC123", "ABC123", 0)
+        val descriptor = LanServiceDescriptor("demo-ABC123", "0.0.0.0", 8080, "ABC123", "ABC123", 0, "Demo Teacher")
         var successCount = 0
 
         viewModel.join(descriptor) { successCount++ }
@@ -94,7 +94,7 @@ class StudentJoinViewModelTest {
         override fun discoverHosts(): Flow<LanDiscoveryEvent> =
             flowOf(
                 LanDiscoveryEvent.ServiceFound(
-                    LanServiceDescriptor("demo-ABC123", "0.0.0.0", 8080, "ABC123", "ABC123", 0)
+                    LanServiceDescriptor("demo-ABC123", "0.0.0.0", 8080, "ABC123", "ABC123", 0, "Demo Teacher")
                 )
             )
 

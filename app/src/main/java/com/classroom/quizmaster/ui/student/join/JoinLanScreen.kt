@@ -102,10 +102,15 @@ fun JoinLanScreen(
             modifier = Modifier.weight(1f),
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
-            items(state.services, key = { it.serviceName }) { service ->
+            items(
+                state.services,
+                key = { it.token.ifBlank { it.serviceName } }
+            ) { service ->
+                val displayName = service.teacherName?.takeIf { it.isNotBlank() }
+                    ?: service.serviceName.substringBefore('.')
                 Card(modifier = Modifier.fillMaxWidth()) {
                     Column(modifier = Modifier.padding(12.dp)) {
-                        Text(service.serviceName, style = MaterialTheme.typography.titleMedium)
+                        Text(displayName, style = MaterialTheme.typography.titleMedium)
                         Text("Join code: ${service.joinCode.ifBlank { "LAN" }}")
                         Text("${service.host}:${service.port}")
                         Button(

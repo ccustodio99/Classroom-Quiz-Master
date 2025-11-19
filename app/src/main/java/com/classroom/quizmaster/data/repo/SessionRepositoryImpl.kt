@@ -59,6 +59,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
+import java.util.Locale
 import java.util.UUID
 
 @Singleton
@@ -210,7 +211,8 @@ class SessionRepositoryImpl @Inject constructor(
             lanSessionDao.upsert(lanMeta.toEntity())
         }
         lanToken = token
-        startHostService(session, token, port)
+        val serviceName = serviceNameForHost(normalizedHost, session.joinCode)
+        startHostService(session, token, port, serviceName, normalizedHost)
         firebaseSessionDataSource.publishSession(session)
             .onFailure { Timber.w(it, "Failed to mirror session ${session.id} to Firestore") }
         broadcastSession(session)
@@ -490,14 +492,33 @@ class SessionRepositoryImpl @Inject constructor(
         nonce = id
     )
 
-    private fun startHostService(session: Session, token: String, port: Int) {
+    private fun startHostService(
+        session: Session,
+        token: String,
+        port: Int,
+        serviceName: String,
+        teacherName: String
+    ) {
         LanHostForegroundService.start(
             context = context,
             token = token,
             joinCode = session.joinCode,
-            serviceName = "Quiz-${session.joinCode}",
-            port = port
+            serviceName = serviceName,
+            port = port,
+            teacherName = teacherName
         )
+    }
+
+    private fun serviceNameForHost(hostName: String, joinCode: String): String {
+        val normalizedHost = hostName.lowercase(Locale.US)
+            .replace(Regex("[^a-z0-9]+"), "-")
+            .trim('-')
+            .ifBlank { "quiz" }
+        val normalizedJoin = joinCode.uppercase(Locale.US)
+        val combined = listOf(normalizedHost.take(SERVICE_HOST_SEGMENT_LIMIT), normalizedJoin)
+            .filter { it.isNotBlank() }
+            .joinToString("-")
+        return combined.take(MAX_SERVICE_NAME_LENGTH)
     }
 
     private fun triggerImmediateSync() {
@@ -602,5 +623,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     companion object {
         private const val OP_TYPE_ATTEMPT = "attempt"
+        private const val MAX_SERVICE_NAME_LENGTH = 63
+        private const val SERVICE_HOST_SEGMENT_LIMIT = 32
     }
 }
