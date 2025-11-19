@@ -18,3 +18,9 @@ plugins {
 tasks.register<Delete>("clean") {
     delete(rootProject.layout.buildDirectory)
 }
+
+android {
+    lint {
+        baseline = file("lint-baseline.xml")
+    }
+}

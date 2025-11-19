@@ -84,8 +84,8 @@
 
         <receiver
             android:name="androidx.work.impl.background.systemalarm.RescheduleReceiver"
-            android:exported="false"
             android:enabled="true"
+            android:exported="false"
             tools:node="merge"
             tools:replace="android:enabled" />
 
