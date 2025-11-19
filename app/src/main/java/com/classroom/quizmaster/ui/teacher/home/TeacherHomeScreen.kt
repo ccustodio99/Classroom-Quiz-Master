@@ -17,6 +17,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
+import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -48,6 +49,7 @@ fun TeacherHomeRoute(
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
+    onMaterials: () -> Unit,
     onViewArchived: () -> Unit,
     onClassroomSelected: (String) -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
@@ -66,6 +68,7 @@ fun TeacherHomeRoute(
         onCreateQuiz = onCreateQuiz,
         onAssignments = onAssignments,
         onReports = onReports,
+        onMaterials = onMaterials,
         onViewArchived = onViewArchived,
         onSeedSampleData = viewModel::seedSampleData,
         onClearSampleData = viewModel::clearSampleData,
@@ -80,6 +83,7 @@ fun TeacherHomeScreen(
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
+    onMaterials: () -> Unit,
     onViewArchived: () -> Unit,
     onSeedSampleData: () -> Unit,
     onClearSampleData: () -> Unit,
@@ -136,7 +140,8 @@ fun TeacherHomeScreen(
             canCreateQuiz = canCreateQuiz,
             onCreateQuiz = createQuizAction,
             onAssignments = onAssignments,
-            onReports = onReports
+            onReports = onReports,
+            onMaterials = onMaterials
         )
         RecentQuizzesSection(
             quizzes = state.recentQuizzes,
@@ -293,7 +298,8 @@ private fun ActionCards(
     canCreateQuiz: Boolean,
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
-    onReports: () -> Unit
+    onReports: () -> Unit,
+    onMaterials: () -> Unit
 ) {
     Text(text = "Actions", style = MaterialTheme.typography.titleLarge)
     val cards = if (actionCards.isEmpty()) defaultActionCards else actionCards
@@ -303,13 +309,15 @@ private fun ActionCards(
                 card = it,
                 onCreateQuiz = onCreateQuiz,
                 onAssignments = onAssignments,
-                onReports = onReports
+                onReports = onReports,
+                onMaterials = onMaterials
             )
 
             val allowed = when (it.id) {
                 ACTION_CREATE_QUIZ -> hasTopics && canCreateQuiz
                 ACTION_ASSIGNMENTS -> hasTopics
                 ACTION_REPORTS -> true
+                ACTION_MATERIALS -> true
                 else -> true
             }
 
@@ -331,12 +339,14 @@ private fun resolveAction(
     card: HomeActionCard,
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
-    onReports: () -> Unit
+    onReports: () -> Unit,
+    onMaterials: () -> Unit
 ): (() -> Unit)? {
     val primary = when (card.id) {
         ACTION_CREATE_QUIZ -> onCreateQuiz
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
+        ACTION_MATERIALS -> onMaterials
         else -> null
     }
     if (primary != null) return primary
@@ -344,6 +354,7 @@ private fun resolveAction(
         ACTION_CREATE_QUIZ -> onCreateQuiz
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
+        ACTION_MATERIALS -> onMaterials
         else -> null
     }
 }
@@ -475,6 +486,7 @@ private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
     ACTION_REPORTS -> Icons.Outlined.Timeline
+    ACTION_MATERIALS -> Icons.Outlined.LibraryBooks
     else -> Icons.AutoMirrored.Outlined.ArrowForward
 }
 
@@ -486,6 +498,13 @@ private val defaultActionCards = listOf(
         route = ACTION_CREATE_QUIZ,
         ctaLabel = "Create quiz",
         primary = true
+    ),
+    HomeActionCard(
+        id = ACTION_MATERIALS,
+        title = "Learning materials",
+        description = "Author lesson notes and attachments.",
+        route = ACTION_MATERIALS,
+        ctaLabel = "Manage"
     ),
     HomeActionCard(
         id = ACTION_ASSIGNMENTS,
@@ -569,6 +588,7 @@ private fun TeacherHomePreview() {
             onCreateQuiz = { _: String, _: String -> },
             onAssignments = {},
             onReports = {},
+            onMaterials = {},
             onViewArchived = {},
             onSeedSampleData = {},
             onClearSampleData = {},

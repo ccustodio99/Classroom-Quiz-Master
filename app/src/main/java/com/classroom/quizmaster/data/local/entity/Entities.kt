@@ -1,9 +1,11 @@
 package com.classroom.quizmaster.data.local.entity
 
 import androidx.room.ColumnInfo
+import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.Index
 import androidx.room.PrimaryKey
+import androidx.room.Relation
 
 @Entity(
     tableName = "teachers",
@@ -246,4 +248,57 @@ data class LanSessionMetaEntity(
     val port: Int,
     val startedAt: Long,
     val rotationCount: Int
+)
+
+@Entity(
+    tableName = "learning_materials",
+    indices = [
+        Index(value = ["teacherId"]),
+        Index(value = ["classroomId"]),
+        Index(value = ["topicId"]),
+        Index(value = ["isArchived"])
+    ]
+)
+data class LearningMaterialEntity(
+    @PrimaryKey val id: String,
+    val teacherId: String,
+    val classroomId: String,
+    val classroomName: String,
+    val topicId: String,
+    val topicName: String,
+    val title: String,
+    val description: String,
+    val body: String,
+    val createdAt: Long,
+    val updatedAt: Long,
+    val isArchived: Boolean,
+    val archivedAt: Long?
+)
+
+@Entity(
+    tableName = "material_attachments",
+    indices = [
+        Index(value = ["materialId"]),
+        Index(value = ["type"])
+    ]
+)
+data class MaterialAttachmentEntity(
+    @PrimaryKey val id: String,
+    val materialId: String,
+    val displayName: String,
+    val type: String,
+    val uri: String,
+    val mimeType: String?,
+    val sizeBytes: Long,
+    val downloadedAt: Long?,
+    val metadataJson: String
+)
+
+data class MaterialWithAttachments(
+    @Embedded val material: LearningMaterialEntity,
+    @Relation(
+        parentColumn = "id",
+        entityColumn = "materialId"
+    )
+    val attachments: List<MaterialAttachmentEntity>
 )

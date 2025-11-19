@@ -63,6 +63,7 @@ data class TeacherHomeUiState(
 const val ACTION_CREATE_QUIZ = "teacher_home:create_quiz"
 const val ACTION_ASSIGNMENTS = "teacher_home:assignments"
 const val ACTION_REPORTS = "teacher_home:reports"
+const val ACTION_MATERIALS = "teacher_home:materials"
 
 @HiltViewModel
 class TeacherHomeViewModel @Inject constructor(

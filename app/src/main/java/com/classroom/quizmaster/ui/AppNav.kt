@@ -3,6 +3,7 @@ package com.classroom.quizmaster.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Groups
+import androidx.compose.material.icons.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -22,11 +23,14 @@ import com.classroom.quizmaster.ui.neutral.NeutralWelcomeScreen
 import com.classroom.quizmaster.ui.neutral.NeutralWelcomeViewModel
 import com.classroom.quizmaster.ui.neutral.OfflineDemoEvent
 import com.classroom.quizmaster.ui.model.QuizCategoryUi
+import com.classroom.quizmaster.ui.materials.detail.MaterialDetailRoute
+import com.classroom.quizmaster.ui.materials.editor.MaterialEditorRoute
 import com.classroom.quizmaster.ui.student.end.StudentEndRoute
 import com.classroom.quizmaster.ui.student.entry.EntryTab
 import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
+import com.classroom.quizmaster.ui.student.materials.StudentMaterialsRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
 import com.classroom.quizmaster.ui.teacher.assignments.editor.AssignmentEditorRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.CreateClassroomRoute
@@ -38,6 +42,7 @@ import com.classroom.quizmaster.ui.teacher.host.HostLiveRoute
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyRoute
 import com.classroom.quizmaster.ui.teacher.quiz_editor.QuizEditorRoute
 import com.classroom.quizmaster.ui.teacher.reports.ReportsRoute
+import com.classroom.quizmaster.ui.teacher.materials.TeacherMaterialsRoute
 import com.classroom.quizmaster.ui.teacher.topics.create.CreateTopicRoute
 import com.classroom.quizmaster.ui.teacher.topics.detail.TeacherTopicDetailRoute
 import com.classroom.quizmaster.ui.teacher.topics.edit.EditTopicRoute
@@ -87,6 +92,14 @@ sealed class AppRoute(val route: String) {
     data object TeacherHost : AppRoute("teacher/host")
     data object TeacherReports : AppRoute("teacher/reports")
     data object TeacherAssignments : AppRoute("teacher/assignments")
+    data object TeacherMaterials : AppRoute("teacher/materials")
+    data object TeacherMaterialCreate : AppRoute("teacher/materials/create")
+    data object TeacherMaterialEdit : AppRoute("teacher/materials/{materialId}/edit") {
+        fun build(materialId: String) = "teacher/materials/$materialId/edit"
+    }
+    data object MaterialDetail : AppRoute("materials/{materialId}?role={role}") {
+        fun build(materialId: String, role: String = "teacher") = "materials/$materialId?role=$role"
+    }
     data object TeacherAssignmentCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/assignments/create") {
         fun build(classroomId: String, topicId: String) =
             "teacher/classrooms/$classroomId/topics/$topicId/assignments/create"
@@ -102,6 +115,7 @@ sealed class AppRoute(val route: String) {
     data object StudentLobby : AppRoute("student/lobby")
     data object StudentPlay : AppRoute("student/play")
     data object StudentEnd : AppRoute("student/end")
+    data object StudentMaterials : AppRoute("student/materials")
 }
 
 @Composable
@@ -115,7 +129,8 @@ fun AppNav(
         listOf(
             BottomNavItem(AppRoute.StudentEntry.route, Icons.Outlined.Home, "Join"),
             BottomNavItem(AppRoute.StudentLobby.route, Icons.Outlined.Groups, "Lobby"),
-            BottomNavItem(AppRoute.StudentPlay.route, Icons.Outlined.EmojiEvents, "Play")
+            BottomNavItem(AppRoute.StudentPlay.route, Icons.Outlined.EmojiEvents, "Play"),
+            BottomNavItem(AppRoute.StudentMaterials.route, Icons.Outlined.LibraryBooks, "Materials")
         )
     }
 
@@ -193,6 +208,7 @@ fun AppNav(
                     },
                     onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
                     onReports = { navController.navigate(AppRoute.TeacherReports.route) },
+                    onMaterials = { navController.navigate(AppRoute.TeacherMaterials.route) },
                     onViewArchived = { navController.navigate(AppRoute.TeacherArchived.route) },
                     onClassroomSelected = { classroomId ->
                         navController.navigate(AppRoute.TeacherClassroomDetail.build(classroomId))
@@ -394,6 +410,37 @@ fun AppNav(
                     }
                 )
             }
+            composable(AppRoute.TeacherMaterials.route) {
+                TeacherMaterialsRoute(
+                    onBack = { navController.popBackStack() },
+                    onCreateMaterial = { navController.navigate(AppRoute.TeacherMaterialCreate.route) },
+                    onMaterialSelected = { materialId ->
+                        navController.navigate(AppRoute.MaterialDetail.build(materialId, role = "teacher"))
+                    },
+                    onEditMaterial = { materialId ->
+                        navController.navigate(AppRoute.TeacherMaterialEdit.build(materialId))
+                    }
+                )
+            }
+            composable(AppRoute.TeacherMaterialCreate.route) {
+                MaterialEditorRoute(
+                    onBack = { navController.popBackStack() },
+                    onSaved = {
+                        navController.popBackStack()
+                    }
+                )
+            }
+            composable(
+                route = AppRoute.TeacherMaterialEdit.route,
+                arguments = listOf(navArgument("materialId") { type = NavType.StringType })
+            ) {
+                MaterialEditorRoute(
+                    onBack = { navController.popBackStack() },
+                    onSaved = {
+                        navController.popBackStack()
+                    }
+                )
+            }
             composable(
                 route = AppRoute.TeacherAssignmentCreate.route,
                 arguments = listOf(
@@ -419,6 +466,32 @@ fun AppNav(
             }
             composable(AppRoute.TeacherArchived.route) {
                 ArchivedClassroomsRoute(onBack = { navController.popBackStack() })
+            }
+            composable(
+                route = AppRoute.MaterialDetail.route,
+                arguments = listOf(
+                    navArgument("materialId") { type = NavType.StringType },
+                    navArgument("role") { type = NavType.StringType; defaultValue = "teacher" }
+                )
+            ) { entry ->
+                val materialId = entry.arguments?.getString("materialId").orEmpty()
+                if (materialId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    val role = entry.arguments?.getString("role").orEmpty()
+                    val allowTeacherActions = role == "teacher"
+                    MaterialDetailRoute(
+                        allowEditing = allowTeacherActions,
+                        allowShare = allowTeacherActions,
+                        onBack = { navController.popBackStack() },
+                        onEdit = { id ->
+                            if (allowTeacherActions) {
+                                navController.navigate(AppRoute.TeacherMaterialEdit.build(id))
+                            }
+                        },
+                        onArchived = { navController.popBackStack() }
+                    )
+                }
             }
             composable(AppRoute.StudentEntry.route) {
                 StudentEntryRoute(
@@ -467,6 +540,14 @@ fun AppNav(
                         navController.navigate(AppRoute.Auth.route) {
                             popUpTo(AppRoute.Auth.route) { inclusive = true }
                         }
+                    }
+                )
+            }
+            composable(AppRoute.StudentMaterials.route) {
+                StudentMaterialsRoute(
+                    onBack = { navController.popBackStack() },
+                    onOpenMaterial = { materialId ->
+                        navController.navigate(AppRoute.MaterialDetail.build(materialId, role = "student"))
                     }
                 )
             }

@@ -23,9 +23,11 @@ import com.classroom.quizmaster.data.remote.FirebaseAuthDataSource
 import com.classroom.quizmaster.data.remote.FirebaseSessionDataSource
 import com.classroom.quizmaster.domain.model.Attempt
 import com.classroom.quizmaster.domain.model.LanMeta
+import com.classroom.quizmaster.domain.model.LearningMaterial
 import com.classroom.quizmaster.domain.model.Participant
 import com.classroom.quizmaster.domain.model.Session
 import com.classroom.quizmaster.domain.model.SessionStatus
+import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.sync.FirestoreSyncWorker
 import com.classroom.quizmaster.sync.SyncScheduler
@@ -72,6 +74,7 @@ class SessionRepositoryImpl @Inject constructor(
     private val lanClient: LanClient,
     private val nsdClient: NsdClient,
     private val lanNetworkInfo: LanNetworkInfo,
+    private val learningMaterialRepository: LearningMaterialRepository,
     private val json: Json,
     private val syncScheduler: SyncScheduler,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -139,6 +142,11 @@ class SessionRepositoryImpl @Inject constructor(
                             )
                         }
                     }.onFailure { Timber.e(it, "Failed to process leaderboard message") }
+
+                    is WireMessage.MaterialsSnapshot -> runCatching {
+                        val materials = json.decodeFromString<List<LearningMaterial>>(message.payload)
+                        learningMaterialRepository.importSnapshot(message.classroomId, materials)
+                    }.onFailure { Timber.e(it, "Failed to process materials snapshot") }
 
                     else -> Unit
                 }
@@ -217,6 +225,8 @@ class SessionRepositoryImpl @Inject constructor(
             .onFailure { Timber.w(it, "Failed to mirror session ${session.id} to Firestore") }
         broadcastSession(session)
         broadcastLeaderboardSnapshot(session.id)
+        runCatching { learningMaterialRepository.shareSnapshotForClassroom(classroomId) }
+            .onFailure { Timber.w(it, "Failed to broadcast materials for $classroomId") }
         session
     }
 

@@ -3,12 +3,14 @@ package com.classroom.quizmaster.di
 import com.classroom.quizmaster.data.repo.AssignmentRepositoryImpl
 import com.classroom.quizmaster.data.repo.AuthRepositoryImpl
 import com.classroom.quizmaster.data.repo.ClassroomRepositoryImpl
+import com.classroom.quizmaster.data.repo.LearningMaterialRepositoryImpl
 import com.classroom.quizmaster.data.repo.MediaRepositoryImpl
 import com.classroom.quizmaster.data.repo.QuizRepositoryImpl
 import com.classroom.quizmaster.data.repo.SessionRepositoryImpl
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
 import com.classroom.quizmaster.domain.repository.MediaRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.domain.repository.SessionRepository
@@ -38,4 +40,9 @@ abstract class RepositoryModule {
 
     @Binds
     abstract fun bindMediaRepository(impl: MediaRepositoryImpl): MediaRepository
+
+    @Binds
+    abstract fun bindLearningMaterialRepository(
+        impl: LearningMaterialRepositoryImpl
+    ): LearningMaterialRepository
 }

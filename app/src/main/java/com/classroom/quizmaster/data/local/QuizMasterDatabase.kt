@@ -8,6 +8,7 @@ import com.classroom.quizmaster.data.local.dao.AssignmentDao
 import com.classroom.quizmaster.data.local.dao.AttemptDao
 import com.classroom.quizmaster.data.local.dao.ClassroomDao
 import com.classroom.quizmaster.data.local.dao.LanSessionDao
+import com.classroom.quizmaster.data.local.dao.MaterialDao
 import com.classroom.quizmaster.data.local.dao.OpLogDao
 import com.classroom.quizmaster.data.local.dao.QuizDao
 import com.classroom.quizmaster.data.local.dao.TopicDao
@@ -17,6 +18,8 @@ import com.classroom.quizmaster.data.local.entity.AssignmentLocalEntity
 import com.classroom.quizmaster.data.local.entity.AttemptLocalEntity
 import com.classroom.quizmaster.data.local.entity.ClassroomEntity
 import com.classroom.quizmaster.data.local.entity.LanSessionMetaEntity
+import com.classroom.quizmaster.data.local.entity.LearningMaterialEntity
+import com.classroom.quizmaster.data.local.entity.MaterialAttachmentEntity
 import com.classroom.quizmaster.data.local.entity.OpLogEntity
 import com.classroom.quizmaster.data.local.entity.ParticipantLocalEntity
 import com.classroom.quizmaster.data.local.entity.QuestionEntity
@@ -39,9 +42,11 @@ import com.classroom.quizmaster.data.local.entity.TeacherEntity
         OpLogEntity::class,
         AssignmentLocalEntity::class,
         SubmissionLocalEntity::class,
-        LanSessionMetaEntity::class
+        LanSessionMetaEntity::class,
+        LearningMaterialEntity::class,
+        MaterialAttachmentEntity::class
     ],
-    version = 10,
+    version = 11,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
@@ -55,4 +60,5 @@ abstract class QuizMasterDatabase : RoomDatabase() {
     abstract fun topicDao(): TopicDao
     abstract fun assignmentDao(): AssignmentDao
     abstract fun lanSessionDao(): LanSessionDao
+    abstract fun materialDao(): MaterialDao
 }
