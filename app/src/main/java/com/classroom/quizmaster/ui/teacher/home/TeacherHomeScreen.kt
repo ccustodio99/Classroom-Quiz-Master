@@ -108,20 +108,33 @@ fun TeacherHomeScreen(
     ) {
         Text(text = state.greeting, style = MaterialTheme.typography.headlineLarge)
         if (state.teacherName.isNotBlank()) {
-            Text(
-                text = state.teacherName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
-        if (
-            state.connectivityHeadline.isNotBlank() ||
-            state.connectivitySupporting.isNotBlank() ||
-            state.statusChips.isNotEmpty()
-        ) {
-            ConnectivityBanner(
-                headline = state.connectivityHeadline,
-                supportingText = state.connectivitySupporting,
+            Text(    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
+        SecondaryButton(
+            text = "View archived",
+            onClick = onViewArchived,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (classrooms.isEmpty()) {
+            EmptyState(
+                title = "No classrooms yet",
+                message = "Create a classroom to start organizing topics and quizzes."
+            )
+        } else {
+            classrooms.forEach { classroom ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                }
+            }
+        }
+        PrimaryButton(
+            text = "Create classroom",
+            onClick = onCreateClassroom,
+            modifier = Modifier.fillMaxWidth()
+        )
+    }
+}
                 statusChips = state.statusChips
             )
         }
