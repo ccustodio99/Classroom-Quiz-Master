@@ -49,6 +49,7 @@ class LearningMaterialRepositoryImpl @Inject constructor(
 
     override fun observeTeacherMaterials(
         classroomId: String?,
+        topicId: String?,
         includeArchived: Boolean
     ): Flow<List<LearningMaterial>> =
         authRepository.authState
@@ -65,17 +66,22 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                     baseFlow.map { list ->
                         list
                             .filter { classroomId == null || it.material.classroomId == classroomId }
+                            .filter { topicId == null || it.material.topicId == topicId }
                             .map { it.toDomain(json) }
                     }
                 }
             }
             .distinctUntilChanged()
 
-    override fun observeStudentMaterials(classroomId: String?): Flow<List<LearningMaterial>> =
+    override fun observeStudentMaterials(
+        classroomId: String?,
+        topicId: String?
+    ): Flow<List<LearningMaterial>> =
         materialDao.observeAllActive()
             .map { list ->
                 list
                     .filter { classroomId == null || it.material.classroomId == classroomId }
+                    .filter { topicId == null || it.material.topicId == topicId }
                     .map { it.toDomain(json) }
             }
             .distinctUntilChanged()
@@ -167,7 +173,7 @@ class LearningMaterialRepositoryImpl @Inject constructor(
 
     override suspend fun shareSnapshotForClassroom(classroomId: String): Unit = withContext(ioDispatcher) {
         if (lanHostServer.activePort == null) return@withContext
-        val snapshot = materialDao.listForClassroom(classroomId)
+        val snapshot = materialDao.listActiveForClassroom(classroomId)
         if (snapshot.isEmpty()) return@withContext
         val payload = json.encodeToString(snapshot.map { it.toDomain(json) })
         lanHostServer.broadcast(WireMessage.MaterialsSnapshot(classroomId, payload))

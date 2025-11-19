@@ -8,10 +8,14 @@ import kotlinx.datetime.Instant
 interface LearningMaterialRepository {
     fun observeTeacherMaterials(
         classroomId: String? = null,
+        topicId: String? = null,
         includeArchived: Boolean = false
     ): Flow<List<LearningMaterial>>
 
-    fun observeStudentMaterials(classroomId: String? = null): Flow<List<LearningMaterial>>
+    fun observeStudentMaterials(
+        classroomId: String? = null,
+        topicId: String? = null
+    ): Flow<List<LearningMaterial>>
 
     fun observeMaterial(materialId: String): Flow<LearningMaterial?>
 

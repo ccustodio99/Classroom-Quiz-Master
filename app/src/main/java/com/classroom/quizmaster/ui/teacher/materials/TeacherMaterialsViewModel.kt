@@ -30,9 +30,24 @@ class TeacherMaterialsViewModel @Inject constructor(
     private val _events = MutableSharedFlow<String>()
     val events = _events.asSharedFlow()
 
-    private val materialsFlow = filter.flatMapLatest { filterState ->
+    private val normalizedFilter = combine(filter, classroomRepository.topics) { filterState, topics ->
+        val availableTopics = topics
+            .filterNot { it.isArchived }
+            .filter { topic ->
+                filterState.classroomId == null || topic.classroomId == filterState.classroomId
+            }
+        val resolvedTopic = when {
+            filterState.topicId == null -> null
+            availableTopics.any { it.id == filterState.topicId } -> filterState.topicId
+            else -> availableTopics.firstOrNull()?.id
+        }
+        filterState.copy(topicId = resolvedTopic)
+    }
+
+    private val materialsFlow = normalizedFilter.flatMapLatest { filterState ->
         learningMaterialRepository.observeTeacherMaterials(
             classroomId = filterState.classroomId?.takeIf { it.isNotBlank() },
+            topicId = filterState.topicId?.takeIf { it.isNotBlank() },
             includeArchived = filterState.showArchived
         )
     }
@@ -40,11 +55,12 @@ class TeacherMaterialsViewModel @Inject constructor(
     val uiState: StateFlow<TeacherMaterialsUiState> =
         combine(
             classroomRepository.classrooms,
+            classroomRepository.topics,
             materialsFlow,
-            filter
-        ) { classrooms, materials, filterState ->
+            normalizedFilter
+        ) { classrooms, topics, materials, filterState ->
             val activeClassrooms = classrooms.filterNot { it.isArchived }
-            val options = buildList {
+            val classroomOptions = buildList {
                 add(SelectionOptionUi("", "All classrooms"))
                 addAll(
                     activeClassrooms
@@ -61,16 +77,39 @@ class TeacherMaterialsViewModel @Inject constructor(
                         }
                 )
             }
+
+            val topicsByClassroom = topics
+                .filterNot { it.isArchived }
+                .groupBy { it.classroomId }
+                .mapValues { (_, grouped) ->
+                    buildList {
+                        add(SelectionOptionUi("", "All topics"))
+                        addAll(
+                            grouped
+                                .sortedBy { it.name.lowercase() }
+                                .map { topic -> SelectionOptionUi(topic.id, topic.name, topic.description) }
+                        )
+                    }
+                }
+
+            val topicOptions = topicsByClassroom[filterState.classroomId].orEmpty()
+            val selectedTopicId = filterState.topicId
+                ?.takeIf { id -> topicOptions.any { it.id == id } }
+                ?: topicOptions.firstOrNull()?.id
+
             val summaries = materials.map { it.toSummaryUi() }
             val emptyMessage = if (filterState.showArchived) {
                 "No archived materials yet"
             } else {
                 "No learning materials yet"
             }
+
             TeacherMaterialsUiState(
                 materials = summaries,
-                classroomOptions = options,
+                classroomOptions = classroomOptions,
+                topicOptions = topicOptions,
                 selectedClassroomId = filterState.classroomId,
+                selectedTopicId = selectedTopicId,
                 showArchived = filterState.showArchived,
                 emptyMessage = emptyMessage,
                 isShareEnabled = !filterState.showArchived &&
@@ -85,7 +124,16 @@ class TeacherMaterialsViewModel @Inject constructor(
             )
 
     fun selectClassroom(classroomId: String?) {
-        filter.update { it.copy(classroomId = classroomId?.takeIf { it.isNotBlank() }) }
+        filter.update {
+            it.copy(
+                classroomId = classroomId?.takeIf { id -> id.isNotBlank() },
+                topicId = null
+            )
+        }
+    }
+
+    fun selectTopic(topicId: String?) {
+        filter.update { it.copy(topicId = topicId?.takeIf { id -> id.isNotBlank() }) }
     }
 
     fun toggleArchived(showArchived: Boolean) {
@@ -119,6 +167,7 @@ class TeacherMaterialsViewModel @Inject constructor(
 
     private data class FilterState(
         val classroomId: String? = null,
+        val topicId: String? = null,
         val showArchived: Boolean = false
     )
 }
@@ -126,7 +175,9 @@ class TeacherMaterialsViewModel @Inject constructor(
 data class TeacherMaterialsUiState(
     val materials: List<MaterialSummaryUi> = emptyList(),
     val classroomOptions: List<SelectionOptionUi> = emptyList(),
+    val topicOptions: List<SelectionOptionUi> = emptyList(),
     val selectedClassroomId: String? = null,
+    val selectedTopicId: String? = null,
     val showArchived: Boolean = false,
     val emptyMessage: String = "",
     val isShareEnabled: Boolean = false

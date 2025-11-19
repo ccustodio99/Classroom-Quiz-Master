@@ -26,7 +26,7 @@ class StudentMaterialsViewModel @Inject constructor(
     val uiState: StateFlow<StudentMaterialsUiState> =
         classroomFlow
             .flatMapLatest { classroomId ->
-                learningMaterialRepository.observeStudentMaterials(classroomId)
+                learningMaterialRepository.observeStudentMaterials(classroomId = classroomId)
                     .map { materials -> classroomId to materials }
             }
             .map { (classroomId, materials) ->

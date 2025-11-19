@@ -47,6 +47,10 @@ interface MaterialDao {
     @Query("SELECT * FROM learning_materials WHERE classroomId = :classroomId")
     suspend fun listForClassroom(classroomId: String): List<MaterialWithAttachments>
 
+    @Transaction
+    @Query("SELECT * FROM learning_materials WHERE classroomId = :classroomId AND isArchived = 0")
+    suspend fun listActiveForClassroom(classroomId: String): List<MaterialWithAttachments>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertMaterial(material: LearningMaterialEntity)
 

@@ -77,6 +77,7 @@ fun TeacherMaterialsRoute(
         onMaterialSelected = onMaterialSelected,
         onEditMaterial = onEditMaterial,
         onSelectClassroom = viewModel::selectClassroom,
+        onSelectTopic = viewModel::selectTopic,
         onToggleArchived = viewModel::toggleArchived,
         onShare = viewModel::shareCurrentClassroom,
         onArchiveMaterial = viewModel::archive
@@ -92,6 +93,7 @@ fun TeacherMaterialsScreen(
     onMaterialSelected: (String) -> Unit,
     onEditMaterial: (String) -> Unit,
     onSelectClassroom: (String?) -> Unit,
+    onSelectTopic: (String?) -> Unit,
     onToggleArchived: (Boolean) -> Unit,
     onShare: () -> Unit,
     onArchiveMaterial: (String) -> Unit
@@ -130,6 +132,9 @@ fun TeacherMaterialsScreen(
                 options = state.classroomOptions,
                 selectedClassroomId = state.selectedClassroomId,
                 onSelectClassroom = onSelectClassroom,
+                topicOptions = state.topicOptions,
+                selectedTopicId = state.selectedTopicId,
+                onSelectTopic = onSelectTopic,
                 showArchived = state.showArchived,
                 onToggleArchived = onToggleArchived
             )
@@ -158,6 +163,9 @@ private fun ClassroomFilter(
     options: List<SelectionOptionUi>,
     selectedClassroomId: String?,
     onSelectClassroom: (String?) -> Unit,
+    topicOptions: List<SelectionOptionUi>,
+    selectedTopicId: String?,
+    onSelectTopic: (String?) -> Unit,
     showArchived: Boolean,
     onToggleArchived: (Boolean) -> Unit
 ) {
@@ -191,6 +199,39 @@ private fun ClassroomFilter(
                         onClick = {
                             expanded.value = false
                             onSelectClassroom(option.id.takeIf { it.isNotBlank() })
+                        }
+                    )
+                }
+            }
+        }
+        val topicExpanded = remember { mutableStateOf(false) }
+        ExposedDropdownMenuBox(
+            expanded = topicExpanded.value,
+            onExpandedChange = { topicExpanded.value = !topicExpanded.value }
+        ) {
+            TextField(
+                value = topicOptions.firstOrNull { it.id == selectedTopicId }?.label
+                    ?: topicOptions.firstOrNull()?.label.orEmpty(),
+                onValueChange = {},
+                readOnly = true,
+                modifier = Modifier
+                    .menuAnchor()
+                    .fillMaxWidth(),
+                label = { Text("Topic") },
+                trailingIcon = {
+                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = topicExpanded.value)
+                }
+            )
+            ExposedDropdownMenu(
+                expanded = topicExpanded.value,
+                onDismissRequest = { topicExpanded.value = false }
+            ) {
+                topicOptions.forEach { option ->
+                    DropdownMenuItem(
+                        text = { Text(option.label) },
+                        onClick = {
+                            topicExpanded.value = false
+                            onSelectTopic(option.id.takeIf { it.isNotBlank() })
                         }
                     )
                 }

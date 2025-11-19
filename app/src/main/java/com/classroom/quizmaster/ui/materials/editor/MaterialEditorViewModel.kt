@@ -205,7 +205,7 @@ class MaterialEditorViewModel @Inject constructor(
     )
 
     private fun MaterialEditorUiState.validate(): MaterialEditorUiState {
-        val canSave = title.isNotBlank() && selectedClassroomId.isNotBlank() && !isSaving
+        val canSave = title.isNotBlank() && selectedClassroomId.isNotBlank() && selectedTopicId.isNotBlank() && !isSaving
         return copy(canSave = canSave)
     }
 }
