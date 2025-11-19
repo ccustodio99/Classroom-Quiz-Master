@@ -194,6 +194,7 @@ class FakeSessionRepository @Inject constructor() : SessionRepositoryUi {
         LaunchLobbyUiState(
             joinCode = "R7FT",
             qrSubtitle = "09:12",
+            qrPayload = "ws://192.168.0.10:48765/ws?token=demo",
             discoveredPeers = 6,
             players = listOf(
                 PlayerLobbyUi("1", "Kai", sampleAvatars[0], true, "Ready"),

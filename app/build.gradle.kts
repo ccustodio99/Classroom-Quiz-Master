@@ -246,6 +246,7 @@ dependencies {
 
     implementation(libs.okhttp.logging.interceptor)
     implementation(libs.okio)
+    implementation(libs.zxing)
 
     implementation(libs.commons.io)
     implementation(libs.commons.text)
