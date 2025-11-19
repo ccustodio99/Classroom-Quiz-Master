@@ -566,26 +566,6 @@ private fun TeacherHomePreview() {
             onAssignments = {},
             onReports = {},
             onViewArchived = {},
-                        name = "STEM Club",
-                        grade = null,
-                        topicCount = 3,
-                        quizCount = 6
-                    )
-                ),
-                actionCards = defaultActionCards,
-                recentQuizzes = listOf(
-                    QuizOverviewUi(
-                        "1",
-                        "Fractions review",
-                        "4",
-                        "Math",
-                        12,
-                        78,
-                        "2h ago",
-                        false,
-                        classroomName = "Period 1 Algebra",
-                        topicName = "Fractions"
-                    ),
                     QuizOverviewUi(
                         "2",
                         "Science trivia",
