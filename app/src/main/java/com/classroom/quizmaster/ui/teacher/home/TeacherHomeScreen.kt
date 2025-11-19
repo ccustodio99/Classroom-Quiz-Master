@@ -168,35 +168,60 @@ private fun ClassroomsSection(
     onClassroomSelected: (String) -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-            PrimaryButton(
-                text = "Create classroom",
-                onClick = onCreateClassroom,
-                modifier = Modifier.fillMaxWidth()
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
+            Text(
+                text = "View archived",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.primary,
+                modifier = Modifier.clickable { onViewArchived() }
             )
-                        .clickable { onClassroomSelected(classroom.id) },
-                    shape = MaterialTheme.shapes.large,
-                    tonalElevation = 2.dp
-                ) {
-                    Column(
+        }
+        PrimaryButton(
+            text = "Create classroom",
+            onClick = onCreateClassroom,
+            modifier = Modifier.fillMaxWidth()
+        )
+        if (classrooms.isEmpty()) {
+            EmptyState(
+                title = "No classrooms yet",
+                message = "Create your first classroom to add topics and quizzes."
+            )
+        } else {
+            Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                classrooms.forEach { classroom ->
+                    Surface(
                         modifier = Modifier
                             .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
+                            .clickable { onClassroomSelected(classroom.id) },
+                        shape = MaterialTheme.shapes.large,
+                        tonalElevation = 2.dp
                     ) {
-                        Text(
-                            text = classroom.name,
-                            style = MaterialTheme.typography.titleMedium
-                        )
-                        val meta = buildString {
-                            classroom.grade?.takeIf { it.isNotBlank() }?.let {
-                                append("Grade $it")
-                            }
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(4.dp)
+                        ) {
+                            Text(
+                                text = classroom.name,
+                                style = MaterialTheme.typography.titleMedium
+                            )
+                            val meta = buildList {
+                                classroom.grade?.takeIf { it.isNotBlank() }?.let { add("Grade $it") }
+                                add("${classroom.topicCount} topics")
+                                add("${classroom.quizCount} quizzes")
+                            }.joinToString(" • ")
+                            Text(
+                                text = meta,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
                         }
-                        Text(
-                            text = meta,
-                            style = MaterialTheme.typography.bodyMedium,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
                     }
                 }
             }
@@ -542,104 +567,6 @@ private fun TeacherHomePreview() {
             onAssignments = {},
             onReports = {},
             onViewArchived = {},
-
-            quizzes.forEach { quiz ->
-                Surface(
-                    shape = MaterialTheme.shapes.medium,
-                    tonalElevation = 2.dp
-                ) {
-                    Column(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(4.dp)
-                    ) {
-                        Text(text = quiz.title, style = MaterialTheme.typography.titleMedium)
-                        val location = listOf(quiz.classroomName, quiz.topicName)
-                            .filter { it.isNotBlank() }
-                            .joinToString("  -  ")
-                        if (location.isNotBlank()) {
-                            Text(
-                                text = location,
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                        val subjectAndGrade = listOf(
-                            quiz.subject.takeIf { it.isNotBlank() },
-                            quiz.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" }
-                        ).filterNotNull().joinToString("  -  ")
-                        if (subjectAndGrade.isNotBlank()) {
-                            Text(subjectAndGrade)
-                        }
-                        Text(text = "${quiz.questionCount} questions - ${quiz.averageScore}% avg")
-                        Text(
-                            text = quiz.updatedAgo,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                        )
-                    }
-                }
-            }
-        }
-    }
-}
-
-
-@Composable
-private fun ActionCard(
-    card: HomeActionCard,
-    onClick: () -> Unit,
-    enabled: Boolean
-) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.large,
-        tonalElevation = if (card.primary) 4.dp else 2.dp
-    ) {
-        Column(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(16.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp)
-        ) {
-            Row(
-                verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(12.dp)
-            ) {
-                Icon(
-                    imageVector = iconForAction(card.id),
-                    contentDescription = null
-                )
-                Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                    Text(text = card.title, style = MaterialTheme.typography.titleMedium)
-                    Text(
-                        text = card.description,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                    )
-                }
-            }
-            val buttonModifier = Modifier.fillMaxWidth()
-            if (card.primary) {
-                PrimaryButton(
-                    text = card.ctaLabel,
-                    onClick = onClick,
-                    modifier = buttonModifier,
-                    enabled = enabled
-                )
-            } else {
-                SecondaryButton(
-                    text = card.ctaLabel,
-                    onClick = onClick,
-                    modifier = buttonModifier,
-                    enabled = enabled
-                )
-            }
-        }
-    }
-}
-
 private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
