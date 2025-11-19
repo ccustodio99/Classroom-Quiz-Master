@@ -62,7 +62,8 @@ class QuizEditorViewModel @Inject constructor(
         viewModelScope.launch {
             quizRepositoryUi.quizEditorState(classroomId, topicId, quizId).collect { draft ->
                 _uiState.update { current ->
-                    if (!hasPrimedState) {
+                    val shouldPrime = !hasPrimedState && draft.hasLoadedContent()
+                    if (shouldPrime) {
                         hasPrimedState = true
                         draft
                     } else {
@@ -202,6 +203,14 @@ class QuizEditorViewModel @Inject constructor(
             subject = subject.ifBlank { incoming.subject },
             isNewQuiz = isNewQuiz && incoming.isNewQuiz
         )
+    }
+
+    private fun QuizEditorUiState.hasLoadedContent(): Boolean {
+        if (!isNewQuiz) return true
+        if (classroomOptions.isNotEmpty()) return true
+        if (topicsByClassroom.isNotEmpty()) return true
+        if (questions.isNotEmpty()) return true
+        return false
     }
 
     companion object {
