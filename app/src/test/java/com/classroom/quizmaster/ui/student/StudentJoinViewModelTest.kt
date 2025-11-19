@@ -10,6 +10,7 @@ import com.classroom.quizmaster.domain.model.Session
 import com.classroom.quizmaster.domain.model.SessionStatus
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.ui.student.join.StudentJoinViewModel
+import com.classroom.quizmaster.util.NicknamePolicy
 import kotlin.test.assertEquals
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
@@ -46,11 +47,33 @@ class StudentJoinViewModelTest {
         assertEquals("demo-ABC123", viewModel.uiState.value.services.first().serviceName)
     }
 
+    @Test
+    fun `join delegates to repository and clears joining flag`() = runTest(dispatcher) {
+        val repository = FakeSessionRepository()
+        val viewModel = StudentJoinViewModel(repository, NearbyFallbackManager())
+        val descriptor = LanServiceDescriptor("demo-ABC123", "0.0.0.0", 8080, "ABC123", "ABC123", 0)
+        var successCount = 0
+
+        viewModel.join(descriptor) { successCount++ }
+        dispatcher.scheduler.advanceUntilIdle()
+
+        assertEquals(1, repository.joinCalls)
+        assertEquals(descriptor, repository.lastJoinDescriptor)
+        val expectedNickname = NicknamePolicy.sanitize("Student", descriptor.joinCode + descriptor.timestamp)
+        assertEquals(expectedNickname, repository.lastJoinNickname)
+        assertEquals(1, successCount)
+        assertEquals(false, viewModel.uiState.value.isJoining)
+        assertEquals(null, viewModel.uiState.value.error)
+    }
+
     private class FakeSessionRepository : SessionRepository {
         override val session: Flow<Session?> = MutableStateFlow(null)
         override val participants: Flow<List<Participant>> = MutableStateFlow(emptyList())
         override val pendingOpCount: Flow<Int> = MutableStateFlow(0)
         override val lanMeta: Flow<LanMeta?> = MutableStateFlow(null)
+        var joinCalls = 0
+        var lastJoinDescriptor: LanServiceDescriptor? = null
+        var lastJoinNickname: String? = null
 
         override suspend fun startLanSession(quizId: String, classroomId: String, hostNickname: String): Session =
             Session(
@@ -75,7 +98,12 @@ class StudentJoinViewModelTest {
                 )
             )
 
-        override suspend fun joinLanHost(service: LanServiceDescriptor, nickname: String) = Result.success(Unit)
+        override suspend fun joinLanHost(service: LanServiceDescriptor, nickname: String): Result<Unit> {
+            joinCalls++
+            lastJoinDescriptor = service
+            lastJoinNickname = nickname
+            return Result.success(Unit)
+        }
         override suspend fun kickParticipant(uid: String) {}
         override suspend fun syncPending() {}
         override suspend fun endSession() {}

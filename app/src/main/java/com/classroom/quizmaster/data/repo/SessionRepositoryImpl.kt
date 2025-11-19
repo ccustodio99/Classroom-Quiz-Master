@@ -213,6 +213,7 @@ class SessionRepositoryImpl @Inject constructor(
         startHostService(session, token, port)
         firebaseSessionDataSource.publishSession(session)
             .onFailure { Timber.w(it, "Failed to mirror session ${session.id} to Firestore") }
+        broadcastSession(session)
         broadcastLeaderboardSnapshot(session.id)
         session
     }
@@ -315,12 +316,29 @@ class SessionRepositoryImpl @Inject constructor(
     }
 
     override suspend fun endSession() = withContext(ioDispatcher) {
+        val currentEntity = sessionDao.currentSession()
+        val endedSnapshot = currentEntity?.let { entity ->
+            val now = Clock.System.now()
+            val endedSession = entity.toDomain(lanMetaState.value).copy(
+                status = SessionStatus.ENDED,
+                reveal = false,
+                endedAt = now
+            )
+            firebaseSessionDataSource.publishSession(endedSession)
+                .onFailure { Timber.w(it, "Failed to publish ended session ${endedSession.id}") }
+            broadcastSession(endedSession)
+            endedSession
+        }
         lanHostServer.stop()
         lanToken = null
         lanClient.disconnect()
         joinedEndpoint = null
         studentNickname = null
         LanHostForegroundService.stop(context)
+        if (endedSnapshot != null) {
+            firebaseSessionDataSource.publishParticipants(endedSnapshot.id, emptyList())
+                .onFailure { Timber.w(it, "Failed to clear participants for ${endedSnapshot.id}") }
+        }
         database.withTransaction {
             lanSessionDao.clear()
             sessionDao.clearParticipants()
