@@ -3,6 +3,7 @@ package com.classroom.quizmaster.ui.teacher.classrooms.detail
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
@@ -18,6 +19,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.EmptyState
+import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
 
 @Composable
@@ -25,6 +27,7 @@ fun TeacherClassroomDetailRoute(
     onBack: () -> Unit,
     onTopicSelected: (String) -> Unit,
     onCreateTopic: () -> Unit,
+    onEditClassroom: () -> Unit,
     viewModel: TeacherClassroomDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -32,7 +35,8 @@ fun TeacherClassroomDetailRoute(
         state = state,
         onBack = onBack,
         onTopicSelected = onTopicSelected,
-        onCreateTopic = onCreateTopic
+        onCreateTopic = onCreateTopic,
+        onEditClassroom = onEditClassroom
     )
 }
 
@@ -41,7 +45,8 @@ fun TeacherClassroomDetailScreen(
     state: ClassroomDetailUiState,
     onBack: () -> Unit,
     onTopicSelected: (String) -> Unit,
-    onCreateTopic: () -> Unit
+    onCreateTopic: () -> Unit,
+    onEditClassroom: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -63,10 +68,21 @@ fun TeacherClassroomDetailScreen(
             EmptyState(title = "Classroom unavailable", message = state.errorMessage)
             return@Column
         }
-        SecondaryButton(
-            text = "Add topic",
-            onClick = onCreateTopic
-        )
+        Row(
+            modifier = Modifier.fillMaxWidth(),
+            horizontalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            PrimaryButton(
+                text = "Edit classroom",
+                onClick = onEditClassroom,
+                modifier = Modifier.weight(1f)
+            )
+            SecondaryButton(
+                text = "Add topic",
+                onClick = onCreateTopic,
+                modifier = Modifier.weight(1f)
+            )
+        }
         if (state.topics.isEmpty()) {
             EmptyState(
                 title = "No topics yet",

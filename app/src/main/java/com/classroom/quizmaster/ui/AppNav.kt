@@ -27,8 +27,9 @@ import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
-import com.classroom.quizmaster.ui.teacher.classrooms.archived.ArchivedClassroomsRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.CreateClassroomRoute
+import com.classroom.quizmaster.ui.teacher.classrooms.EditClassroomRoute
+import com.classroom.quizmaster.ui.teacher.classrooms.archived.ArchivedClassroomsRoute
 import com.classroom.quizmaster.ui.teacher.classrooms.detail.TeacherClassroomDetailRoute
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeRoute
 import com.classroom.quizmaster.ui.teacher.host.HostLiveRoute
@@ -45,6 +46,9 @@ sealed class AppRoute(val route: String) {
     data object TeacherClassroomCreate : AppRoute("teacher/classrooms/create")
     data object TeacherClassroomDetail : AppRoute("teacher/classrooms/{classroomId}") {
         fun build(classroomId: String) = "teacher/classrooms/$classroomId"
+    }
+    data object TeacherClassroomEdit : AppRoute("teacher/classrooms/{classroomId}/edit") {
+        fun build(classroomId: String) = "teacher/classrooms/$classroomId/edit"
     }
     data object TeacherTopicDetail : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}") {
         fun build(classroomId: String, topicId: String) = "teacher/classrooms/$classroomId/topics/$topicId"
@@ -197,6 +201,28 @@ fun AppNav(
                         },
                         onCreateTopic = {
                             navController.navigate(AppRoute.TeacherTopicCreate.build(classroomId))
+                        },
+                        onEditClassroom = {
+                            navController.navigate(AppRoute.TeacherClassroomEdit.build(classroomId))
+                        }
+                    )
+                }
+            }
+            composable(
+                route = AppRoute.TeacherClassroomEdit.route,
+                arguments = listOf(navArgument("classroomId") { type = NavType.StringType })
+            ) { entry ->
+                val classroomId = entry.arguments?.getString("classroomId").orEmpty()
+                if (classroomId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    EditClassroomRoute(
+                        onDone = { navController.popBackStack() },
+                        onArchived = {
+                            val removedEdit = navController.popBackStack()
+                            if (removedEdit) {
+                                navController.popBackStack()
+                            }
                         }
                     )
                 }
