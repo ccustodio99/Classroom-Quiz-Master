@@ -3,6 +3,8 @@ package com.classroom.quizmaster.ui.state
 import androidx.compose.ui.graphics.Color
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
+import com.classroom.quizmaster.data.network.ConnectivityMonitor
+import com.classroom.quizmaster.data.network.ConnectivityStatus
 import com.classroom.quizmaster.domain.model.Participant
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
@@ -43,6 +45,8 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.launchIn
+import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
@@ -58,6 +62,7 @@ class RealSessionRepositoryUi @Inject constructor(
     private val authRepository: AuthRepository,
     private val submitAnswerUseCase: SubmitAnswerUseCase,
     private val startSessionUseCase: StartSessionUseCase,
+    private val connectivityMonitor: ConnectivityMonitor,
     private val dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : SessionRepositoryUi {
 
@@ -71,7 +76,7 @@ class RealSessionRepositoryUi @Inject constructor(
     private val entryState = MutableStateFlow(
         StudentEntryUiState(
             avatarOptions = defaultAvatars,
-            statusMessage = "Scan for nearby hosts",
+            statusMessage = DEFAULT_STATUS_MESSAGE,
             networkAvailable = true
         )
     )
@@ -88,11 +93,19 @@ class RealSessionRepositoryUi @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
     private val authState = authRepository.authState
         .stateIn(scope, SharingStarted.Eagerly, com.classroom.quizmaster.domain.model.AuthState())
+    private val connectivityState = connectivityMonitor.status
+        .stateIn(scope, SharingStarted.Eagerly, ConnectivityStatus.offline())
 
     private var discoveryJob: Job? = null
 
+    init {
+        connectivityState
+            .onEach { status -> updateEntryNetworkStatus(status.isOffline) }
+            .launchIn(scope)
+    }
+
     override val launchLobby: Flow<LaunchLobbyUiState> =
-        combine(sessionState, participantsState, pendingOps, hostStatusMessage) { session, participants, pending, message ->
+        combine(sessionState, participantsState, pendingOps, hostStatusMessage, connectivityState) { session, participants, pending, message, connectivity ->
             val base = if (session == null) {
                 LaunchLobbyUiState()
             } else {
@@ -103,7 +116,7 @@ class RealSessionRepositoryUi @Inject constructor(
                     players = participants.map { it.toPlayerLobby(session.teacherId) },
                     hideLeaderboard = session.hideLeaderboard,
                     lockAfterFirst = session.lockAfterQ1,
-                    statusChips = buildStatusChips(pending)
+                    statusChips = buildStatusChips(pending, connectivity.isOffline)
                 )
             }
             if (message.isNullOrBlank()) base else base.copy(snackbarMessage = message)
@@ -474,6 +487,26 @@ class RealSessionRepositoryUi @Inject constructor(
         entryState.update { it.copy(errorMessage = null) }
     }
 
+    private fun updateEntryNetworkStatus(isOffline: Boolean) {
+        entryState.update { state ->
+            if (isOffline) {
+                state.copy(
+                    networkAvailable = false,
+                    statusMessage = OFFLINE_STATUS_MESSAGE
+                )
+            } else {
+                val restoredStatus = when (state.statusMessage) {
+                    OFFLINE_STATUS_MESSAGE, "" -> DEFAULT_STATUS_MESSAGE
+                    else -> state.statusMessage
+                }
+                state.copy(
+                    networkAvailable = true,
+                    statusMessage = restoredStatus
+                )
+            }
+        }
+    }
+
     private fun selectQuizForContext(context: HostContext): String? {
         val quizzes = quizzesState.value
         return quizzes.firstOrNull { quiz ->
@@ -482,14 +515,21 @@ class RealSessionRepositoryUi @Inject constructor(
         }?.id
     }
 
-    private fun buildStatusChips(pendingOps: Int): List<StatusChipUi> {
+    private fun buildStatusChips(pendingOps: Int, offline: Boolean): List<StatusChipUi> {
         val chips = mutableListOf(
             StatusChipUi("lan", "LAN", StatusChipType.Lan)
         )
-        if (pendingOps > 0) {
-            chips += StatusChipUi("sync", "Syncing", StatusChipType.Cloud)
+        if (offline) {
+            chips += StatusChipUi("offline", "Offline-first", StatusChipType.Offline)
+            if (pendingOps > 0) {
+                chips += StatusChipUi("queue", "Queue $pendingOps", StatusChipType.Cloud)
+            }
         } else {
-            chips += StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)
+            chips += if (pendingOps > 0) {
+                StatusChipUi("sync", "Syncing", StatusChipType.Cloud)
+            } else {
+                StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)
+            }
         }
         return chips
     }
@@ -611,6 +651,8 @@ class RealSessionRepositoryUi @Inject constructor(
     )
 
     companion object {
+        private const val DEFAULT_STATUS_MESSAGE = "Scan for nearby hosts"
+        private const val OFFLINE_STATUS_MESSAGE = "Offline mode: LAN hosting stays available. We'll sync when you're online."
         private val defaultAvatars = listOf(
             AvatarOption("aurora", "AU", listOf(Color(0xFF34D399), Color(0xFF3B82F6)), "spark"),
             AvatarOption("zen", "ZE", listOf(Color(0xFFFDE68A), Color(0xFFF97316)), "pencil"),
