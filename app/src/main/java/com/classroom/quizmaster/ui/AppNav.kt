@@ -219,28 +219,33 @@ fun AppNav(
                             navController.navigate(AppRoute.TeacherClassroomEdit.build(classroomId))
                         },
                         onCreatePreTest = { classId, topicId ->
-                            if (topicId.isBlank()) return@onCreatePreTest
-                            navController.navigate(
-                                AppRoute.TeacherQuizCreate.build(
-                                    classId,
-                                    topicId,
-                                    QuizCategoryUi.PreTest.routeValue
+                            if (topicId.isNotBlank()) {
+                                navController.navigate(
+                                    AppRoute.TeacherQuizCreate.build(
+                                        classId,
+                                        topicId,
+                                        QuizCategoryUi.PreTest.routeValue
+                                    )
                                 )
-                            )
+                            }
                         },
                         onCreatePostTest = { classId, topicId ->
-                            if (topicId.isBlank()) return@onCreatePostTest
-                            navController.navigate(
-                                AppRoute.TeacherQuizCreate.build(
-                                    classId,
-                                    topicId,
-                                    QuizCategoryUi.PostTest.routeValue
+                            if (topicId.isNotBlank()) {
+                                navController.navigate(
+                                    AppRoute.TeacherQuizCreate.build(
+                                        classId,
+                                        topicId,
+                                        QuizCategoryUi.PostTest.routeValue
+                                    )
                                 )
-                            )
+                            }
                         },
                         onEditTest = { classId, topicId, quizId ->
-                            if (topicId.isBlank()) return@onEditTest
-                            navController.navigate(AppRoute.TeacherQuizEdit.build(classId, topicId, quizId))
+                            if (topicId.isNotBlank()) {
+                                navController.navigate(
+                                    AppRoute.TeacherQuizEdit.build(classId, topicId, quizId)
+                                )
+                            }
                         }
                     )
                 }
