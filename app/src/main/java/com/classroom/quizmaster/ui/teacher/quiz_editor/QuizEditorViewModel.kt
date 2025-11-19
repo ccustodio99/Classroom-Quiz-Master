@@ -7,6 +7,7 @@ import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
+import com.classroom.quizmaster.ui.model.QuizCategoryUi
 import com.classroom.quizmaster.ui.state.QuizRepositoryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -29,6 +30,7 @@ data class QuizEditorUiState(
     val topicsByClassroom: Map<String, List<SelectionOptionUi>> = emptyMap(),
     val timePerQuestionSeconds: Int = 45,
     val shuffleQuestions: Boolean = true,
+    val quizCategory: QuizCategoryUi = QuizCategoryUi.Standard,
     val lastSavedRelative: String = "Just now",
     val showSaveDialog: Boolean = false,
     val showDiscardDialog: Boolean = false,
@@ -44,14 +46,15 @@ class QuizEditorViewModel @Inject constructor(
     private val quizId: String? = savedStateHandle[QUIZ_ID_KEY]
     private val classroomId: String = savedStateHandle[CLASSROOM_ID_KEY]
         ?: throw IllegalArgumentException("classroomId is required")
-    private val topicId: String = savedStateHandle[TOPIC_ID_KEY]
-        ?: throw IllegalArgumentException("topicId is required")
+    private val topicId: String = savedStateHandle[TOPIC_ID_KEY] ?: ""
+    private val initialCategory = QuizCategoryUi.fromRoute(savedStateHandle[CATEGORY_KEY])
 
     private val _uiState = MutableStateFlow(
         QuizEditorUiState(
             quizId = quizId,
             classroomId = classroomId,
-            topicId = topicId
+            topicId = topicId,
+            quizCategory = initialCategory
         )
     )
     val uiState: StateFlow<QuizEditorUiState> = _uiState
@@ -89,6 +92,7 @@ class QuizEditorViewModel @Inject constructor(
         update { it.copy(timePerQuestionSeconds = value.coerceIn(15, 120)) }
 
     fun toggleShuffle(value: Boolean) = update { it.copy(shuffleQuestions = value) }
+    fun updateCategory(category: QuizCategoryUi) = update { it.copy(quizCategory = category) }
 
     fun addQuestion(type: QuestionTypeUi) = update { state ->
         val newId = "q${Random.nextInt(1000, 9999)}"
@@ -192,6 +196,11 @@ class QuizEditorViewModel @Inject constructor(
             topicsForClassroom.any { it.id == incoming.topicId } -> incoming.topicId
             else -> topicsForClassroom.firstOrNull()?.id.orEmpty()
         }
+        val resolvedCategory = if (incoming.quizId.isNullOrBlank()) {
+            quizCategory
+        } else {
+            incoming.quizCategory
+        }
 
         return copy(
             quizId = quizId ?: incoming.quizId,
@@ -201,6 +210,7 @@ class QuizEditorViewModel @Inject constructor(
             topicsByClassroom = resolvedTopicsByClassroom,
             grade = grade.ifBlank { incoming.grade },
             subject = subject.ifBlank { incoming.subject },
+            quizCategory = resolvedCategory,
             isNewQuiz = isNewQuiz && incoming.isNewQuiz
         )
     }
@@ -217,5 +227,6 @@ class QuizEditorViewModel @Inject constructor(
         const val QUIZ_ID_KEY = "quizId"
         const val CLASSROOM_ID_KEY = "classroomId"
         const val TOPIC_ID_KEY = "topicId"
+        const val CATEGORY_KEY = "category"
     }
 }

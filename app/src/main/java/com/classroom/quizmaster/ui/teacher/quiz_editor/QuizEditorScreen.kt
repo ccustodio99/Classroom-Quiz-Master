@@ -2,6 +2,7 @@ package com.classroom.quizmaster.ui.teacher.quiz_editor
 
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -11,6 +12,7 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material3.FilterChip
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -33,6 +35,7 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.DiscardDraftDialog
@@ -44,6 +47,7 @@ import com.classroom.quizmaster.ui.components.ToggleChip
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
+import com.classroom.quizmaster.ui.model.QuizCategoryUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
@@ -64,6 +68,7 @@ fun QuizEditorRoute(
         onSubjectChange = viewModel::updateSubject,
         onTimeChange = viewModel::updateTimePerQuestion,
         onShuffleChange = viewModel::toggleShuffle,
+        onCategoryChange = viewModel::updateCategory,
         onAddQuestion = viewModel::addQuestion,
         onQuestionStem = viewModel::updateQuestionStem,
         onAnswerChange = viewModel::updateAnswerText,
@@ -84,6 +89,7 @@ fun QuizEditorRoute(
     )
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QuizEditorScreen(
     state: QuizEditorUiState,
@@ -94,6 +100,7 @@ fun QuizEditorScreen(
     onSubjectChange: (String) -> Unit,
     onTimeChange: (Int) -> Unit,
     onShuffleChange: (Boolean) -> Unit,
+    onCategoryChange: (QuizCategoryUi) -> Unit,
     onAddQuestion: (QuestionTypeUi) -> Unit,
     onQuestionStem: (String, String) -> Unit,
     onAnswerChange: (String, String, String) -> Unit,
@@ -122,6 +129,21 @@ fun QuizEditorScreen(
             topicOptions = state.topicsByClassroom[state.classroomId].orEmpty(),
             selectedTopicId = state.topicId,
             onTopicSelected = onTopicChange
+        )
+        Text(text = "Test type", style = MaterialTheme.typography.titleMedium)
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+            QuizCategoryUi.entries.forEach { category ->
+                FilterChip(
+                    selected = state.quizCategory == category,
+                    onClick = { onCategoryChange(category) },
+                    label = { Text(category.displayName) }
+                )
+            }
+        }
+        Text(
+            text = state.quizCategory.description,
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
         OutlinedTextField(
             value = state.title,
@@ -475,6 +497,7 @@ private fun QuizEditorPreview() {
                         explanation = "Convert to like denominators."
                     )
                 ),
+                quizCategory = QuizCategoryUi.PreTest,
                 classroomOptions = listOf(
                     SelectionOptionUi("room1", "Period 1 Algebra", "Grade 4 • Math"),
                     SelectionOptionUi("room2", "STEM Club", "Grade 5 • Science")
@@ -497,6 +520,7 @@ private fun QuizEditorPreview() {
             onSubjectChange = {},
             onTimeChange = {},
             onShuffleChange = {},
+            onCategoryChange = {},
             onAddQuestion = {},
             onQuestionStem = { _, _ -> },
             onAnswerChange = { _, _, _ -> },

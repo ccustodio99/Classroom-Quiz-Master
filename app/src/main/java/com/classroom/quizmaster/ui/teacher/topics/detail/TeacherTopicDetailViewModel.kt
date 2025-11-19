@@ -3,6 +3,7 @@ package com.classroom.quizmaster.ui.teacher.topics.detail
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.classroom.quizmaster.domain.model.QuizCategory
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
@@ -63,7 +64,8 @@ class TeacherTopicDetailViewModel @Inject constructor(
                     .filter {
                         !it.isArchived &&
                             it.classroomId == classroomIdArg &&
-                            it.topicId == topicIdArg
+                            it.topicId == topicIdArg &&
+                            it.category == QuizCategory.STANDARD
                     }
                 val topicQuizzes = activeQuizzes
                     .sortedByDescending { it.updatedAt }

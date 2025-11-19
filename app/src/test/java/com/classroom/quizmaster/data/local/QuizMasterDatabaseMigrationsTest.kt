@@ -30,7 +30,7 @@ class QuizMasterDatabaseMigrationsTest {
     }
 
     @Test
-    fun `migrates from v1 to v8 preserving indexes`() {
+    fun `migrates from v1 to v10 preserving indexes`() {
         helper.createDatabase(dbName, 1).apply {
             execSQL(
                 "INSERT INTO sessions (id, quizId, teacherId, classroomId, joinCode, status, currentIndex, reveal, hideLeaderboard, lockAfterQ1, updatedAt) " +
@@ -41,7 +41,7 @@ class QuizMasterDatabaseMigrationsTest {
             close()
         }
 
-        helper.runMigrationsAndValidate(dbName, 8, true, *QuizMasterMigrations.ALL).use { db ->
+        helper.runMigrationsAndValidate(dbName, 10, true, *QuizMasterMigrations.ALL).use { db ->
             val sessionIndexes = mutableSetOf<String>()
             db.query("PRAGMA index_list('sessions')").use { cursor ->
                 val nameIndex = cursor.getColumnIndex("name")

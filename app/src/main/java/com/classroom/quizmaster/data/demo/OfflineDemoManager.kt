@@ -10,6 +10,7 @@ import com.classroom.quizmaster.data.local.entity.QuizEntity
 import com.classroom.quizmaster.data.local.entity.TeacherEntity
 import com.classroom.quizmaster.data.local.entity.TopicEntity
 import com.classroom.quizmaster.domain.model.DemoMode
+import com.classroom.quizmaster.domain.model.QuizCategory
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -103,6 +104,7 @@ class OfflineDemoManager @Inject constructor(
                 defaultTimePerQ = 45,
                 shuffle = true,
                 questionCount = questions.size,
+                category = QuizCategory.STANDARD.name,
                 createdAt = quizCreatedAt.toEpochMilliseconds(),
                 updatedAt = now.toEpochMilliseconds(),
                 isArchived = false,

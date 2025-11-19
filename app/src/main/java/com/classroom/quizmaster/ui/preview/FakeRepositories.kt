@@ -10,6 +10,7 @@ import com.classroom.quizmaster.ui.model.PlayerLobbyUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
 import com.classroom.quizmaster.ui.model.QuizOverviewUi
+import com.classroom.quizmaster.ui.model.QuizCategoryUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.model.ReportRowUi
 import com.classroom.quizmaster.ui.model.StatusChipType
@@ -149,6 +150,7 @@ class FakeQuizRepository @Inject constructor() : QuizRepositoryUi {
                     explanation = "Use like denominators."
                 )
             ),
+            quizCategory = QuizCategoryUi.Standard,
             classroomOptions = listOf(
                 SelectionOptionUi("demo-classroom", "Period 1 Algebra", "Grade 4 • Math"),
                 SelectionOptionUi("demo-classroom-2", "STEM Club", "Grade 5 • Science")

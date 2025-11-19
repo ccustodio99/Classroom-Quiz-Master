@@ -21,6 +21,7 @@ import com.classroom.quizmaster.ui.auth.AuthRoute
 import com.classroom.quizmaster.ui.neutral.NeutralWelcomeScreen
 import com.classroom.quizmaster.ui.neutral.NeutralWelcomeViewModel
 import com.classroom.quizmaster.ui.neutral.OfflineDemoEvent
+import com.classroom.quizmaster.ui.model.QuizCategoryUi
 import com.classroom.quizmaster.ui.student.end.StudentEndRoute
 import com.classroom.quizmaster.ui.student.entry.EntryTab
 import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
@@ -57,8 +58,12 @@ sealed class AppRoute(val route: String) {
     data object TeacherTopicCreate : AppRoute("teacher/classrooms/{classroomId}/topics/create") {
         fun build(classroomId: String) = "teacher/classrooms/$classroomId/topics/create"
     }
-    data object TeacherQuizCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/quizzes/create") {
-        fun build(classroomId: String, topicId: String) = "teacher/classrooms/$classroomId/topics/$topicId/quizzes/create"
+    data object TeacherQuizCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/quizzes/create?category={category}") {
+        fun build(classroomId: String, topicId: String, category: String? = null): String {
+            val base = "teacher/classrooms/$classroomId/topics/$topicId/quizzes/create"
+            val resolved = category?.takeIf { it.isNotBlank() }
+            return if (resolved != null) "$base?category=$resolved" else base
+        }
     }
     data object TeacherQuizEdit : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/quizzes/{quizId}/edit") {
         fun build(classroomId: String, topicId: String, quizId: String) =
@@ -212,6 +217,30 @@ fun AppNav(
                         },
                         onEditClassroom = {
                             navController.navigate(AppRoute.TeacherClassroomEdit.build(classroomId))
+                        },
+                        onCreatePreTest = { classId, topicId ->
+                            if (topicId.isBlank()) return@onCreatePreTest
+                            navController.navigate(
+                                AppRoute.TeacherQuizCreate.build(
+                                    classId,
+                                    topicId,
+                                    QuizCategoryUi.PreTest.routeValue
+                                )
+                            )
+                        },
+                        onCreatePostTest = { classId, topicId ->
+                            if (topicId.isBlank()) return@onCreatePostTest
+                            navController.navigate(
+                                AppRoute.TeacherQuizCreate.build(
+                                    classId,
+                                    topicId,
+                                    QuizCategoryUi.PostTest.routeValue
+                                )
+                            )
+                        },
+                        onEditTest = { classId, topicId, quizId ->
+                            if (topicId.isBlank()) return@onEditTest
+                            navController.navigate(AppRoute.TeacherQuizEdit.build(classId, topicId, quizId))
                         }
                     )
                 }
@@ -278,7 +307,11 @@ fun AppNav(
                 route = AppRoute.TeacherQuizCreate.route,
                 arguments = listOf(
                     navArgument("classroomId") { type = NavType.StringType },
-                    navArgument("topicId") { type = NavType.StringType }
+                    navArgument("topicId") { type = NavType.StringType },
+                    navArgument("category") {
+                        type = NavType.StringType
+                        defaultValue = QuizCategoryUi.Standard.routeValue
+                    }
                 )
             ) {
                 QuizEditorRoute(

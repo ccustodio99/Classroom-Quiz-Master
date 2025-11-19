@@ -41,7 +41,7 @@ import com.classroom.quizmaster.data.local.entity.TeacherEntity
         SubmissionLocalEntity::class,
         LanSessionMetaEntity::class
     ],
-    version = 9,
+    version = 10,
     exportSchema = true
 )
 @TypeConverters(Converters::class)

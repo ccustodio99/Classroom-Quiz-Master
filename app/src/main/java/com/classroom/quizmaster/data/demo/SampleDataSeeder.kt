@@ -5,6 +5,7 @@ import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
+import com.classroom.quizmaster.domain.model.QuizCategory
 import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
@@ -93,6 +94,7 @@ class SampleDataSeeder @Inject constructor(
                             defaultTimePerQ = quizTemplate.defaultTimeSeconds,
                             shuffle = true,
                             createdAt = quizNow,
+                            category = QuizCategory.STANDARD,
                             updatedAt = quizNow,
                             questions = questions
                         )

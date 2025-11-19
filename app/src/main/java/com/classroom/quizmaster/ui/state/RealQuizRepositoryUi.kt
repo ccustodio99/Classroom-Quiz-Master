@@ -6,6 +6,7 @@ import com.classroom.quizmaster.domain.model.MediaType
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
 import com.classroom.quizmaster.domain.model.Quiz
+import com.classroom.quizmaster.domain.model.QuizCategory
 import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.model.DemoMode
 import com.classroom.quizmaster.domain.repository.AuthRepository
@@ -15,6 +16,7 @@ import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
 import com.classroom.quizmaster.ui.model.QuestionTypeUi
 import com.classroom.quizmaster.ui.model.QuizOverviewUi
+import com.classroom.quizmaster.ui.model.QuizCategoryUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
@@ -67,7 +69,8 @@ class RealQuizRepositoryUi @Inject constructor(
             val activeQuizzes = quizzes.filterNot { it.isArchived }
                 .filter { quiz ->
                     activeClassrooms.any { it.id == quiz.classroomId } &&
-                        activeTopics.any { it.id == quiz.topicId }
+                        activeTopics.any { it.id == quiz.topicId } &&
+                        quiz.category == QuizCategory.STANDARD
                 }
             val defaultClassroomId = activeTopics.firstOrNull()?.classroomId
                 ?: activeClassrooms.firstOrNull()?.id
@@ -153,7 +156,8 @@ class RealQuizRepositoryUi @Inject constructor(
             val baseState = existingState ?: QuizEditorUiState(
                 isNewQuiz = quizId.isNullOrBlank(),
                 classroomId = validClassroomId,
-                topicId = validTopicId
+                topicId = validTopicId,
+                quizCategory = QuizCategoryUi.Standard
             )
 
             baseState.copy(
@@ -163,7 +167,8 @@ class RealQuizRepositoryUi @Inject constructor(
                 grade = baseState.grade.ifBlank { selectedClassroom?.grade.orEmpty() },
                 subject = baseState.subject.ifBlank { selectedClassroom?.subject.orEmpty() },
                 classroomOptions = classroomOptions,
-                topicsByClassroom = topicsByClassroom
+                topicsByClassroom = topicsByClassroom,
+                quizCategory = existingState?.quizCategory ?: baseState.quizCategory
             )
         }
             .distinctUntilChanged()
@@ -209,6 +214,7 @@ class RealQuizRepositoryUi @Inject constructor(
                 title = state.title.ifBlank { "Untitled quiz" },
                 defaultTimePerQ = state.timePerQuestionSeconds,
                 shuffle = state.shuffleQuestions,
+                category = state.quizCategory.toDomain(),
                 createdAt = createdAt,
                 updatedAt = Clock.System.now(),
                 questions = state.questions.mapIndexed { index, question ->
@@ -240,7 +246,7 @@ class RealQuizRepositoryUi @Inject constructor(
         .sortedByDescending { it.createdAt }
         .map { classroom ->
             val topicCount = topics.count { it.classroomId == classroom.id }
-            val quizCount = quizzes.count { it.classroomId == classroom.id }
+            val quizCount = quizzes.count { it.classroomId == classroom.id && it.category == QuizCategory.STANDARD }
             ClassroomOverviewUi(
                 id = classroom.id,
                 name = classroom.name,
@@ -256,6 +262,7 @@ class RealQuizRepositoryUi @Inject constructor(
         topics: List<Topic>
     ): List<QuizOverviewUi> =
         quizzes
+            .filter { it.category == QuizCategory.STANDARD }
             .sortedByDescending { it.updatedAt }
             .take(5)
             .mapNotNull { quiz ->
@@ -290,7 +297,8 @@ class RealQuizRepositoryUi @Inject constructor(
         timePerQuestionSeconds = defaultTimePerQ,
         shuffleQuestions = shuffle,
         lastSavedRelative = formatRelativeTime(updatedAt),
-        isNewQuiz = false
+        isNewQuiz = false,
+        quizCategory = category.toUi()
     )
 
     private fun Question.toDraft(index: Int): QuestionDraftUi {
@@ -366,6 +374,18 @@ class RealQuizRepositoryUi @Inject constructor(
             duration < 7.days -> "${duration.inWholeDays} d ago"
             else -> "${duration.inWholeDays / 7} wk ago"
         }
+    }
+
+    private fun QuizCategory.toUi(): QuizCategoryUi = when (this) {
+        QuizCategory.STANDARD -> QuizCategoryUi.Standard
+        QuizCategory.PRE_TEST -> QuizCategoryUi.PreTest
+        QuizCategory.POST_TEST -> QuizCategoryUi.PostTest
+    }
+
+    private fun QuizCategoryUi.toDomain(): QuizCategory = when (this) {
+        QuizCategoryUi.Standard -> QuizCategory.STANDARD
+        QuizCategoryUi.PreTest -> QuizCategory.PRE_TEST
+        QuizCategoryUi.PostTest -> QuizCategory.POST_TEST
     }
 
     private val defaultActionCards: List<HomeActionCard> = listOf(
