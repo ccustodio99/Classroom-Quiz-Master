@@ -84,7 +84,7 @@ fun TeacherTopicDetailScreen(
         PrimaryButton(
             text = "Create quiz",
             onClick = onCreateQuiz,
-            enabled = state.errorMessage == null && !state.isLoading
+            enabled = !state.isLoading
         )
         if (state.quizzes.isEmpty()) {
             EmptyState(

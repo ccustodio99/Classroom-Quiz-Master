@@ -20,10 +20,12 @@ import kotlin.time.Duration.Companion.hours
 import kotlin.time.Duration.Companion.minutes
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.emitAll
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
-import kotlinx.coroutines.flow.flatMapLatest
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flowOn
 import kotlinx.coroutines.flow.map
@@ -40,9 +42,9 @@ class RealAssignmentRepositoryUi @Inject constructor(
 ) : AssignmentRepositoryUi {
 
     override val assignments: Flow<AssignmentsUiState> =
-        assignmentRepository.assignments
-            .flatMapLatest { assignments ->
-                if (assignments.isEmpty()) {
+        flow {
+            assignmentRepository.assignments.collectLatest { assignments ->
+                val downstream = if (assignments.isEmpty()) {
                     flowOf(AssignmentsUiState())
                 } else {
                     combine(
@@ -52,15 +54,17 @@ class RealAssignmentRepositoryUi @Inject constructor(
                         buildAssignmentsState(assignments, submissions, quizzes)
                     }
                 }
+                emitAll(downstream)
             }
+        }
             .onStart { emit(AssignmentsUiState()) }
             .distinctUntilChanged()
             .flowOn(dispatcher)
 
     override val reports: Flow<ReportsUiState> =
-        assignmentRepository.assignments
-            .flatMapLatest { assignments ->
-                if (assignments.isEmpty()) {
+        flow {
+            assignmentRepository.assignments.collectLatest { assignments ->
+                val downstream = if (assignments.isEmpty()) {
                     flowOf(defaultReportsState())
                 } else {
                     combine(
@@ -71,7 +75,9 @@ class RealAssignmentRepositoryUi @Inject constructor(
                         buildReportsState(assignments, submissions, quizzes, topics)
                     }
                 }
+                emitAll(downstream)
             }
+        }
             .onStart { emit(defaultReportsState()) }
             .distinctUntilChanged()
             .flowOn(dispatcher)

@@ -13,7 +13,7 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowForward
+import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
@@ -475,7 +475,7 @@ private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
     ACTION_REPORTS -> Icons.Outlined.Timeline
-    else -> Icons.Outlined.ArrowForward
+    else -> Icons.AutoMirrored.Outlined.ArrowForward
 }
 
 private val defaultActionCards = listOf(
