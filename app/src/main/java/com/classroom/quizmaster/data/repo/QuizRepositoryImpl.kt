@@ -16,6 +16,7 @@ import com.classroom.quizmaster.domain.model.MediaType
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
 import com.classroom.quizmaster.domain.model.Quiz
+import com.classroom.quizmaster.domain.model.QuizCategory
 import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
@@ -248,6 +249,7 @@ class QuizRepositoryImpl @Inject constructor(
             defaultTimePerQ = 30,
             shuffle = true,
             createdAt = now,
+            category = QuizCategory.STANDARD,
             updatedAt = now,
             questions = (1..10).map { index ->
                 Question(
@@ -276,6 +278,7 @@ class QuizRepositoryImpl @Inject constructor(
             defaultTimePerQ = defaultTimePerQ,
             shuffle = shuffle,
             questionCount = questionCount.takeIf { it > 0 } ?: questions.size,
+            category = category.name,
             createdAt = createdAt.toEpochMilliseconds(),
             updatedAt = timestamp.toEpochMilliseconds(),
             isArchived = isArchived,
@@ -315,6 +318,7 @@ class QuizRepositoryImpl @Inject constructor(
         questions = questions
             .sortedBy { it.position }
             .map { it.toDomain(json, quiz.id) },
+        category = runCatching { QuizCategory.valueOf(quiz.category) }.getOrDefault(QuizCategory.STANDARD),
         isArchived = quiz.isArchived,
         archivedAt = quiz.archivedAt?.let(Instant::fromEpochMilliseconds)
     )

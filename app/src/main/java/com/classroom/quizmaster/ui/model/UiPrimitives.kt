@@ -41,6 +41,20 @@ data class SelectionOptionUi(
     val supportingText: String = ""
 )
 
+enum class QuizCategoryUi(
+    val displayName: String,
+    val description: String,
+    val routeValue: String
+) {
+    Standard("Standard quiz", "Use for regular classroom quizzes", "standard"),
+    PreTest("Pre test", "Gauge readiness before a unit", "pre"),
+    PostTest("Post test", "Measure growth after the unit", "post");
+
+    companion object {
+        fun fromRoute(value: String?): QuizCategoryUi = entries.firstOrNull { it.routeValue == value } ?: Standard
+    }
+}
+
 data class QuestionDraftUi(
     val id: String,
     val stem: String,

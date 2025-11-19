@@ -2,6 +2,7 @@ package com.classroom.quizmaster.data.remote
 
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.Quiz
+import com.classroom.quizmaster.domain.model.QuizCategory
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
@@ -79,6 +80,7 @@ class FirebaseQuizDataSource @Inject constructor(
         val updatedAt: Long = createdAt,
         val questionCount: Int = 0,
         val questionsJson: String = "[]",
+        val category: String = QuizCategory.STANDARD.name,
         val isArchived: Boolean = false,
         val archivedAt: Long? = null
     ) {
@@ -97,6 +99,7 @@ class FirebaseQuizDataSource @Inject constructor(
                 updatedAt = Instant.fromEpochMilliseconds(updatedAt),
                 questionCount = computedCount,
                 questions = decodedQuestions,
+                category = runCatching { QuizCategory.valueOf(category) }.getOrDefault(QuizCategory.STANDARD),
                 isArchived = isArchived,
                 archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
             )
@@ -114,6 +117,7 @@ class FirebaseQuizDataSource @Inject constructor(
                 updatedAt = quiz.updatedAt.toEpochMilliseconds(),
                 questionCount = if (quiz.questionCount > 0) quiz.questionCount else quiz.questions.size,
                 questionsJson = json.encodeToString(quiz.questions),
+                category = quiz.category.name,
                 isArchived = quiz.isArchived,
                 archivedAt = quiz.archivedAt?.toEpochMilliseconds()
             )

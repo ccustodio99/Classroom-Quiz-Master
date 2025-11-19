@@ -3,6 +3,7 @@ package com.classroom.quizmaster.ui.teacher.assignments.editor
 import androidx.lifecycle.SavedStateHandle
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
+import com.classroom.quizmaster.domain.model.QuizCategory
 import com.classroom.quizmaster.domain.model.ScoringMode
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
@@ -67,7 +68,8 @@ class AssignmentEditorViewModel @Inject constructor(
                     .filter { quiz ->
                         !quiz.isArchived &&
                             quiz.classroomId == classroomId &&
-                            quiz.topicId == topicId
+                            quiz.topicId == topicId &&
+                            quiz.category == QuizCategory.STANDARD
                     }
                     .sortedByDescending { it.updatedAt }
                     .map { quiz ->

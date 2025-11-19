@@ -63,6 +63,7 @@ data class Quiz(
     val defaultTimePerQ: Int,
     val shuffle: Boolean,
     val createdAt: Instant,
+    val category: QuizCategory = QuizCategory.STANDARD,
     val questions: List<Question> = emptyList(),
     val questionCount: Int = questions.size,
     val updatedAt: Instant = createdAt,
@@ -120,6 +121,18 @@ enum class QuestionType {
 
     @SerialName("matching")
     MATCHING
+}
+
+@Serializable
+enum class QuizCategory {
+    @SerialName("standard")
+    STANDARD,
+
+    @SerialName("pre")
+    PRE_TEST,
+
+    @SerialName("post")
+    POST_TEST
 }
 
 /**

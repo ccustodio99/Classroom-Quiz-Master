@@ -80,6 +80,8 @@ data class QuizEntity(
     val defaultTimePerQ: Int,
     val shuffle: Boolean,
     val questionCount: Int,
+    @ColumnInfo(defaultValue = "'STANDARD'")
+    val category: String,
     val createdAt: Long,
     val updatedAt: Long,
     val isArchived: Boolean,
