@@ -67,31 +67,25 @@ fun TeacherHomeRoute(
         state = state,
         onCreateClassroom = onCreateClassroom,
         onCreateQuiz = onCreateQuiz,
-        onAssignments = onAssignments,
-        onReports = onReports,
-        onViewArchived = onViewArchived,
-        onSeedSampleData = viewModel::seedSampleData,
-        onClearSampleData = viewModel::clearSampleData,
-        onClassroomSelected = onClassroomSelected
-    )
-}
-
-@Composable
-fun TeacherHomeScreen(
-    state: TeacherHomeUiState,
-    onCreateClassroom: () -> Unit,
-    onCreateQuiz: (String, String) -> Unit,
-    onAssignments: () -> Unit,
-    onReports: () -> Unit,
-    onViewArchived: () -> Unit,
-    onSeedSampleData: () -> Unit,
-    onClearSampleData: () -> Unit,
-    onClassroomSelected: (String) -> Unit
-) {
-    val hasClassrooms = state.classrooms.isNotEmpty()
-    val hasTopics = state.classrooms.any { it.topicCount > 0 }
-    val defaultClassroomId = state.defaultClassroomId
-    val defaultTopicId = state.defaultTopicId
+        if (state.teacherName.isNotBlank()) {
+            Text(
+                text = state.teacherName,
+                style = MaterialTheme.typography.titleMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        if (
+            state.connectivityHeadline.isNotBlank() ||
+                state.connectivitySupporting.isNotBlank() ||
+                state.statusChips.isNotEmpty()
+        ) {
+            ConnectivityBanner(
+                headline = state.connectivityHeadline,
+                supportingText = state.connectivitySupporting,
+                statusChips = state.statusChips
+            )
+        }
+
     val canCreateQuiz = !defaultClassroomId.isNullOrBlank() && !defaultTopicId.isNullOrBlank()
     val createQuizAction = {
         if (canCreateQuiz) {
