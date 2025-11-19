@@ -18,14 +18,12 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.EmptyState
-import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
 
 @Composable
 fun TeacherClassroomDetailRoute(
     onBack: () -> Unit,
     onTopicSelected: (String) -> Unit,
-    onLaunchLive: (String) -> Unit,
     onCreateTopic: () -> Unit,
     viewModel: TeacherClassroomDetailViewModel = hiltViewModel()
 ) {
@@ -33,7 +31,6 @@ fun TeacherClassroomDetailRoute(
     TeacherClassroomDetailScreen(
         state = state,
         onBack = onBack,
-        onLaunchLive = { onLaunchLive(viewModel.classroomId) },
         onTopicSelected = onTopicSelected,
         onCreateTopic = onCreateTopic
     )
@@ -43,7 +40,6 @@ fun TeacherClassroomDetailRoute(
 fun TeacherClassroomDetailScreen(
     state: ClassroomDetailUiState,
     onBack: () -> Unit,
-    onLaunchLive: () -> Unit,
     onTopicSelected: (String) -> Unit,
     onCreateTopic: () -> Unit
 ) {
@@ -67,11 +63,6 @@ fun TeacherClassroomDetailScreen(
             EmptyState(title = "Classroom unavailable", message = state.errorMessage)
             return@Column
         }
-        PrimaryButton(
-            text = "Launch live",
-            onClick = onLaunchLive,
-            enabled = state.topics.isNotEmpty()
-        )
         SecondaryButton(
             text = "Add topic",
             onClick = onCreateTopic

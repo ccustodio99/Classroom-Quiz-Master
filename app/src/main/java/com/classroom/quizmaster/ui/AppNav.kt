@@ -192,13 +192,12 @@ fun AppNav(
                 } else {
                     TeacherClassroomDetailRoute(
                         onBack = { navController.popBackStack() },
-                    onTopicSelected = { topicId ->
-                        navController.navigate(AppRoute.TeacherTopicDetail.build(classroomId, topicId))
-                    },
-                    onCreateTopic = {
-                        navController.navigate(AppRoute.TeacherTopicCreate.build(classroomId))
-                    },
-                        onLaunchLive = { navController.navigate(AppRoute.TeacherLaunch.build(classroomId)) }
+                        onTopicSelected = { topicId ->
+                            navController.navigate(AppRoute.TeacherTopicDetail.build(classroomId, topicId))
+                        },
+                        onCreateTopic = {
+                            navController.navigate(AppRoute.TeacherTopicCreate.build(classroomId))
+                        }
                     )
                 }
             }
