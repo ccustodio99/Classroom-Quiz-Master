@@ -14,7 +14,7 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.outlined.ArrowBack
+import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.School
@@ -119,7 +119,7 @@ private fun TeacherTopBar(appState: QuizMasterAppState) {
         ) {
             if (appState.canNavigateBack) {
                 IconButton(onClick = { appState.navigateBack() }) {
-                    Icon(imageVector = Icons.Outlined.ArrowBack, contentDescription = "Back")
+                    Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
                 }
             } else {
                 Icon(

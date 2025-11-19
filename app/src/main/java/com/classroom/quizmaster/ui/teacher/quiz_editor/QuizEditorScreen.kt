@@ -19,6 +19,7 @@ import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -238,7 +239,7 @@ private fun ClassroomTopicSelector(
                     ExposedDropdownMenuDefaults.TrailingIcon(expanded = classroomExpanded.value)
                 },
                 modifier = Modifier
-                    .menuAnchor()
+                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                     .fillMaxWidth()
             )
             DropdownMenu(
@@ -307,7 +308,7 @@ private fun ClassroomTopicSelector(
                         ExposedDropdownMenuDefaults.TrailingIcon(expanded = topicExpanded.value)
                     },
                     modifier = Modifier
-                        .menuAnchor()
+                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
                         .fillMaxWidth()
                 )
                 DropdownMenu(
