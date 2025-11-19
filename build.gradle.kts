@@ -1,4 +1,4 @@
-import com.android.build.gradle.BaseExtension
+import com.android.build.api.dsl.CommonExtension
 import org.gradle.api.Project
 
 plugins {
@@ -24,7 +24,7 @@ tasks.register<Delete>("clean") {
 
 subprojects {
     fun Project.configureLintBaseline() {
-        extensions.findByType(BaseExtension::class.java)?.apply {
+        extensions.findByType(CommonExtension::class.java)?.apply {
             lint {
                 baseline = rootProject.file("lint-baseline.xml")
             }
