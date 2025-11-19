@@ -559,23 +559,17 @@ private fun TeacherHomePreview() {
                         topicName = "Space"
                     )
                 ),
-                emptyMessage = "Import quizzes or create a new one to see it here"
+                emptyMessage = "Import quizzes or create a new one to see it here",
+                showSampleDataCard = true,
+                canSeedSampleData = true,
+                canClearSampleData = true,
+                sampleSeedMessage = "Sample data is available"
             ),
             onCreateClassroom = {},
             onCreateQuiz = { _: String, _: String -> },
             onAssignments = {},
             onReports = {},
             onViewArchived = {},
-                    QuizOverviewUi(
-                        "2",
-                        "Science trivia",
-                        "5",
-                        "Science",
-                        15,
-                        88,
-                        "Yesterday",
-                        true,
-                        classroomName = "STEM Club",
                         topicName = "Space"
                     )
                 ),
