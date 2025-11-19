@@ -38,8 +38,9 @@ import com.classroom.quizmaster.ui.teacher.host.HostLiveRoute
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyRoute
 import com.classroom.quizmaster.ui.teacher.quiz_editor.QuizEditorRoute
 import com.classroom.quizmaster.ui.teacher.reports.ReportsRoute
-import com.classroom.quizmaster.ui.teacher.topics.detail.TeacherTopicDetailRoute
 import com.classroom.quizmaster.ui.teacher.topics.create.CreateTopicRoute
+import com.classroom.quizmaster.ui.teacher.topics.detail.TeacherTopicDetailRoute
+import com.classroom.quizmaster.ui.teacher.topics.edit.EditTopicRoute
 
 sealed class AppRoute(val route: String) {
     data object Welcome : AppRoute("neutral/welcome")
@@ -57,6 +58,10 @@ sealed class AppRoute(val route: String) {
     }
     data object TeacherTopicCreate : AppRoute("teacher/classrooms/{classroomId}/topics/create") {
         fun build(classroomId: String) = "teacher/classrooms/$classroomId/topics/create"
+    }
+    data object TeacherTopicEdit : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/edit") {
+        fun build(classroomId: String, topicId: String) =
+            "teacher/classrooms/$classroomId/topics/$topicId/edit"
     }
     data object TeacherQuizCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/quizzes/create?category={category}") {
         fun build(classroomId: String, topicId: String, category: String? = null): String {
@@ -283,6 +288,9 @@ fun AppNav(
                 } else {
                     TeacherTopicDetailRoute(
                         onBack = { navController.popBackStack() },
+                        onEditTopic = {
+                            navController.navigate(AppRoute.TeacherTopicEdit.build(classroomId, topicId))
+                        },
                         onCreateQuiz = { classId, topicIdArg ->
                             navController.navigate(AppRoute.TeacherQuizCreate.build(classId, topicIdArg))
                         },
@@ -307,6 +315,23 @@ fun AppNav(
                 arguments = listOf(navArgument("classroomId") { type = NavType.StringType })
             ) {
                 CreateTopicRoute(onDone = { navController.popBackStack() })
+            }
+            composable(
+                route = AppRoute.TeacherTopicEdit.route,
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType },
+                    navArgument("topicId") { type = NavType.StringType }
+                )
+            ) {
+                EditTopicRoute(
+                    onDone = { navController.popBackStack() },
+                    onArchived = {
+                        val removedEdit = navController.popBackStack()
+                        if (removedEdit) {
+                            navController.popBackStack()
+                        }
+                    }
+                )
             }
             composable(
                 route = AppRoute.TeacherQuizCreate.route,
