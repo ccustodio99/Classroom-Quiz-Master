@@ -502,48 +502,70 @@ private val defaultActionCards = listOf(
         ctaLabel = "View reports"
     )
 )
-
 @QuizPreviews
-        id = ACTION_ASSIGNMENTS,
-        title = "Manage assignments",
-        description = "Schedule asynchronous practice with automatic grading.",
-        route = ACTION_ASSIGNMENTS,
-        ctaLabel = "Open assignments"
-    ),
-    HomeActionCard(
-        id = ACTION_REPORTS,
-        title = "Review reports",
-        description = "Track mastery by standard and monitor growth over time.",
-        route = ACTION_REPORTS,
-        ctaLabel = "View reports"
-    )
-)
-
-
-@QuizPreviews
-@Composable
-private fun TeacherHomePreview() {
-    QuizMasterTheme {
-        TeacherHomeScreen(
-            state = TeacherHomeUiState(
-                greeting = "Welcome back, Ms. Ramos",
-                teacherName = "Ms. Ramos",
-                connectivityHeadline = "LAN connected | Cloud synced",
-                connectivitySupporting = "Last sync 2 min ago",
-                statusChips = listOf(
-                    StatusChipUi("lan", "LAN", StatusChipType.Lan),
-                    StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)
-                ),
-                classrooms = listOf(
-                    ClassroomOverviewUi(
-                        id = "1",
-                        name = "Period 1 Algebra",
-                        grade = "8",
-                        topicCount = 4,
-                        quizCount = 12
-                    ),
-                    ClassroomOverviewUi(
-                        id = "2",
+@Composable
+private fun TeacherHomePreview() {
+    QuizMasterTheme {
+        TeacherHomeScreen(
+            state = TeacherHomeUiState(
+                greeting = "Welcome back, Ms. Ramos",
+                teacherName = "Ms. Ramos",
+                connectivityHeadline = "LAN connected | Cloud synced",
+                connectivitySupporting = "Last sync 2 min ago",
+                statusChips = listOf(
+                    StatusChipUi("lan", "LAN", StatusChipType.Lan),
+                    StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)
+                ),
+                classrooms = listOf(
+                    ClassroomOverviewUi(
+                        id = "1",
+                        name = "Period 1 Algebra",
+                        grade = "8",
+                        topicCount = 4,
+                        quizCount = 12
+                    ),
+                    ClassroomOverviewUi(
+                        id = "2",
+                        name = "STEM Club",
+                        grade = null,
+                        topicCount = 3,
+                        quizCount = 6
+                    )
+                ),
+                actionCards = defaultActionCards,
+                recentQuizzes = listOf(
+                    QuizOverviewUi(
+                        "1",
+                        "Fractions review",
+                        "4",
+                        "Math",
+                        12,
+                        78,
+                        "2h ago",
+                        false,
+                        classroomName = "Period 1 Algebra",
+                        topicName = "Fractions"
+                    ),
+                    QuizOverviewUi(
+                        "2",
+                        "Science trivia",
+                        "5",
+                        "Science",
+                        15,
+                        88,
+                        "Yesterday",
+                        true,
+                        classroomName = "STEM Club",
+                        topicName = "Space"
+                    )
+                ),
+                emptyMessage = "Import quizzes or create a new one to see it here"
+            ),
+            onCreateClassroom = {},
+            onCreateQuiz = { _: String, _: String -> },
+            onAssignments = {},
+            onReports = {},
+            onViewArchived = {},
                         name = "STEM Club",
                         grade = null,
                         topicCount = 3,
