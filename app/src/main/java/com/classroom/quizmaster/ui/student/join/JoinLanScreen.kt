@@ -24,7 +24,6 @@ import androidx.compose.material.icons.filled.ErrorOutline
 import androidx.compose.material.icons.filled.Lan
 import androidx.compose.material.icons.filled.Refresh
 import androidx.compose.material.icons.filled.Search
-import androidx.compose.material3.AssistChip
 import androidx.compose.material3.Button
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -39,8 +38,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -52,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
+import com.classroom.quizmaster.ui.components.SimpleTopBar
 
 @Composable
 fun JoinLanRoute(
@@ -96,8 +94,8 @@ fun JoinLanScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = { Text("Join a live quiz") },
+            SimpleTopBar(
+                title = "Join a live quiz",
                 actions = {
                     IconButton(onClick = onDiscover, enabled = !state.isDiscovering) {
                         Icon(
@@ -105,10 +103,7 @@ fun JoinLanScreen(
                             contentDescription = "Refresh host list"
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }
@@ -305,24 +300,30 @@ fun JoinLanScreen(
                         Spacer(modifier = Modifier.width(6.dp))
                         Text("Join via link")
                     }
-                    AssistChip(
-                        onClick = onRetry,
-                        leadingIcon = {
-                            Icon(imageVector = Icons.Default.CloudOff, contentDescription = null)
-                        },
-                        label = { Text("Offline help") }
-                    )
+                    TextButton(onClick = onRetry) {
+                        Icon(imageVector = Icons.Default.CloudOff, contentDescription = null)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("Offline help")
+                    }
                 }
             }
             if (state.nicknameError != null) {
                 item {
-                    AssistChip(
-                        onClick = { /* no-op informational chip */ },
-                        leadingIcon = {
-                            Icon(imageVector = Icons.Default.ErrorOutline, contentDescription = null)
-                        },
-                        label = { Text(state.nicknameError) }
-                    )
+                    Row(
+                        modifier = Modifier.padding(vertical = 4.dp),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
+                    ) {
+                        Icon(
+                            imageVector = Icons.Default.ErrorOutline,
+                            contentDescription = null,
+                            tint = MaterialTheme.colorScheme.error
+                        )
+                        Text(
+                            text = state.nicknameError,
+                            color = MaterialTheme.colorScheme.error,
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    }
                 }
             }
         }
