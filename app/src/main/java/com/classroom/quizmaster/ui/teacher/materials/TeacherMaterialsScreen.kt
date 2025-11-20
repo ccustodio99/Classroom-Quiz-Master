@@ -24,10 +24,6 @@ import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -36,7 +32,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -52,6 +47,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
 import com.classroom.quizmaster.ui.components.EmptyState
+import com.classroom.quizmaster.ui.components.DropdownField
 import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 
@@ -84,7 +80,6 @@ fun TeacherMaterialsRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun TeacherMaterialsScreen(
     state: TeacherMaterialsUiState,
@@ -171,72 +166,20 @@ private fun ClassroomFilter(
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text("Filter", style = MaterialTheme.typography.titleMedium)
-        val expanded = remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = expanded.value,
-            onExpandedChange = { expanded.value = !expanded.value }
-        ) {
-            TextField(
-                value = options.firstOrNull { it.id == selectedClassroomId }?.label
-                    ?: options.firstOrNull()?.label.orEmpty(),
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth(),
-                label = { Text("Classroom") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value)
-                }
-            )
-            ExposedDropdownMenu(
-                expanded = expanded.value,
-                onDismissRequest = { expanded.value = false }
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label) },
-                        onClick = {
-                            expanded.value = false
-                            onSelectClassroom(option.id.takeIf { it.isNotBlank() })
-                        }
-                    )
-                }
-            }
-        }
-        val topicExpanded = remember { mutableStateOf(false) }
-        ExposedDropdownMenuBox(
-            expanded = topicExpanded.value,
-            onExpandedChange = { topicExpanded.value = !topicExpanded.value }
-        ) {
-            TextField(
-                value = topicOptions.firstOrNull { it.id == selectedTopicId }?.label
-                    ?: topicOptions.firstOrNull()?.label.orEmpty(),
-                onValueChange = {},
-                readOnly = true,
-                modifier = Modifier
-                    .menuAnchor()
-                    .fillMaxWidth(),
-                label = { Text("Topic") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = topicExpanded.value)
-                }
-            )
-            ExposedDropdownMenu(
-                expanded = topicExpanded.value,
-                onDismissRequest = { topicExpanded.value = false }
-            ) {
-                topicOptions.forEach { option ->
-                    DropdownMenuItem(
-                        text = { Text(option.label) },
-                        onClick = {
-                            topicExpanded.value = false
-                            onSelectTopic(option.id.takeIf { it.isNotBlank() })
-                        }
-                    )
-                }
-            }
-        }
+        DropdownField(
+            label = "Classroom",
+            options = options,
+            selectedId = selectedClassroomId,
+            onSelected = { id -> onSelectClassroom(id.takeIf { it.isNotBlank() }) },
+            placeholder = "All classrooms"
+        )
+        DropdownField(
+            label = "Topic",
+            options = topicOptions,
+            selectedId = selectedTopicId,
+            onSelected = { id -> onSelectTopic(id.takeIf { it.isNotBlank() }) },
+            placeholder = "All topics"
+        )
         Row(
             modifier = Modifier.fillMaxWidth(),
             verticalAlignment = Alignment.CenterVertically,
