@@ -1,6 +1,7 @@
 package com.classroom.quizmaster.ui.teacher.materials
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
@@ -17,8 +18,9 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.SyncAlt
-import androidx.compose.material3.AssistChip
-import androidx.compose.material3.AssistChipDefaults
+import androidx.compose.foundation.border
+import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.Surface
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
@@ -230,8 +232,9 @@ private fun MaterialRow(
 ) {
     val menuExpanded = remember { mutableStateOf(false) }
     Card(
-        modifier = Modifier.fillMaxWidth(),
-        onClick = onClick,
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(onClick = onClick),
         elevation = CardDefaults.cardElevation(defaultElevation = 2.dp)
     ) {
         Column(
@@ -316,14 +319,23 @@ private fun AttachmentTypeChips(types: List<MaterialAttachmentType>) {
     } else {
         Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             distinctTypes.forEach { type ->
-                AssistChip(
-                    onClick = {},
-                    enabled = false,
-                    label = { Text(type.name.lowercase().replaceFirstChar { it.titlecase() }) },
-                    colors = AssistChipDefaults.assistChipColors(
-                        disabledLabelColor = MaterialTheme.colorScheme.onSurfaceVariant
+                Surface(
+                    shape = RoundedCornerShape(12.dp),
+                    color = MaterialTheme.colorScheme.surfaceVariant,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier.border(
+                        width = 1.dp,
+                        color = MaterialTheme.colorScheme.outlineVariant,
+                        shape = RoundedCornerShape(12.dp)
                     )
-                )
+                ) {
+                    Text(
+                        text = type.name.lowercase().replaceFirstChar { it.titlecase() },
+                        style = MaterialTheme.typography.bodySmall,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        modifier = Modifier.padding(horizontal = 10.dp, vertical = 6.dp)
+                    )
+                }
             }
         }
     }
