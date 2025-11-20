@@ -38,8 +38,6 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
-import androidx.compose.material3.TopAppBar
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
@@ -51,6 +49,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
+import com.classroom.quizmaster.ui.components.SimpleTopBar
 
 @Composable
 fun JoinLanRoute(
@@ -95,8 +94,8 @@ fun JoinLanScreen(
     Scaffold(
         modifier = Modifier.fillMaxSize(),
         topBar = {
-            TopAppBar(
-                title = { Text("Join a live quiz") },
+            SimpleTopBar(
+                title = "Join a live quiz",
                 actions = {
                     IconButton(onClick = onDiscover, enabled = !state.isDiscovering) {
                         Icon(
@@ -104,10 +103,7 @@ fun JoinLanScreen(
                             contentDescription = "Refresh host list"
                         )
                     }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(
-                    scrolledContainerColor = MaterialTheme.colorScheme.surface
-                )
+                }
             )
         },
         snackbarHost = { SnackbarHost(snackbarHostState) }

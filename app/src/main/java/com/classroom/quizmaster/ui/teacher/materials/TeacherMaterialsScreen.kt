@@ -23,7 +23,6 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.FloatingActionButton
@@ -34,7 +33,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -50,6 +48,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.DropdownField
+import com.classroom.quizmaster.ui.components.SimpleTopBar
 import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 
@@ -97,8 +96,8 @@ fun TeacherMaterialsScreen(
 ) {
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text("Learning materials") },
+            SimpleTopBar(
+                title = "Learning materials",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
@@ -108,8 +107,7 @@ fun TeacherMaterialsScreen(
                     IconButton(onClick = onShare, enabled = state.isShareEnabled) {
                         Icon(imageVector = Icons.Outlined.SyncAlt, contentDescription = "Share to students")
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors()
+                }
             )
         },
         floatingActionButton = {
