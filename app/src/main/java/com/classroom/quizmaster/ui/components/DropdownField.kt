@@ -18,6 +18,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.semantics.role
 import androidx.compose.ui.semantics.semantics
@@ -31,7 +32,8 @@ fun DropdownField(
     onSelected: (String) -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
-    placeholder: String = "Select"
+    placeholder: String = "Select",
+    supportingText: (SelectionOptionUi) -> String = { option -> option.supportingText }
 ) {
     var expanded by remember { mutableStateOf(false) }
     val selected = options.firstOrNull { it.id == selectedId }
@@ -46,18 +48,36 @@ fun DropdownField(
             enabled = enabled,
             trailingIcon = {
                 val icon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
-                Icon(imageVector = icon, contentDescription = null)
+                Icon(
+                    imageVector = icon,
+                    contentDescription = if (expanded) "$label collapse" else "$label expand"
+                )
             },
             modifier = Modifier
                 .fillMaxWidth()
-                .semantics { role = Role.DropdownList; contentDescription = label }
+                .semantics {
+                    role = Role.DropdownList
+                    contentDescription = label
+                }
                 .clickable(enabled = enabled) { expanded = true }
         )
 
         DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             options.forEach { option ->
                 DropdownMenuItem(
-                    text = { Text(option.label) },
+                    text = {
+                        val helper = supportingText(option)
+                        Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                            Text(option.label)
+                            if (helper.isNotBlank()) {
+                                Text(
+                                    text = helper,
+                                    style = MaterialTheme.typography.bodySmall,
+                                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                                )
+                            }
+                        }
+                    },
                     onClick = {
                         expanded = false
                         onSelected(option.id)
