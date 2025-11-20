@@ -13,6 +13,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,6 +30,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentMaterialsRoute(
     onBack: () -> Unit,
@@ -43,6 +45,7 @@ fun StudentMaterialsRoute(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun StudentMaterialsScreen(
     state: StudentMaterialsUiState,

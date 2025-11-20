@@ -12,7 +12,6 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.plus
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -117,9 +116,11 @@ fun JoinLanScreen(
         snackbarHost = { SnackbarHost(snackbarHostState) }
     ) { padding ->
         LazyColumn(
-            modifier = Modifier.fillMaxSize(),
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding),
             verticalArrangement = Arrangement.spacedBy(16.dp),
-            contentPadding = padding + PaddingValues(horizontal = 16.dp, vertical = 12.dp)
+            contentPadding = PaddingValues(horizontal = 16.dp, vertical = 12.dp)
         ) {
             item {
                 Text(

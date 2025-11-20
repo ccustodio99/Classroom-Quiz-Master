@@ -36,7 +36,7 @@ class NsdHost @Inject constructor(
                 ?.takeIf { it.isNotBlank() }
                 ?.let { safeName ->
                     val truncated = safeName.take(MAX_ATTR_BYTES)
-                    setAttribute("teacher", truncated.encodeToByteArray())
+                    setAttribute("teacher", truncated)
                 }
         }
         val listener = object : NsdManager.RegistrationListener {

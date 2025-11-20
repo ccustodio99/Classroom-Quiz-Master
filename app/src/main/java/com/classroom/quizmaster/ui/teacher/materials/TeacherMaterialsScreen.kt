@@ -12,11 +12,9 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.material.ExperimentalMaterialApi
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
-import androidx.compose.material.icons.outlined.ArrowDropDown
 import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.SyncAlt
 import androidx.compose.material3.AssistChip
@@ -24,6 +22,7 @@ import androidx.compose.material3.AssistChipDefaults
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.ExposedDropdownMenu
 import androidx.compose.material3.ExposedDropdownMenuBox
@@ -53,6 +52,7 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
 import com.classroom.quizmaster.ui.components.EmptyState
+import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 
 @Composable
@@ -279,7 +279,6 @@ private fun MaterialsList(
 }
 
 @Composable
-@OptIn(ExperimentalMaterialApi::class)
 private fun MaterialRow(
     summary: MaterialSummaryUi,
     onClick: () -> Unit,

@@ -153,8 +153,8 @@ class MaterialEditorViewModel @Inject constructor(
         ).validate()
     }
 
-    private fun updateState(transform: (MaterialEditorUiState) -> MaterialEditorUiState) {
-        _uiState.update { transform(it).validate() }
+    private fun updateState(transform: MaterialEditorUiState.() -> MaterialEditorUiState) {
+        _uiState.update { it.transform().validate() }
     }
 
     private fun MaterialEditorUiState.toDomain(): LearningMaterial {
