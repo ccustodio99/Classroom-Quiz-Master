@@ -1,8 +1,8 @@
 package com.classroom.quizmaster.ui.teacher.quiz_editor
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -13,15 +13,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
 import androidx.compose.material3.FilterChip
-import androidx.compose.material3.DropdownMenu
-import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.MenuAnchorType
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
@@ -30,15 +24,13 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
-import androidx.compose.runtime.remember
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.DiscardDraftDialog
+import com.classroom.quizmaster.ui.components.DropdownField
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SaveChangesDialog
 import com.classroom.quizmaster.ui.components.SecondaryButton
@@ -134,7 +126,10 @@ fun QuizEditorScreen(
             onTopicSelected = onTopicChange
         )
         Text(text = "Test type", style = MaterialTheme.typography.titleMedium)
-        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+        Row(
+            modifier = Modifier.horizontalScroll(rememberScrollState()),
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
             QuizCategoryUi.entries.forEach { category ->
                 FilterChip(
                     selected = state.quizCategory == category,
@@ -231,7 +226,6 @@ private fun QuizEditorUiState.headerTitle(): String = when {
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun ClassroomTopicSelector(
     classroomOptions: List<SelectionOptionUi>,
@@ -261,51 +255,13 @@ private fun ClassroomTopicSelector(
             return@Column
         }
 
-        val classroomExpanded = remember { mutableStateOf(false) }
-        val classroomLabel = classroomOptions.firstOrNull { it.id == selectedClassroomId }
-        ExposedDropdownMenuBox(
-            expanded = classroomExpanded.value,
-            onExpandedChange = { classroomExpanded.value = !classroomExpanded.value }
-        ) {
-            OutlinedTextField(
-                value = classroomLabel?.label.orEmpty(),
-                onValueChange = {},
-                readOnly = true,
-                label = { Text("Classroom") },
-                placeholder = { Text("Select a classroom") },
-                trailingIcon = {
-                    ExposedDropdownMenuDefaults.TrailingIcon(expanded = classroomExpanded.value)
-                },
-                modifier = Modifier
-                    .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                    .fillMaxWidth()
-            )
-            DropdownMenu(
-                expanded = classroomExpanded.value,
-                onDismissRequest = { classroomExpanded.value = false }
-            ) {
-                classroomOptions.forEach { option ->
-                    DropdownMenuItem(
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(option.label)
-                                if (option.supportingText.isNotBlank()) {
-                                    Text(
-                                        text = option.supportingText,
-                                        style = MaterialTheme.typography.bodySmall,
-                                        color = MaterialTheme.colorScheme.onSurfaceVariant
-                                    )
-                                }
-                            }
-                        },
-                        onClick = {
-                            onClassroomSelected(option.id)
-                            classroomExpanded.value = false
-                        }
-                    )
-                }
-            }
-        }
+        DropdownField(
+            label = "Classroom",
+            options = classroomOptions,
+            selectedId = selectedClassroomId,
+            onSelected = onClassroomSelected,
+            placeholder = "Select a classroom"
+        )
 
         val resolvedTopics = topicOptions
         if (resolvedTopics.isEmpty()) {
@@ -330,51 +286,13 @@ private fun ClassroomTopicSelector(
                 )
             }
         } else {
-            val topicExpanded = remember { mutableStateOf(false) }
-            val topicLabel = resolvedTopics.firstOrNull { it.id == selectedTopicId }
-            ExposedDropdownMenuBox(
-                expanded = topicExpanded.value,
-                onExpandedChange = { topicExpanded.value = !topicExpanded.value }
-            ) {
-                OutlinedTextField(
-                    value = topicLabel?.label.orEmpty(),
-                    onValueChange = {},
-                    readOnly = true,
-                    label = { Text("Topic") },
-                    placeholder = { Text("Select a topic") },
-                    trailingIcon = {
-                        ExposedDropdownMenuDefaults.TrailingIcon(expanded = topicExpanded.value)
-                    },
-                    modifier = Modifier
-                        .menuAnchor(MenuAnchorType.PrimaryNotEditable)
-                        .fillMaxWidth()
-                )
-                DropdownMenu(
-                    expanded = topicExpanded.value,
-                    onDismissRequest = { topicExpanded.value = false }
-                ) {
-                    resolvedTopics.forEach { option ->
-                        DropdownMenuItem(
-                            text = {
-                                Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                    Text(option.label)
-                                    if (option.supportingText.isNotBlank()) {
-                                        Text(
-                                            text = option.supportingText,
-                                            style = MaterialTheme.typography.bodySmall,
-                                            color = MaterialTheme.colorScheme.onSurfaceVariant
-                                        )
-                                    }
-                                }
-                            },
-                            onClick = {
-                                onTopicSelected(option.id)
-                                topicExpanded.value = false
-                            }
-                        )
-                    }
-                }
-            }
+            DropdownField(
+                label = "Topic",
+                options = resolvedTopics,
+                selectedId = selectedTopicId,
+                onSelected = onTopicSelected,
+                placeholder = "Select a topic"
+            )
         }
     }
 }

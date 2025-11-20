@@ -1,9 +1,8 @@
 package com.classroom.quizmaster.ui.auth
 
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.ExperimentalLayoutApi
-import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -615,7 +614,6 @@ private fun SignupProfileForm(
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun TeacherProfileFields(
     state: AuthUiState,
@@ -667,9 +665,9 @@ private fun TeacherProfileFields(
                 stringResource(R.string.auth_subject_chip_english),
                 stringResource(R.string.auth_subject_chip_other)
             )
-            FlowRow(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 suggestions.forEach { suggestion ->
                     val selected = state.profile.subject.equals(suggestion, ignoreCase = true)
