@@ -81,7 +81,6 @@ fun QuizEditorRoute(
     )
 }
 
-@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun QuizEditorScreen(
     state: QuizEditorUiState,
@@ -257,10 +256,10 @@ private fun ClassroomTopicSelector(
 
         DropdownField(
             label = "Classroom",
-            options = classroomOptions,
-            selectedId = selectedClassroomId,
-            onSelected = onClassroomSelected,
-            placeholder = "Select a classroom"
+            items = classroomOptions,
+            selectedItem = classroomOptions.firstOrNull { option -> option.id == selectedClassroomId },
+            onItemSelected = { option -> onClassroomSelected(option.id) },
+            itemLabel = { option -> option.label }
         )
 
         val resolvedTopics = topicOptions
@@ -288,10 +287,10 @@ private fun ClassroomTopicSelector(
         } else {
             DropdownField(
                 label = "Topic",
-                options = resolvedTopics,
-                selectedId = selectedTopicId,
-                onSelected = onTopicSelected,
-                placeholder = "Select a topic"
+                items = resolvedTopics,
+                selectedItem = resolvedTopics.firstOrNull { option -> option.id == selectedTopicId },
+                onItemSelected = { option -> onTopicSelected(option.id) },
+                itemLabel = { option -> option.label }
             )
         }
     }

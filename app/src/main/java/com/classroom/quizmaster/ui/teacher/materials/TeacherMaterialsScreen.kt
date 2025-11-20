@@ -168,17 +168,17 @@ private fun ClassroomFilter(
         Text("Filter", style = MaterialTheme.typography.titleMedium)
         DropdownField(
             label = "Classroom",
-            options = options,
-            selectedId = selectedClassroomId,
-            onSelected = { id -> onSelectClassroom(id.takeIf { it.isNotBlank() }) },
-            placeholder = "All classrooms"
+            items = options,
+            selectedItem = options.firstOrNull { option -> option.id == selectedClassroomId },
+            onItemSelected = { option -> onSelectClassroom(option.id.takeIf { it.isNotBlank() }) },
+            itemLabel = { option -> option.label }
         )
         DropdownField(
             label = "Topic",
-            options = topicOptions,
-            selectedId = selectedTopicId,
-            onSelected = { id -> onSelectTopic(id.takeIf { it.isNotBlank() }) },
-            placeholder = "All topics"
+            items = topicOptions,
+            selectedItem = topicOptions.firstOrNull { option -> option.id == selectedTopicId },
+            onItemSelected = { option -> onSelectTopic(option.id.takeIf { it.isNotBlank() }) },
+            itemLabel = { option -> option.label }
         )
         Row(
             modifier = Modifier.fillMaxWidth(),

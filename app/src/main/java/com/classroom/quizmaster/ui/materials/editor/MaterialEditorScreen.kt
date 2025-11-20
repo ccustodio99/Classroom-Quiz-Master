@@ -2,8 +2,8 @@ package com.classroom.quizmaster.ui.materials.editor
 
 import android.widget.Toast
 import androidx.compose.foundation.clickable
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -16,6 +16,8 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
+import androidx.compose.material.icons.filled.ArrowDropDown
+import androidx.compose.material.icons.filled.ArrowDropUp
 import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -30,7 +32,6 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextField
 import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -171,18 +172,19 @@ fun MaterialEditorScreen(
                 item {
                     DropdownField(
                         label = "Classroom",
-                        options = state.classroomOptions,
-                        selectedId = state.selectedClassroomId,
-                        onSelected = onClassroomChanged,
-                        placeholder = "Choose a classroom"
+                        items = state.classroomOptions,
+                        selectedItem = state.classroomOptions.firstOrNull { option -> option.id == state.selectedClassroomId },
+                        onItemSelected = { option -> onClassroomChanged(option.id) },
+                        itemLabel = { option -> option.label }
                     )
                     Spacer(modifier = Modifier.height(8.dp))
                     DropdownField(
                         label = "Topic",
-                        options = state.topicsByClassroom[state.selectedClassroomId].orEmpty(),
-                        selectedId = state.selectedTopicId,
-                        onSelected = onTopicChanged,
-                        placeholder = "Choose a topic"
+                        items = state.topicsByClassroom[state.selectedClassroomId].orEmpty(),
+                        selectedItem = state.topicsByClassroom[state.selectedClassroomId]
+                            ?.firstOrNull { option -> option.id == state.selectedTopicId },
+                        onItemSelected = { option -> onTopicChanged(option.id) },
+                        itemLabel = { option -> option.label }
                     )
                 }
                 item {
@@ -318,7 +320,7 @@ private fun AttachmentTypeDropdown(
             readOnly = true,
             label = { Text("Attachment type") },
             trailingIcon = {
-                val icon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
+                val icon = if (expanded) Icons.Filled.ArrowDropUp else Icons.Filled.ArrowDropDown
                 Icon(imageVector = icon, contentDescription = null)
             },
             modifier = Modifier
