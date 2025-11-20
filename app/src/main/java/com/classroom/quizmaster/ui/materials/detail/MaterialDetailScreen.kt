@@ -2,6 +2,7 @@ package com.classroom.quizmaster.ui.materials.detail
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
@@ -184,18 +185,18 @@ fun MaterialDetailScreen(
                 }
                 if (allowEditing) {
                     item {
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             PrimaryButton(
                                 text = "Edit",
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth(),
                                 onClick = { onEdit(material.id) }
                             )
                             SecondaryButton(
                                 text = "Archive",
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth(),
                                 onClick = onArchive
                             )
                         }
@@ -216,12 +217,8 @@ private fun AttachmentCard(attachment: MaterialAttachment) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.align(Alignment.CenterStart)) {
                     Text(
                         text = attachment.displayName.ifBlank { attachment.type.name.lowercase().replaceFirstChar { it.titlecase() } },
                         style = MaterialTheme.typography.titleMedium,
@@ -235,10 +232,13 @@ private fun AttachmentCard(attachment: MaterialAttachment) {
                     )
                 }
                 if (attachment.type != MaterialAttachmentType.TEXT && attachment.uri.isNotBlank()) {
-                    IconButton(onClick = {
-                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(attachment.uri))
-                        Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
-                    }) {
+                    IconButton(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        onClick = {
+                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(attachment.uri))
+                            Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
+                        }
+                    ) {
                         Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = "Copy link")
                     }
                 }
