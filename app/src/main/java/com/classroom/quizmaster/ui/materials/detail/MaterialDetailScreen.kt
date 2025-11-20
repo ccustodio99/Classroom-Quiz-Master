@@ -2,8 +2,8 @@ package com.classroom.quizmaster.ui.materials.detail
 
 import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
-import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -17,14 +17,12 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +38,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.domain.model.MaterialAttachment
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
 import com.classroom.quizmaster.ui.components.PrimaryButton
+import com.classroom.quizmaster.ui.components.SimpleTopBar
 import com.classroom.quizmaster.ui.components.SecondaryButton
 
 @Composable
@@ -92,8 +91,8 @@ fun MaterialDetailScreen(
     val material = state.material
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(material?.title ?: "Material") },
+            SimpleTopBar(
+                title = material?.title ?: "Material",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
@@ -105,8 +104,7 @@ fun MaterialDetailScreen(
                             Icon(imageVector = Icons.Outlined.Share, contentDescription = "Share over LAN")
                         }
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors()
+                }
             )
         }
     ) { padding ->
@@ -186,18 +184,18 @@ fun MaterialDetailScreen(
                 }
                 if (allowEditing) {
                     item {
-                        Row(
+                        Column(
                             modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(12.dp)
+                            verticalArrangement = Arrangement.spacedBy(12.dp)
                         ) {
                             PrimaryButton(
                                 text = "Edit",
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth(),
                                 onClick = { onEdit(material.id) }
                             )
                             SecondaryButton(
                                 text = "Archive",
-                                modifier = Modifier.weight(1f),
+                                modifier = Modifier.fillMaxWidth(),
                                 onClick = onArchive
                             )
                         }
@@ -208,6 +206,7 @@ fun MaterialDetailScreen(
     }
 }
 
+
 @Composable
 private fun AttachmentCard(attachment: MaterialAttachment) {
     val clipboard = LocalClipboardManager.current
@@ -217,12 +216,8 @@ private fun AttachmentCard(attachment: MaterialAttachment) {
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Row(
-                modifier = Modifier.fillMaxWidth(),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Column(modifier = Modifier.weight(1f)) {
+            Box(modifier = Modifier.fillMaxWidth()) {
+                Column(modifier = Modifier.align(Alignment.CenterStart)) {
                     Text(
                         text = attachment.displayName.ifBlank { attachment.type.name.lowercase().replaceFirstChar { it.titlecase() } },
                         style = MaterialTheme.typography.titleMedium,
@@ -236,10 +231,13 @@ private fun AttachmentCard(attachment: MaterialAttachment) {
                     )
                 }
                 if (attachment.type != MaterialAttachmentType.TEXT && attachment.uri.isNotBlank()) {
-                    IconButton(onClick = {
-                        clipboard.setText(androidx.compose.ui.text.AnnotatedString(attachment.uri))
-                        Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
-                    }) {
+                    IconButton(
+                        modifier = Modifier.align(Alignment.CenterEnd),
+                        onClick = {
+                            clipboard.setText(androidx.compose.ui.text.AnnotatedString(attachment.uri))
+                            Toast.makeText(context, "Link copied", Toast.LENGTH_SHORT).show()
+                        }
+                    ) {
                         Icon(imageVector = Icons.Outlined.ContentCopy, contentDescription = "Copy link")
                     }
                 }
