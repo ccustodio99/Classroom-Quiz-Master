@@ -9,6 +9,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.weight
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
@@ -17,14 +18,12 @@ import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Share
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBarDefaults
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -40,6 +39,7 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.domain.model.MaterialAttachment
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
 import com.classroom.quizmaster.ui.components.PrimaryButton
+import com.classroom.quizmaster.ui.components.SimpleTopBar
 import com.classroom.quizmaster.ui.components.SecondaryButton
 
 @Composable
@@ -92,8 +92,8 @@ fun MaterialDetailScreen(
     val material = state.material
     Scaffold(
         topBar = {
-            CenterAlignedTopAppBar(
-                title = { Text(material?.title ?: "Material") },
+            SimpleTopBar(
+                title = material?.title ?: "Material",
                 navigationIcon = {
                     IconButton(onClick = onBack) {
                         Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
@@ -105,8 +105,7 @@ fun MaterialDetailScreen(
                             Icon(imageVector = Icons.Outlined.Share, contentDescription = "Share over LAN")
                         }
                     }
-                },
-                colors = TopAppBarDefaults.centerAlignedTopAppBarColors()
+                }
             )
         }
     ) { padding ->
@@ -207,6 +206,7 @@ fun MaterialDetailScreen(
         }
     }
 }
+
 
 @Composable
 private fun AttachmentCard(attachment: MaterialAttachment) {
