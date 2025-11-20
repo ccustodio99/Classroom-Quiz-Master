@@ -19,6 +19,7 @@ import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
 import androidx.compose.material3.CircularProgressIndicator
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -42,6 +43,7 @@ import com.classroom.quizmaster.domain.model.MaterialAttachmentType
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaterialDetailRoute(
     allowEditing: Boolean,
@@ -79,6 +81,7 @@ fun MaterialDetailRoute(
     )
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaterialDetailScreen(
     state: MaterialDetailUiState,

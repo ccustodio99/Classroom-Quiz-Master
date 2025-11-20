@@ -517,6 +517,7 @@ private fun qualityLabel(quality: ConnectionQuality, latencyMs: Int): String =
         ConnectionQuality.Offline -> "Offline"
     }
 
+@Composable
 private fun qualityColor(quality: ConnectionQuality) = when (quality) {
     ConnectionQuality.Excellent -> MaterialTheme.colorScheme.primary
     ConnectionQuality.Good -> MaterialTheme.colorScheme.tertiary

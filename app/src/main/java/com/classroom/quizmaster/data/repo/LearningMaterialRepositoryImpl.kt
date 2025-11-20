@@ -249,7 +249,7 @@ class LearningMaterialRepositoryImpl @Inject constructor(
             archivedAt = material.archivedAt?.let(Instant::fromEpochMilliseconds),
             attachments = attachments.map { entity ->
                 val metadata: Map<String, String> = runCatching {
-                    json.decodeFromString(entity.metadataJson)
+                    json.decodeFromString<Map<String, String>>(entity.metadataJson)
                 }.getOrDefault(emptyMap())
                 MaterialAttachment(
                     id = entity.id,

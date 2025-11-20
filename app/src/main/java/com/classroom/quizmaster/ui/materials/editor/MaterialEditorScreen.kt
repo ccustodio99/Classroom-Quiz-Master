@@ -115,7 +115,7 @@ fun MaterialEditorScreen(
             )
         },
         floatingActionButton = {
-            FloatingActionButton(onClick = { onAddAttachment(MaterialAttachmentType.TEXT) }, enabled = ready) {
+            FloatingActionButton(onClick = { if (ready) onAddAttachment(MaterialAttachmentType.TEXT) }) {
                 Icon(imageVector = Icons.Outlined.Add, contentDescription = "Add note")
             }
         }
