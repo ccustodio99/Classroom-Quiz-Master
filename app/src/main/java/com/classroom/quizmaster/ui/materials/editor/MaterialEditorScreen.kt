@@ -1,6 +1,8 @@
 package com.classroom.quizmaster.ui.materials.editor
 
 import android.widget.Toast
+import androidx.compose.foundation.clickable
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -18,11 +20,8 @@ import androidx.compose.material.icons.outlined.Delete
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CenterAlignedTopAppBar
+import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
-import androidx.compose.material3.ExposedDropdownMenu
-import androidx.compose.material3.ExposedDropdownMenuBox
-import androidx.compose.material3.ExposedDropdownMenuDefaults
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.FloatingActionButton
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -38,15 +37,18 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
-import com.classroom.quizmaster.ui.model.SelectionOptionUi
+import com.classroom.quizmaster.ui.components.DropdownField
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
 
@@ -86,7 +88,6 @@ fun MaterialEditorRoute(
     )
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun MaterialEditorScreen(
     state: MaterialEditorUiState,
@@ -168,18 +169,20 @@ fun MaterialEditorScreen(
                     )
                 }
                 item {
-                    ClassroomDropdown(
+                    DropdownField(
                         label = "Classroom",
                         options = state.classroomOptions,
                         selectedId = state.selectedClassroomId,
-                        onSelected = onClassroomChanged
+                        onSelected = onClassroomChanged,
+                        placeholder = "Choose a classroom"
                     )
                     Spacer(modifier = Modifier.height(8.dp))
-                    ClassroomDropdown(
+                    DropdownField(
                         label = "Topic",
                         options = state.topicsByClassroom[state.selectedClassroomId].orEmpty(),
                         selectedId = state.selectedTopicId,
-                        onSelected = onTopicChanged
+                        onSelected = onTopicChanged,
+                        placeholder = "Choose a topic"
                     )
                 }
                 item {
@@ -219,41 +222,6 @@ fun MaterialEditorScreen(
                     Spacer(modifier = Modifier.height(8.dp))
                     SecondaryButton(text = "Cancel", onClick = onBack, modifier = Modifier.fillMaxWidth())
                 }
-            }
-        }
-    }
-}
-
-@OptIn(ExperimentalMaterial3Api::class)
-@Composable
-private fun ClassroomDropdown(
-    label: String,
-    options: List<SelectionOptionUi>,
-    selectedId: String,
-    onSelected: (String) -> Unit
-) {
-    val expanded = remember { mutableStateOf(false) }
-    val selected = options.firstOrNull { it.id == selectedId }
-    ExposedDropdownMenuBox(expanded = expanded.value, onExpandedChange = { expanded.value = !expanded.value }) {
-        OutlinedTextField(
-            value = selected?.label ?: "",
-            onValueChange = {},
-            readOnly = true,
-            label = { Text(label) },
-            modifier = Modifier
-                .fillMaxWidth()
-                .menuAnchor(),
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value) }
-        )
-        ExposedDropdownMenu(expanded = expanded.value, onDismissRequest = { expanded.value = false }) {
-            options.forEach { option ->
-                DropdownMenuItem(
-                    text = { Text(option.label) },
-                    onClick = {
-                        expanded.value = false
-                        onSelected(option.id)
-                    }
-                )
             }
         }
     }
@@ -333,30 +301,38 @@ private fun AttachmentEditorCard(
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class)
 @Composable
 private fun AttachmentTypeDropdown(
     selected: MaterialAttachmentType,
     onSelected: (MaterialAttachmentType) -> Unit
 ) {
-    val expanded = remember { mutableStateOf(false) }
-    ExposedDropdownMenuBox(expanded = expanded.value, onExpandedChange = { expanded.value = !expanded.value }) {
+    var expanded by remember { mutableStateOf(false) }
+    val typeLabel: (MaterialAttachmentType) -> String = { type ->
+        type.name.lowercase().replaceFirstChar { it.titlecase() }
+    }
+
+    Box(modifier = Modifier.fillMaxWidth()) {
         OutlinedTextField(
-            value = selected.name.lowercase().replaceFirstChar { it.titlecase() },
+            value = typeLabel(selected),
             onValueChange = {},
             readOnly = true,
             label = { Text("Attachment type") },
+            trailingIcon = {
+                val icon = if (expanded) Icons.Outlined.ArrowDropUp else Icons.Outlined.ArrowDropDown
+                Icon(imageVector = icon, contentDescription = null)
+            },
             modifier = Modifier
                 .fillMaxWidth()
-                .menuAnchor(),
-            trailingIcon = { ExposedDropdownMenuDefaults.TrailingIcon(expanded = expanded.value) }
+                .semantics { role = Role.DropdownList }
+                .clickable { expanded = true }
         )
-        ExposedDropdownMenu(expanded = expanded.value, onDismissRequest = { expanded.value = false }) {
+
+        DropdownMenu(expanded = expanded, onDismissRequest = { expanded = false }) {
             MaterialAttachmentType.values().forEach { type ->
                 DropdownMenuItem(
-                    text = { Text(type.name.lowercase().replaceFirstChar { it.titlecase() }) },
+                    text = { Text(typeLabel(type)) },
                     onClick = {
-                        expanded.value = false
+                        expanded = false
                         onSelected(type)
                     }
                 )
