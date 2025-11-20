@@ -10,12 +10,19 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.text.KeyboardActions
+import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.GTranslate
+import androidx.compose.material.icons.filled.Visibility
+import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Checkbox
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.FilterChipDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.SnackbarHostState
 import androidx.compose.material3.Surface
@@ -31,8 +38,14 @@ import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.input.ImeAction
+import androidx.compose.ui.text.input.KeyboardType
+import androidx.compose.ui.text.input.PasswordVisualTransformation
+import androidx.compose.ui.text.input.VisualTransformation
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -349,27 +362,52 @@ private fun TeacherSignInForm(
     onGoogle: () -> Unit,
     onDemo: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val emailError = state.login.email.isNotBlank() && !state.login.email.contains("@")
+    val passwordError = state.login.password.isNotEmpty() && state.login.password.length < 6
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AuthTextField(
             value = state.login.email,
             label = stringResource(R.string.auth_email),
-            onValueChange = onLoginEmail
+            onValueChange = onLoginEmail,
+            supportingText = stringResource(id = R.string.auth_email_helper),
+            isError = emailError,
+            imeAction = ImeAction.Next,
+            onImeAction = { focusManager.moveFocus(FocusDirection.Down) },
+            keyboardType = KeyboardType.Email
         )
         AuthTextField(
             value = state.login.password,
             label = stringResource(R.string.auth_password),
             onValueChange = onLoginPassword,
-            isPassword = true
+            isPassword = true,
+            supportingText = if (passwordError) {
+                stringResource(R.string.auth_password_error_sign_in)
+            } else {
+                stringResource(R.string.auth_password_helper_sign_in)
+            },
+            isError = passwordError,
+            imeAction = ImeAction.Done,
+            onImeAction = {
+                focusManager.clearFocus()
+                onLogin()
+            }
         )
         PrimaryButton(
             text = stringResource(R.string.auth_sign_in),
             onClick = onLogin,
-            enabled = !state.loading
+            enabled = state.login.email.isNotBlank() &&
+                state.login.password.length >= 6 &&
+                !emailError &&
+                !passwordError &&
+                !state.loading,
+            isLoading = state.loading
         )
         SecondaryButton(
             text = stringResource(R.string.auth_google),
             onClick = onGoogle,
-            leadingIcon = { androidx.compose.material3.Icon(Icons.Default.GTranslate, contentDescription = null) }
+            leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.GTranslate, contentDescription = null) }
         )
         TextButton(onClick = onDemo) {
             Text(text = stringResource(R.string.auth_demo))
@@ -386,6 +424,12 @@ private fun SignupCredentialsForm(
     onTermsToggle: (Boolean) -> Unit,
     onContinue: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val emailError = state.signup.email.isNotBlank() && !state.signup.email.contains("@")
+    val passwordShort = state.signup.password.isNotEmpty() && state.signup.password.length < 8
+    val confirmMismatch = state.signup.confirmPassword.isNotEmpty() &&
+        state.signup.confirmPassword != state.signup.password
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -406,19 +450,40 @@ private fun SignupCredentialsForm(
         AuthTextField(
             value = state.signup.email,
             label = stringResource(R.string.auth_email),
-            onValueChange = onSignupEmail
+            onValueChange = onSignupEmail,
+            supportingText = stringResource(id = R.string.auth_email_helper),
+            isError = emailError,
+            keyboardType = KeyboardType.Email,
+            imeAction = ImeAction.Next,
+            onImeAction = { focusManager.moveFocus(FocusDirection.Down) }
         )
         AuthTextField(
             value = state.signup.password,
             label = stringResource(R.string.auth_password),
             onValueChange = onSignupPassword,
-            isPassword = true
+            isPassword = true,
+            supportingText = if (passwordShort) {
+                stringResource(id = R.string.auth_password_error_sign_up)
+            } else {
+                stringResource(id = R.string.auth_password_helper_sign_up)
+            },
+            isError = passwordShort,
+            imeAction = ImeAction.Next,
+            onImeAction = { focusManager.moveFocus(FocusDirection.Down) }
         )
         AuthTextField(
             value = state.signup.confirmPassword,
             label = stringResource(R.string.auth_confirm_password),
             onValueChange = onSignupConfirm,
-            isPassword = true
+            isPassword = true,
+            supportingText = if (confirmMismatch) {
+                stringResource(R.string.auth_confirm_password_error)
+            } else {
+                stringResource(R.string.auth_confirm_password_helper)
+            },
+            isError = confirmMismatch,
+            imeAction = ImeAction.Done,
+            onImeAction = { focusManager.clearFocus() }
         )
         Row(
             verticalAlignment = Alignment.CenterVertically,
@@ -433,7 +498,15 @@ private fun SignupCredentialsForm(
         PrimaryButton(
             text = stringResource(R.string.common_continue),
             onClick = onContinue,
-            enabled = state.signup.acceptedTerms && !state.loading
+            enabled = state.signup.acceptedTerms &&
+                state.signup.email.isNotBlank() &&
+                state.signup.password.length >= 8 &&
+                state.signup.confirmPassword.isNotBlank() &&
+                !emailError &&
+                !passwordShort &&
+                !confirmMismatch &&
+                !state.loading,
+            isLoading = state.loading
         )
     }
 }
@@ -449,6 +522,13 @@ private fun SignupProfileForm(
     onBack: () -> Unit,
     onComplete: () -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+    val canComplete = when (state.profile.role) {
+        SignupRole.Teacher -> state.profile.fullName.isNotBlank() && state.profile.school.isNotBlank()
+        SignupRole.Student -> state.profile.nickname.isNotBlank()
+        SignupRole.None -> false
+    }
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
             Text(
@@ -506,7 +586,10 @@ private fun SignupProfileForm(
                 AuthTextField(
                     value = state.profile.nickname,
                     label = stringResource(R.string.auth_signup_student_nickname),
-                    onValueChange = onProfileNicknameChange
+                    onValueChange = onProfileNicknameChange,
+                    supportingText = stringResource(R.string.auth_signup_student_helper),
+                    imeAction = ImeAction.Done,
+                    onImeAction = { focusManager.clearFocus() }
                 )
             }
 
@@ -524,7 +607,8 @@ private fun SignupProfileForm(
             PrimaryButton(
                 text = stringResource(R.string.auth_signup_complete),
                 onClick = onComplete,
-                enabled = !state.loading,
+                enabled = canComplete && !state.loading,
+                isLoading = state.loading,
                 modifier = Modifier.weight(1f)
             )
         }
@@ -539,6 +623,8 @@ private fun TeacherProfileFields(
     onProfileSchoolChange: (String) -> Unit,
     onProfileSubjectChange: (String) -> Unit
 ) {
+    val focusManager = LocalFocusManager.current
+
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Text(
             text = stringResource(R.string.auth_signup_teacher_hint),
@@ -548,18 +634,27 @@ private fun TeacherProfileFields(
         AuthTextField(
             value = state.profile.fullName,
             label = stringResource(R.string.auth_signup_teacher_name),
-            onValueChange = onProfileNameChange
+            onValueChange = onProfileNameChange,
+            supportingText = stringResource(R.string.auth_signup_teacher_name_helper),
+            imeAction = ImeAction.Next,
+            onImeAction = { focusManager.moveFocus(FocusDirection.Down) }
         )
         AuthTextField(
             value = state.profile.school,
             label = stringResource(R.string.auth_signup_teacher_school),
-            onValueChange = onProfileSchoolChange
+            onValueChange = onProfileSchoolChange,
+            supportingText = stringResource(R.string.auth_signup_teacher_school_helper),
+            imeAction = ImeAction.Next,
+            onImeAction = { focusManager.moveFocus(FocusDirection.Down) }
         )
         Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
             AuthTextField(
                 value = state.profile.subject,
                 label = stringResource(R.string.auth_signup_teacher_subject),
-                onValueChange = onProfileSubjectChange
+                onValueChange = onProfileSubjectChange,
+                supportingText = stringResource(R.string.auth_signup_teacher_subject_helper),
+                imeAction = ImeAction.Done,
+                onImeAction = { focusManager.clearFocus() }
             )
             Text(
                 text = stringResource(R.string.auth_signup_teacher_subject_label),
@@ -598,15 +693,54 @@ private fun AuthTextField(
     value: String,
     label: String,
     onValueChange: (String) -> Unit,
-    isPassword: Boolean = false
+    modifier: Modifier = Modifier,
+    isPassword: Boolean = false,
+    supportingText: String? = null,
+    isError: Boolean = false,
+    imeAction: ImeAction = ImeAction.Next,
+    keyboardType: KeyboardType = if (isPassword) KeyboardType.Password else KeyboardType.Text,
+    onImeAction: (() -> Unit)? = null
 ) {
-    androidx.compose.material3.OutlinedTextField(
+    var passwordVisible by rememberSaveable { mutableStateOf(false) }
+    val effectiveTransformation = when {
+        isPassword && passwordVisible -> VisualTransformation.None
+        isPassword -> PasswordVisualTransformation()
+        else -> VisualTransformation.None
+    }
+
+    OutlinedTextField(
         value = value,
         onValueChange = onValueChange,
-        modifier = Modifier.fillMaxWidth(),
+        modifier = modifier.fillMaxWidth(),
         label = { Text(label) },
         singleLine = true,
-        visualTransformation = if (isPassword) androidx.compose.ui.text.input.PasswordVisualTransformation() else androidx.compose.ui.text.input.VisualTransformation.None
+        isError = isError,
+        supportingText = supportingText?.let { helper ->
+            { Text(text = helper, style = MaterialTheme.typography.bodySmall) }
+        },
+        visualTransformation = effectiveTransformation,
+        trailingIcon = if (isPassword) {
+            {
+                IconButton(onClick = { passwordVisible = !passwordVisible }) {
+                    val icon = if (passwordVisible) Icons.Filled.VisibilityOff else Icons.Filled.Visibility
+                    val description = if (passwordVisible) {
+                        stringResource(R.string.auth_password_hide)
+                    } else {
+                        stringResource(R.string.auth_password_show)
+                    }
+                    Icon(imageVector = icon, contentDescription = description)
+                }
+            }
+        } else null,
+        keyboardOptions = KeyboardOptions(
+            keyboardType = keyboardType,
+            imeAction = imeAction
+        ),
+        keyboardActions = KeyboardActions(
+            onNext = { onImeAction?.invoke() },
+            onDone = { onImeAction?.invoke() },
+            onGo = { onImeAction?.invoke() }
+        )
     )
 }
 

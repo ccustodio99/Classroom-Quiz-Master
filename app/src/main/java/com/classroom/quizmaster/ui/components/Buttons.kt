@@ -13,6 +13,7 @@ import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.Circle
 import androidx.compose.material.icons.filled.Done
 import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.ButtonDefaults
 import androidx.compose.material3.ElevatedButton
 import androidx.compose.material3.FilledTonalButton
@@ -37,26 +38,40 @@ fun PrimaryButton(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
     enabled: Boolean = true,
+    isLoading: Boolean = false,
     leadingIcon: (@Composable () -> Unit)? = null
 ) {
     ElevatedButton(
         onClick = onClick,
         modifier = modifier,
-        enabled = enabled,
+        enabled = enabled && !isLoading,
         shape = MaterialTheme.shapes.large,
         colors = ButtonDefaults.elevatedButtonColors(
             containerColor = MaterialTheme.colorScheme.primary,
             contentColor = MaterialTheme.colorScheme.onPrimary
         )
     ) {
-        if (leadingIcon != null) {
-            leadingIcon()
+        Row(
+            verticalAlignment = Alignment.CenterVertically,
+            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            when {
+                isLoading -> CircularProgressIndicator(
+                    modifier = Modifier
+                        .padding(end = 4.dp)
+                        .align(Alignment.CenterVertically),
+                    strokeWidth = 2.dp,
+                    color = MaterialTheme.colorScheme.onPrimary,
+                    trackColor = MaterialTheme.colorScheme.onPrimary.copy(alpha = 0.3f)
+                )
+
+                leadingIcon != null -> leadingIcon()
+            }
+            Text(
+                text = text,
+                style = MaterialTheme.typography.labelLarge
+            )
         }
-        Text(
-            text = text,
-            style = MaterialTheme.typography.labelLarge,
-            modifier = Modifier.padding(start = if (leadingIcon != null) 8.dp else 0.dp)
-        )
     }
 }
 
