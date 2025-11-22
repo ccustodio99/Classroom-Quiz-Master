@@ -14,6 +14,8 @@ import com.classroom.quizmaster.data.local.dao.QuizDao
 import com.classroom.quizmaster.data.local.dao.TopicDao
 import com.classroom.quizmaster.data.local.dao.SessionDao
 import com.classroom.quizmaster.data.local.dao.TeacherDao
+import com.classroom.quizmaster.data.local.dao.StudentDao
+import com.classroom.quizmaster.data.local.dao.JoinRequestDao
 import com.classroom.quizmaster.data.local.entity.AssignmentLocalEntity
 import com.classroom.quizmaster.data.local.entity.AttemptLocalEntity
 import com.classroom.quizmaster.data.local.entity.ClassroomEntity
@@ -28,6 +30,8 @@ import com.classroom.quizmaster.data.local.entity.TopicEntity
 import com.classroom.quizmaster.data.local.entity.SessionLocalEntity
 import com.classroom.quizmaster.data.local.entity.SubmissionLocalEntity
 import com.classroom.quizmaster.data.local.entity.TeacherEntity
+import com.classroom.quizmaster.data.local.entity.StudentEntity
+import com.classroom.quizmaster.data.local.entity.JoinRequestEntity
 
 @Database(
     entities = [
@@ -44,14 +48,17 @@ import com.classroom.quizmaster.data.local.entity.TeacherEntity
         SubmissionLocalEntity::class,
         LanSessionMetaEntity::class,
         LearningMaterialEntity::class,
-        MaterialAttachmentEntity::class
+        MaterialAttachmentEntity::class,
+        StudentEntity::class,
+        JoinRequestEntity::class
     ],
-    version = 11,
+    version = 12,
     exportSchema = true
 )
 @TypeConverters(Converters::class)
 abstract class QuizMasterDatabase : RoomDatabase() {
     abstract fun teacherDao(): TeacherDao
+    abstract fun studentDao(): StudentDao
     abstract fun classroomDao(): ClassroomDao
     abstract fun sessionDao(): SessionDao
     abstract fun attemptDao(): AttemptDao
@@ -61,4 +68,5 @@ abstract class QuizMasterDatabase : RoomDatabase() {
     abstract fun assignmentDao(): AssignmentDao
     abstract fun lanSessionDao(): LanSessionDao
     abstract fun materialDao(): MaterialDao
+    abstract fun joinRequestDao(): JoinRequestDao
 }

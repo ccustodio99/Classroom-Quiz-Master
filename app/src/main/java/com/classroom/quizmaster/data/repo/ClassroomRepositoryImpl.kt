@@ -4,12 +4,20 @@ import androidx.room.withTransaction
 import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.local.dao.ClassroomDao
 import com.classroom.quizmaster.data.local.dao.TopicDao
+import com.classroom.quizmaster.data.local.dao.StudentDao
+import com.classroom.quizmaster.data.local.dao.JoinRequestDao
 import com.classroom.quizmaster.data.local.entity.ClassroomEntity
 import com.classroom.quizmaster.data.local.entity.TopicEntity
+import com.classroom.quizmaster.data.local.entity.StudentEntity
+import com.classroom.quizmaster.data.local.entity.JoinRequestEntity
 import com.classroom.quizmaster.data.remote.FirebaseClassroomDataSource
 import com.classroom.quizmaster.data.remote.FirebaseTopicDataSource
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.Topic
+import com.classroom.quizmaster.domain.model.Student
+import com.classroom.quizmaster.domain.model.JoinRequest
+import com.classroom.quizmaster.domain.model.JoinRequestStatus
+import com.classroom.quizmaster.domain.model.Teacher
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -34,6 +42,8 @@ class ClassroomRepositoryImpl @Inject constructor(
     private val database: QuizMasterDatabase,
     private val classroomDao: ClassroomDao,
     private val topicDao: TopicDao,
+    private val studentDao: StudentDao,
+    private val joinRequestDao: JoinRequestDao,
     private val classroomRemote: FirebaseClassroomDataSource,
     private val topicRemote: FirebaseTopicDataSource,
     private val authRepository: AuthRepository,
@@ -43,11 +53,15 @@ class ClassroomRepositoryImpl @Inject constructor(
     override val classrooms: Flow<List<Classroom>> =
         authRepository.authState
             .switchMapLatest { auth ->
-                val teacherId = auth.userId
-                if (teacherId.isNullOrBlank()) {
+                val userId = auth.userId
+                if (userId.isNullOrBlank()) {
                     flowOf(emptyList())
                 } else {
-                    classroomDao.observeForTeacher(teacherId)
+                    if (auth.isTeacher) {
+                        classroomDao.observeForTeacher(userId)
+                    } else {
+                        classroomDao.observeForStudent(userId)
+                    }
                         .map { entities ->
                             entities
                                 .filterNot { it.isArchived }
@@ -75,13 +89,17 @@ class ClassroomRepositoryImpl @Inject constructor(
     override val topics: Flow<List<Topic>> =
         authRepository.authState
             .switchMapLatest { auth ->
-                val teacherId = auth.userId
-                if (teacherId.isNullOrBlank()) {
+                val userId = auth.userId
+                if (userId.isNullOrBlank()) {
                     flowOf(emptyList())
                 } else {
                     combine(
-                        classroomDao.observeForTeacher(teacherId),
-                        topicDao.observeForTeacher(teacherId)
+                        if (auth.isTeacher) {
+                            classroomDao.observeForTeacher(userId)
+                        } else {
+                            classroomDao.observeForStudent(userId)
+                        },
+                        topicDao.observeForTeacher(userId)
                     ) { classrooms, topics ->
                         val activeClassroomIds = classrooms.filterNot { it.isArchived }.map { it.id }.toSet()
                         topics
@@ -106,6 +124,22 @@ class ClassroomRepositoryImpl @Inject constructor(
                 }
             }
             .distinctUntilChanged()
+
+     override val joinRequests: Flow<List<JoinRequest>> =
+        authRepository.authState
+            .switchMapLatest { auth ->
+                val teacherId = auth.userId
+                if (teacherId.isNullOrBlank() || !auth.isTeacher) {
+                    flowOf(emptyList())
+                } else {
+                    joinRequestDao.observeForTeacher(teacherId)
+                        .map { entities ->
+                            entities.map { it.toDomain() }
+                        }
+                }
+            }
+            .distinctUntilChanged()
+
 
     override suspend fun refresh() = withContext(ioDispatcher) {
         val classrooms = classroomRemote.fetchClassrooms().getOrElse { emptyList() }
@@ -151,6 +185,63 @@ class ClassroomRepositoryImpl @Inject constructor(
             resolvedId
         }
     }
+
+    override suspend fun createJoinRequest(joinCode: String) = withContext(ioDispatcher) {
+        val studentId = requireStudentId()
+        val classroom = classroomRemote.getClassroomByJoinCode(joinCode).getOrThrow()
+        if (classroom.isArchived) {
+            throw IllegalStateException("Cannot join an archived classroom.")
+        }
+
+        val joinRequest = JoinRequest(
+            id = "",
+            studentId = studentId,
+            classroomId = classroom.id,
+            teacherId = classroom.teacherId,
+            status = JoinRequestStatus.PENDING,
+            createdAt = Clock.System.now()
+        )
+        val remoteId = classroomRemote.createJoinRequest(joinRequest).getOrThrow()
+        joinRequestDao.upsert(joinRequest.copy(id = remoteId).toEntity())
+    }
+
+    override suspend fun createJoinRequest(classroomId: String, teacherId: String) = withContext(ioDispatcher) {
+        val studentId = requireStudentId()
+
+        val joinRequest = JoinRequest(
+            id = "",
+            studentId = studentId,
+            classroomId = classroomId,
+            teacherId = teacherId,
+            status = JoinRequestStatus.PENDING,
+            createdAt = Clock.System.now()
+        )
+        val remoteId = classroomRemote.createJoinRequest(joinRequest).getOrThrow()
+        joinRequestDao.upsert(joinRequest.copy(id = remoteId).toEntity())
+    }
+
+    override suspend fun approveJoinRequest(requestId: String) = withContext(ioDispatcher) {
+        val teacherId = requireTeacherId()
+        val request = joinRequestDao.get(requestId) ?: throw IllegalArgumentException("Join request not found")
+        check(request.teacherId == teacherId) { "Cannot approve another teacher's join request" }
+
+        classroomRemote.approveJoinRequest(requestId).getOrThrow()
+
+        val updatedRequest = request.copy(status = JoinRequestStatus.APPROVED.name)
+        joinRequestDao.upsert(updatedRequest)
+    }
+
+    override suspend fun denyJoinRequest(requestId: String) = withContext(ioDispatcher) {
+        val teacherId = requireTeacherId()
+        val request = joinRequestDao.get(requestId) ?: throw IllegalArgumentException("Join request not found")
+        check(request.teacherId == teacherId) { "Cannot deny another teacher's join request" }
+
+        classroomRemote.denyJoinRequest(requestId).getOrThrow()
+
+        val updatedRequest = request.copy(status = JoinRequestStatus.DENIED.name)
+        joinRequestDao.upsert(updatedRequest)
+    }
+
 
     override suspend fun archiveClassroom(classroomId: String, archivedAt: Instant) = withContext(ioDispatcher) {
         val teacherId = requireTeacherId()
@@ -222,20 +313,41 @@ class ClassroomRepositoryImpl @Inject constructor(
             .getOrElse { }
     }
 
+    override suspend fun getStudent(id: String): Student? = withContext(ioDispatcher) {
+        studentDao.get(id)?.toDomain()
+    }
+
+    override suspend fun searchTeachers(query: String): List<Teacher> = withContext(ioDispatcher) {
+        classroomRemote.searchTeachers(query).getOrThrow()
+    }
+
+    override suspend fun getClassroomsForTeacher(teacherId: String): List<Classroom> = withContext(ioDispatcher) {
+        classroomRemote.getClassroomsForTeacher(teacherId).getOrThrow()
+    }
+
     override suspend fun getClassroom(id: String): Classroom? = withContext(ioDispatcher) {
-        val teacherId = currentTeacherId() ?: return@withContext null
-        classroomDao.get(id)
-            ?.takeUnless { it.isArchived || it.teacherId != teacherId }
-            ?.toDomain()
+        val userId = currentUserId() ?: return@withContext null
+        val authState = authRepository.authState.firstOrNull() ?: return@withContext null
+        val classroom = classroomDao.get(id)
+            ?.takeUnless { it.isArchived }
+            ?: return@withContext null
+
+        if (authState.isTeacher) {
+            if (classroom.teacherId != userId) return@withContext null
+        } else {
+            if (userId !in classroom.students) return@withContext null
+        }
+
+        classroom.toDomain()
     }
 
     override suspend fun getTopic(id: String): Topic? = withContext(ioDispatcher) {
-        val teacherId = currentTeacherId() ?: return@withContext null
+        val userId = currentUserId() ?: return@withContext null
         val entity = topicDao.get(id)
-            ?.takeUnless { it.isArchived || it.teacherId != teacherId }
+            ?.takeUnless { it.isArchived || it.teacherId != userId }
             ?: return@withContext null
         classroomDao.get(entity.classroomId)
-            ?.takeUnless { it.isArchived || it.teacherId != teacherId }
+            ?.takeUnless { it.isArchived || it.teacherId != userId }
             ?: return@withContext null
         entity.toDomain()
     }
@@ -246,10 +358,12 @@ class ClassroomRepositoryImpl @Inject constructor(
         name = name,
         grade = grade,
         subject = subject,
+        joinCode = joinCode,
         createdAt = createdAt.toEpochMilliseconds(),
         updatedAt = updatedAt.toEpochMilliseconds(),
         isArchived = isArchived,
-        archivedAt = archivedAt?.toEpochMilliseconds()
+        archivedAt = archivedAt?.toEpochMilliseconds(),
+        students = students
     )
 
     private fun Topic.toEntity(): TopicEntity = TopicEntity(
@@ -264,16 +378,35 @@ class ClassroomRepositoryImpl @Inject constructor(
         archivedAt = archivedAt?.toEpochMilliseconds()
     )
 
+    private fun Student.toEntity(): StudentEntity = StudentEntity(
+        id = id,
+        displayName = displayName,
+        email = email,
+        createdAt = createdAt.toEpochMilliseconds()
+    )
+
+    private fun JoinRequest.toEntity(): JoinRequestEntity = JoinRequestEntity(
+        id = id,
+        studentId = studentId,
+        classroomId = classroomId,
+        teacherId = teacherId,
+        status = status.name,
+        createdAt = createdAt.toEpochMilliseconds(),
+        resolvedAt = resolvedAt?.toEpochMilliseconds()
+    )
+
     private fun ClassroomEntity.toDomain(): Classroom = Classroom(
         id = id,
         teacherId = teacherId,
         name = name,
         grade = grade,
         subject = subject,
+        joinCode = joinCode,
         createdAt = Instant.fromEpochMilliseconds(createdAt),
         updatedAt = Instant.fromEpochMilliseconds(updatedAt),
         isArchived = isArchived,
-        archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
+        archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds),
+        students = students
     )
 
     private fun TopicEntity.toDomain(): Topic = Topic(
@@ -288,13 +421,34 @@ class ClassroomRepositoryImpl @Inject constructor(
         archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
     )
 
+    private fun StudentEntity.toDomain(): Student = Student(
+        id = id,
+        displayName = displayName,
+        email = email,
+        createdAt = Instant.fromEpochMilliseconds(createdAt)
+    )
+
+     private fun JoinRequestEntity.toDomain(): JoinRequest = JoinRequest(
+        id = id,
+        studentId = studentId,
+        classroomId = classroomId,
+        teacherId = teacherId,
+        status = JoinRequestStatus.valueOf(status),
+        createdAt = Instant.fromEpochMilliseconds(createdAt),
+        resolvedAt = resolvedAt?.let(Instant::fromEpochMilliseconds)
+    )
+
     private fun generateLocalId(prefix: String): String = "$prefix-${Clock.System.now().toEpochMilliseconds()}"
 
     private suspend fun requireTeacherId(): String =
         authRepository.authState.firstOrNull()?.userId
             ?: error("No authenticated teacher available")
 
-    private suspend fun currentTeacherId(): String? =
+    private suspend fun requireStudentId(): String =
+        authRepository.authState.firstOrNull()?.userId
+            ?: error("No authenticated student available")
+
+    private suspend fun currentUserId(): String? =
         authRepository.authState.firstOrNull()?.userId
 
     private fun shouldIgnorePermissionDenied(error: Throwable?): Boolean =

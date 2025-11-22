@@ -8,6 +8,7 @@ data class AuthState(
     val displayName: String? = null,
     val email: String? = null,
     val isAuthenticated: Boolean = false,
+    val isTeacher: Boolean = false,
     val role: UserRole = UserRole.STUDENT,
     val teacherProfile: Teacher? = null
 )

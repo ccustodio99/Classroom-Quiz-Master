@@ -74,10 +74,12 @@ class OfflineDemoManager @Inject constructor(
                 name = "Period 1 Algebra",
                 grade = "8",
                 subject = "Math",
+                joinCode = DEMO_JOIN_CODE,
                 createdAt = classroomCreatedAt.toEpochMilliseconds(),
                 updatedAt = now.toEpochMilliseconds(),
                 isArchived = false,
-                archivedAt = null
+                archivedAt = null,
+                students = emptyList()
             )
             classroomDao.upsert(classroomEntity)
 
@@ -94,7 +96,7 @@ class OfflineDemoManager @Inject constructor(
             )
             topicDao.upsert(topicEntity)
 
-            val questions = buildDemoQuestions(DEMO_QUIZ_ID, now)
+            val questions = buildDemoQuestions(now)
             val quizEntity = QuizEntity(
                 id = DEMO_QUIZ_ID,
                 teacherId = DemoMode.TEACHER_ID,
@@ -136,7 +138,7 @@ class OfflineDemoManager @Inject constructor(
         }
     }
 
-    private fun buildDemoQuestions(quizId: String, updatedAt: Instant): List<QuestionEntity> {
+    private fun buildDemoQuestions(updatedAt: Instant): List<QuestionEntity> {
         val stems = listOf(
             "Which fraction is equivalent to 1/2?" to listOf("2/4", "3/6", "2/3", "3/5"),
             "True or false: 3/4 is greater than 2/3." to listOf("True", "False"),
@@ -153,8 +155,8 @@ class OfflineDemoManager @Inject constructor(
                 else -> listOf("1/4", "1/3", "2/5", "3/4")
             }
             QuestionEntity(
-                id = "${quizId}-q${index + 1}",
-                quizId = quizId,
+                id = "${DEMO_QUIZ_ID}-q${index + 1}",
+                quizId = DEMO_QUIZ_ID,
                 type = if (index == 1) "TF" else "MCQ",
                 stem = stem,
                 choicesJson = json.encodeToString(choices),
@@ -179,6 +181,7 @@ class OfflineDemoManager @Inject constructor(
 
     companion object {
         private const val DEMO_CLASSROOM_ID = "demo-classroom"
+        private const val DEMO_JOIN_CODE = "DEMO123"
         private const val DEMO_TOPIC_ID = "demo-topic"
         private const val DEMO_QUIZ_ID = "demo-quiz"
         private const val DEMO_ASSIGNMENT_ID = "demo-assignment"

@@ -22,6 +22,39 @@ data class TeacherEntity(
 )
 
 @Entity(
+    tableName = "students",
+    indices = [
+        Index(value = ["email"], unique = true),
+        Index(value = ["createdAt"])
+    ]
+)
+data class StudentEntity(
+    @PrimaryKey val id: String,
+    val displayName: String,
+    val email: String,
+    val createdAt: Long
+)
+
+@Entity(
+    tableName = "join_requests",
+    indices = [
+        Index(value = ["studentId"]),
+        Index(value = ["classroomId"]),
+        Index(value = ["teacherId"]),
+        Index(value = ["status"])
+    ]
+)
+data class JoinRequestEntity(
+    @PrimaryKey val id: String,
+    val studentId: String,
+    val classroomId: String,
+    val teacherId: String,
+    val status: String,
+    val createdAt: Long,
+    val resolvedAt: Long?
+)
+
+@Entity(
     tableName = "classrooms",
     indices = [
         Index(value = ["teacherId"]),
@@ -36,10 +69,12 @@ data class ClassroomEntity(
     val name: String,
     val grade: String,
     val subject: String,
+    val joinCode: String,
     val createdAt: Long,
     val updatedAt: Long,
     val isArchived: Boolean,
-    val archivedAt: Long?
+    val archivedAt: Long?,
+    val students: List<String>
 )
 
 @Entity(

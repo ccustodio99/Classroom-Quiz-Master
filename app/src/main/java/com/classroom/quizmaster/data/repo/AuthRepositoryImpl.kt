@@ -88,6 +88,11 @@ class AuthRepositoryImpl @Inject constructor(
     override suspend fun logout() {
         authDataSource.signOut()
     }
+
+    override suspend fun getTeacher(teacherId: String): Flow<Teacher?> = flow {
+        val teacher = teacherDao.get(teacherId)?.toDomain()
+        emit(teacher)
+    }
 }
 
 private fun TeacherEntity.toDomain(): Teacher = Teacher(

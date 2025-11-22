@@ -23,6 +23,13 @@ interface ClassroomDao {
     )
     fun observeForTeacher(teacherId: String): Flow<List<ClassroomEntity>>
 
+    @Query(
+        "SELECT * FROM classrooms " +
+            "WHERE students LIKE '%' || :studentId || '%' AND isArchived = 0 " +
+            "ORDER BY createdAt DESC"
+    )
+    fun observeForStudent(studentId: String): Flow<List<ClassroomEntity>>
+
     @Query("SELECT * FROM classrooms WHERE id = :id LIMIT 1")
     suspend fun get(id: String): ClassroomEntity?
 

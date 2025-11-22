@@ -12,6 +12,8 @@ import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -34,6 +36,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
+import com.classroom.quizmaster.domain.model.Teacher
+import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.ui.components.AssistiveInfoCard
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.PrimaryButton
@@ -43,7 +48,6 @@ import com.classroom.quizmaster.ui.components.ScreenHeader
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.components.TagChip
-import com.classroom.quizmaster.ui.model.ConnectionQuality
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 import com.classroom.quizmaster.ui.state.SessionRepositoryUi
@@ -53,26 +57,16 @@ import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.collectLatest
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 
 enum class EntryTab { Lan, Code }
 
-data class LanHostUi(
-    val id: String,
-    val teacherName: String,
-    val subject: String,
-    val players: Int,
-    val latencyMs: Int,
-    val joinCode: String,
-    val quality: ConnectionQuality,
-    val lastSeen: String
-)
-
 data class StudentEntryUiState(
     val tab: EntryTab = EntryTab.Lan,
-    val lanHosts: List<LanHostUi> = emptyList(),
-    val selectedHostId: String? = null,
+    val teachers: List<Teacher> = emptyList(),
+    val selectedTeacherId: String? = null,
     val joinCode: String = "",
     val joinCodeValid: Boolean = false,
     val joinCodeError: String? = null,
@@ -87,7 +81,9 @@ data class StudentEntryUiState(
 
 @HiltViewModel
 class StudentEntryViewModel @Inject constructor(
-    private val sessionRepositoryUi: SessionRepositoryUi
+    private val sessionRepositoryUi: SessionRepositoryUi,
+    private val classroomRepository: ClassroomRepository,
+    private val authRepository: AuthRepository
 ) : ViewModel() {
 
     private val _uiState = MutableStateFlow(StudentEntryUiState())
@@ -98,7 +94,6 @@ class StudentEntryViewModel @Inject constructor(
             sessionRepositoryUi.studentEntry.collectLatest { incoming ->
                 _uiState.update { current ->
                     current.copy(
-                        lanHosts = incoming.lanHosts,
                         statusMessage = incoming.statusMessage,
                         isDiscovering = incoming.isDiscovering,
                         isJoining = incoming.isJoining,
@@ -109,7 +104,16 @@ class StudentEntryViewModel @Inject constructor(
                 }
             }
         }
-        viewModelScope.launch { sessionRepositoryUi.refreshLanHosts() }
+        viewModelScope.launch {
+            classroomRepository.classrooms.collectLatest { classrooms ->
+                val teachers = classrooms.mapNotNull { classroom ->
+                    authRepository.getTeacher(classroom.teacherId).first()
+                }.distinct()
+                _uiState.update {
+                    it.copy(teachers = teachers)
+                }
+            }
+        }
     }
 
     fun selectTab(tab: EntryTab) {
@@ -131,32 +135,21 @@ class StudentEntryViewModel @Inject constructor(
         }
     }
 
-    fun selectHost(hostId: String) {
-        _uiState.update { it.copy(selectedHostId = hostId).recalculateJoinEligibility() }
+    fun selectTeacher(teacherId: String) {
+        _uiState.update { it.copy(selectedTeacherId = teacherId).recalculateJoinEligibility() }
     }
 
-    fun refreshLanHosts() {
-        viewModelScope.launch { sessionRepositoryUi.refreshLanHosts() }
+    fun refreshTeachers() {
+        viewModelScope.launch { classroomRepository.refresh() }
     }
 
-    fun joinLan(onJoined: () -> Unit) {
+    fun joinTeacher(onJoined: () -> Unit) {
         val state = _uiState.value
-        val hostId = state.selectedHostId ?: return
+        val teacherId = state.selectedTeacherId ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isJoining = true, errorMessage = null) }
-            sessionRepositoryUi.joinLanHost(hostId, "", null)
-                .onSuccess {
-                    _uiState.update { it.copy(isJoining = false) }
-                    onJoined()
-                }
-                .onFailure { throwable ->
-                    _uiState.update {
-                        it.copy(
-                            isJoining = false,
-                            errorMessage = throwable.message ?: "Unable to join host"
-                        )
-                    }
-                }
+            // TODO: Implement join teacher functionality
+            onJoined()
         }
     }
 
@@ -192,7 +185,7 @@ class StudentEntryViewModel @Inject constructor(
     }
 
     private fun StudentEntryUiState.recalculateJoinEligibility(): StudentEntryUiState {
-        val lanReady = selectedHostId != null
+        val lanReady = selectedTeacherId != null
         val codeReady = joinCodeValid
         val allowJoin = when (tab) {
             EntryTab.Lan -> lanReady
@@ -215,9 +208,9 @@ fun StudentEntryRoute(
         state = state,
         onTabSelect = viewModel::selectTab,
         onJoinCodeChange = viewModel::updateJoinCode,
-        onHostSelect = viewModel::selectHost,
-        onRefreshLan = viewModel::refreshLanHosts,
-        onJoinLan = { viewModel.joinLan(onJoined) },
+        onTeacherSelect = viewModel::selectTeacher,
+        onRefreshTeachers = viewModel::refreshTeachers,
+        onJoinTeacher = { viewModel.joinTeacher(onJoined) },
         onJoinCode = { viewModel.joinByCode(onJoined) },
         onClearError = viewModel::clearError,
         onTeacherSignIn = onTeacherSignIn
@@ -229,9 +222,9 @@ fun StudentEntryScreen(
     state: StudentEntryUiState,
     onTabSelect: (EntryTab) -> Unit,
     onJoinCodeChange: (String) -> Unit,
-    onHostSelect: (String) -> Unit,
-    onRefreshLan: () -> Unit,
-    onJoinLan: () -> Unit,
+    onTeacherSelect: (String) -> Unit,
+    onRefreshTeachers: () -> Unit,
+    onJoinTeacher: () -> Unit,
     onJoinCode: () -> Unit,
     onClearError: () -> Unit,
     onTeacherSignIn: (() -> Unit)? = null
@@ -239,12 +232,13 @@ fun StudentEntryScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
+            .verticalScroll(rememberScrollState())
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         ScreenHeader(
             title = "Join Classroom",
-            subtitle = "Discover nearby sessions or use a join code from your teacher."
+            subtitle = "Discover nearby teachers or use a join code from your teacher."
         )
         if (!state.networkAvailable) {
             AssistiveInfoCard(
@@ -262,11 +256,11 @@ fun StudentEntryScreen(
         }
         SectionCard(
             title = "How do you want to join?",
-            subtitle = "Switch between nearby sessions and code entry."
+            subtitle = "Switch between nearby teachers and code entry."
         ) {
             SegmentedControl(
                 options = listOf(
-                    SegmentOption(EntryTab.Lan.name, "Nearby", "Discover LAN hosts"),
+                    SegmentOption(EntryTab.Lan.name, "Nearby", "Discover teachers"),
                     SegmentOption(EntryTab.Code.name, "Join code", "Enter 6-8 characters")
                 ),
                 selectedId = state.tab.name,
@@ -274,11 +268,11 @@ fun StudentEntryScreen(
             )
         }
         when (state.tab) {
-            EntryTab.Lan -> LanHostList(
+            EntryTab.Lan -> TeacherList(
                 state = state,
-                onHostSelect = onHostSelect,
-                onRefresh = onRefreshLan,
-                onJoin = onJoinLan
+                onTeacherSelect = onTeacherSelect,
+                onRefresh = onRefreshTeachers,
+                onJoin = onJoinTeacher
             )
             EntryTab.Code -> JoinCodeCard(
                 state = state,
@@ -323,16 +317,16 @@ fun StudentEntryScreen(
 }
 
 @Composable
-private fun LanHostList(
+private fun TeacherList(
     state: StudentEntryUiState,
-    onHostSelect: (String) -> Unit,
+    onTeacherSelect: (String) -> Unit,
     onRefresh: () -> Unit,
     onJoin: () -> Unit
 ) {
     SectionCard(
-        title = "Nearby hosts",
+        title = "Nearby teachers",
         subtitle = if (state.networkAvailable) {
-            "Pick a classroom running on the same network."
+            "Pick a teacher running on the same network."
         } else {
             "Connect to Wi‑Fi to see teachers hosting a lobby."
         }
@@ -343,7 +337,7 @@ private fun LanHostList(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Text("Available sessions", style = MaterialTheme.typography.titleMedium)
+                Text("Available teachers", style = MaterialTheme.typography.titleMedium)
                 SecondaryButton(
                     text = if (state.isDiscovering) "Scanning..." else "Refresh",
                     onClick = onRefresh,
@@ -357,12 +351,12 @@ private fun LanHostList(
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CircularProgressIndicator(modifier = Modifier.height(24.dp))
-                    Text("Searching for LAN hosts", style = MaterialTheme.typography.bodyMedium)
+                    Text("Searching for teachers", style = MaterialTheme.typography.bodyMedium)
                 }
             }
-            if (state.lanHosts.isEmpty()) {
+            if (state.teachers.isEmpty()) {
                 EmptyState(
-                    title = "No hosts detected",
+                    title = "No teachers detected",
                     message = "Ask your teacher to open the lobby or use a join code."
                 )
             } else {
@@ -370,16 +364,16 @@ private fun LanHostList(
                     verticalArrangement = Arrangement.spacedBy(12.dp),
                     contentPadding = PaddingValues(bottom = 8.dp)
                 ) {
-                    items(state.lanHosts, key = { it.id }) { host ->
-                        LanHostCard(
-                            host = host,
-                            selected = host.id == state.selectedHostId,
-                            onSelect = { onHostSelect(host.id) }
+                    items(state.teachers, key = { it.id }) { teacher ->
+                        TeacherCard(
+                            teacher = teacher,
+                            selected = teacher.id == state.selectedTeacherId,
+                            onSelect = { onTeacherSelect(teacher.id) }
                         )
                     }
                 }
                 PrimaryButton(
-                    text = if (state.isJoining) "Joining..." else "Join selected host",
+                    text = if (state.isJoining) "Joining..." else "Join selected teacher",
                     onClick = onJoin,
                     enabled = state.canJoin && !state.isJoining,
                     modifier = Modifier.fillMaxWidth()
@@ -390,8 +384,8 @@ private fun LanHostList(
 }
 
 @Composable
-private fun LanHostCard(
-    host: LanHostUi,
+private fun TeacherCard(
+    teacher: Teacher,
     selected: Boolean,
     onSelect: () -> Unit
 ) {
@@ -400,7 +394,7 @@ private fun LanHostCard(
             .fillMaxWidth()
             .semantics {
                 role = Role.Button
-                contentDescription = "Host ${host.teacherName} ${host.subject}"
+                contentDescription = "Teacher ${teacher.displayName}"
             }
             .clickable(onClick = onSelect),
         shape = MaterialTheme.shapes.large,
@@ -416,55 +410,15 @@ private fun LanHostCard(
             verticalArrangement = Arrangement.spacedBy(8.dp)
         ) {
             Text(
-                text = host.subject,
+                text = teacher.displayName,
                 style = MaterialTheme.typography.titleMedium,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
-            )
-            Row(
-                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                verticalAlignment = Alignment.CenterVertically
-            ) {
-                Text(
-                    text = "Host: ${host.teacherName}",
-                    style = MaterialTheme.typography.bodyMedium
-                )
-                TagChip(text = "${host.players} players")
-            }
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                TagChip(text = "Code ${host.joinCode}")
-                Text(
-                    text = qualityLabel(host.quality, host.latencyMs),
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = qualityColor(host.quality)
-                )
-            }
-            Text(
-                text = "Last seen ${host.lastSeen}",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
             )
         }
     }
 }
 
-private fun qualityLabel(quality: ConnectionQuality, latencyMs: Int): String =
-    when (quality) {
-        ConnectionQuality.Excellent -> "Excellent · ${latencyMs}ms"
-        ConnectionQuality.Good -> "Good · ${latencyMs}ms"
-        ConnectionQuality.Fair -> "Fair · ${latencyMs}ms"
-        ConnectionQuality.Weak -> "Weak · ${latencyMs}ms"
-        ConnectionQuality.Offline -> "Offline"
-    }
-
-@Composable
-private fun qualityColor(quality: ConnectionQuality) = when (quality) {
-    ConnectionQuality.Excellent -> MaterialTheme.colorScheme.primary
-    ConnectionQuality.Good -> MaterialTheme.colorScheme.tertiary
-    ConnectionQuality.Fair -> MaterialTheme.colorScheme.onSurfaceVariant
-    ConnectionQuality.Weak -> MaterialTheme.colorScheme.error
-    ConnectionQuality.Offline -> MaterialTheme.colorScheme.onSurfaceVariant
-}
 
 @Composable
 private fun JoinCodeCard(
@@ -498,7 +452,7 @@ private fun JoinCodeCard(
                 modifier = Modifier.fillMaxWidth()
             )
             PrimaryButton(
-                text = if (state.isJoining) "Joining..." else "Join session",
+                text = if (state.isJoining) "Joining..." else "Join with code",
                 onClick = onJoin,
                 enabled = state.canJoin && !state.isJoining,
                 modifier = Modifier.fillMaxWidth()
@@ -515,9 +469,9 @@ private fun StudentEntryPreview() {
             state = StudentEntryUiState(),
             onTabSelect = {},
             onJoinCodeChange = {},
-            onHostSelect = {},
-            onRefreshLan = {},
-            onJoinLan = {},
+            onTeacherSelect = {},
+            onRefreshTeachers = {},
+            onJoinTeacher = {},
             onJoinCode = {},
             onClearError = {}
         )

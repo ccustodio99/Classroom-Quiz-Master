@@ -49,7 +49,8 @@ fun TeacherHomeRoute(
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
-    onMaterials: () -> Unit,
+    onClassrooms: () -> Unit,
+    onJoinRequests: () -> Unit,
     onViewArchived: () -> Unit,
     onClassroomSelected: (String) -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
@@ -68,7 +69,8 @@ fun TeacherHomeRoute(
         onCreateQuiz = onCreateQuiz,
         onAssignments = onAssignments,
         onReports = onReports,
-        onMaterials = onMaterials,
+        onClassrooms = onClassrooms,
+        onJoinRequests = onJoinRequests,
         onViewArchived = onViewArchived,
         onSeedSampleData = viewModel::seedSampleData,
         onClearSampleData = viewModel::clearSampleData,
@@ -83,7 +85,8 @@ fun TeacherHomeScreen(
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
-    onMaterials: () -> Unit,
+    onClassrooms: () -> Unit,
+    onJoinRequests: () -> Unit,
     onViewArchived: () -> Unit,
     onSeedSampleData: () -> Unit,
     onClearSampleData: () -> Unit,
@@ -132,7 +135,8 @@ fun TeacherHomeScreen(
             classrooms = state.classrooms,
             onCreateClassroom = onCreateClassroom,
             onViewArchived = onViewArchived,
-            onClassroomSelected = onClassroomSelected
+            onClassroomSelected = onClassroomSelected,
+            onJoinRequests = onJoinRequests
         )
         ActionCards(
             actionCards = state.actionCards,
@@ -141,7 +145,7 @@ fun TeacherHomeScreen(
             onCreateQuiz = createQuizAction,
             onAssignments = onAssignments,
             onReports = onReports,
-            onMaterials = onMaterials
+            onClassrooms = onClassrooms
         )
         RecentQuizzesSection(
             quizzes = state.recentQuizzes,
@@ -170,7 +174,8 @@ private fun ClassroomsSection(
     classrooms: List<ClassroomOverviewUi>,
     onCreateClassroom: () -> Unit,
     onViewArchived: () -> Unit,
-    onClassroomSelected: (String) -> Unit
+    onClassroomSelected: (String) -> Unit,
+    onJoinRequests: () -> Unit
 ) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Row(
@@ -179,12 +184,20 @@ private fun ClassroomsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
-            Text(
-                text = "View archived",
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.primary,
-                modifier = Modifier.clickable { onViewArchived() }
-            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                Text(
+                    text = "Join Requests",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onJoinRequests() }
+                )
+                Text(
+                    text = "View archived",
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.primary,
+                    modifier = Modifier.clickable { onViewArchived() }
+                )
+            }
         }
         PrimaryButton(
             text = "Create classroom",
@@ -299,11 +312,10 @@ private fun ActionCards(
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
-    onMaterials: () -> Unit
+    onClassrooms: () -> Unit
 ) {
     Text(text = "Actions", style = MaterialTheme.typography.titleLarge)
     val cards = (if (actionCards.isEmpty()) defaultActionCards else actionCards)
-        .filterNot { it.id == ACTION_MATERIALS }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         cards.forEach {
             val baseAction = resolveAction(
@@ -311,7 +323,7 @@ private fun ActionCards(
                 onCreateQuiz = onCreateQuiz,
                 onAssignments = onAssignments,
                 onReports = onReports,
-                onMaterials = onMaterials
+                onClassrooms = onClassrooms
             )
 
             val allowed = when (it.id) {
@@ -340,12 +352,13 @@ private fun resolveAction(
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
     onReports: () -> Unit,
-    onMaterials: () -> Unit
+    onClassrooms: () -> Unit
 ): (() -> Unit)? {
     val primary = when (card.id) {
         ACTION_CREATE_QUIZ -> onCreateQuiz
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
+        ACTION_CLASSROOMS -> onClassrooms
         else -> null
     }
     if (primary != null) return primary
@@ -353,6 +366,7 @@ private fun resolveAction(
         ACTION_CREATE_QUIZ -> onCreateQuiz
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
+        ACTION_CLASSROOMS -> onClassrooms
         else -> null
     }
 }
@@ -484,9 +498,14 @@ private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
     ACTION_REPORTS -> Icons.Outlined.Timeline
-    ACTION_MATERIALS -> Icons.AutoMirrored.Outlined.LibraryBooks
+    ACTION_CLASSROOMS -> Icons.AutoMirrored.Outlined.LibraryBooks
     else -> Icons.AutoMirrored.Outlined.ArrowForward
 }
+
+const val ACTION_CREATE_QUIZ = "teacher_home:create_quiz"
+const val ACTION_ASSIGNMENTS = "teacher_home:assignments"
+const val ACTION_REPORTS = "teacher_home:reports"
+const val ACTION_CLASSROOMS = "teacher_home:classrooms"
 
 private val defaultActionCards = listOf(
     HomeActionCard(
@@ -510,8 +529,16 @@ private val defaultActionCards = listOf(
         description = "Track mastery by standard and monitor growth over time.",
         route = ACTION_REPORTS,
         ctaLabel = "View reports"
+    ),
+    HomeActionCard(
+        id = ACTION_CLASSROOMS,
+        title = "Manage classrooms",
+        description = "Create, edit, and archive your classrooms.",
+        route = ACTION_CLASSROOMS,
+        ctaLabel = "View classrooms"
     )
 )
+
 @QuizPreviews
 @Composable
 private fun TeacherHomePreview() {
@@ -579,7 +606,8 @@ private fun TeacherHomePreview() {
             onCreateQuiz = { _: String, _: String -> },
             onAssignments = {},
             onReports = {},
-            onMaterials = {},
+            onClassrooms = {},
+            onJoinRequests = {},
             onViewArchived = {},
             onSeedSampleData = {},
             onClearSampleData = {},

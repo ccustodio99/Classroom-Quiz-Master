@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
+import com.classroom.quizmaster.util.JoinCodeGenerator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -19,6 +20,7 @@ data class CreateClassroomUiState(
     val name: String = "",
     val grade: String = "",
     val subject: String = "",
+    val joinCode: String = "",
     val isSaving: Boolean = false,
     val errorMessage: String? = null,
     val success: Boolean = false
@@ -34,6 +36,10 @@ class CreateClassroomViewModel @Inject constructor(
 
     private val _uiState = MutableStateFlow(CreateClassroomUiState())
     val uiState: StateFlow<CreateClassroomUiState> = _uiState.asStateFlow()
+
+    init {
+        _uiState.update { it.copy(joinCode = JoinCodeGenerator.generate()) }
+    }
 
     fun updateName(value: String) = _uiState.update { it.copy(name = value, errorMessage = null) }
     fun updateGrade(value: String) = _uiState.update { it.copy(grade = value) }
@@ -54,6 +60,7 @@ class CreateClassroomViewModel @Inject constructor(
                     name = current.name.trim(),
                     grade = current.grade.trim(),
                     subject = current.subject.trim(),
+                    joinCode = current.joinCode,
                     createdAt = now,
                     updatedAt = now
                 )

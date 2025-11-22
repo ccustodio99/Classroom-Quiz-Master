@@ -20,8 +20,8 @@ import com.classroom.quizmaster.ui.model.QuizCategoryUi
 import com.classroom.quizmaster.ui.model.SelectionOptionUi
 import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
-import com.classroom.quizmaster.ui.teacher.home.ACTION_MATERIALS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
+import com.classroom.quizmaster.ui.teacher.home.ACTION_CLASSROOMS
 import com.classroom.quizmaster.ui.teacher.home.ClassroomOverviewUi
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeUiState
@@ -399,10 +399,10 @@ class RealQuizRepositoryUi @Inject constructor(
             primary = true
         ),
         HomeActionCard(
-            id = ACTION_MATERIALS,
-            title = "Learning materials",
-            description = "Prepare notes, files, and videos for offline sync.",
-            route = ACTION_MATERIALS,
+            id = ACTION_CLASSROOMS,
+            title = "Manage classrooms",
+            description = "Create, edit, and archive your classrooms.",
+            route = ACTION_CLASSROOMS,
             ctaLabel = "Manage"
         ),
         HomeActionCard(

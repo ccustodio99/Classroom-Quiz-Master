@@ -16,6 +16,17 @@ data class Teacher(
 )
 
 /**
+ * Canonical student profile for students using Classroom Quiz Master.
+ */
+@Serializable
+data class Student(
+    val id: String,
+    val displayName: String,
+    val email: String,
+    val createdAt: Instant
+)
+
+/**
  * Represents a classroom owned by a teacher. Classrooms are used to scope quizzes,
  * live sessions, and assignments.
  */
@@ -26,11 +37,40 @@ data class Classroom(
     val name: String,
     val grade: String,
     val subject: String,
+    val joinCode: String,
     val createdAt: Instant,
     val updatedAt: Instant = createdAt,
     val isArchived: Boolean = false,
-    val archivedAt: Instant? = null
+    val archivedAt: Instant? = null,
+    val students: List<String> = emptyList()
 )
+
+/**
+ * Represents a student's request to join a classroom.
+ */
+@Serializable
+data class JoinRequest(
+    val id: String,
+    val studentId: String,
+    val classroomId: String,
+    val teacherId: String,
+    val status: JoinRequestStatus,
+    val createdAt: Instant,
+    val resolvedAt: Instant? = null
+)
+
+@Serializable
+enum class JoinRequestStatus {
+    @SerialName("pending")
+    PENDING,
+
+    @SerialName("approved")
+    APPROVED,
+
+    @SerialName("denied")
+    DENIED
+}
+
 
 /**
  * Topics organize quizzes and assignments within a classroom. They can be

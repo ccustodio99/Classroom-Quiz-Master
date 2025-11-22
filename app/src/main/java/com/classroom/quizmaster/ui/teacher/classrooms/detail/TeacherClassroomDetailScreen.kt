@@ -36,6 +36,8 @@ fun TeacherClassroomDetailRoute(
     onCreatePreTest: (String, String) -> Unit,
     onCreatePostTest: (String, String) -> Unit,
     onEditTest: (String, String, String) -> Unit,
+    onCreateMaterial: (String) -> Unit,
+    onOpenMaterial: (String) -> Unit,
     viewModel: TeacherClassroomDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
@@ -56,7 +58,9 @@ fun TeacherClassroomDetailRoute(
             }
         },
         onEditTest = { test -> onEditTest(viewModel.classroomId, test.topicId, test.id) },
-        onDeleteTest = { test -> viewModel.deleteTest(test.id) }
+        onDeleteTest = { test -> viewModel.deleteTest(test.id) },
+        onCreateMaterial = { onCreateMaterial(viewModel.classroomId) },
+        onOpenMaterial = onOpenMaterial
     )
 }
 
@@ -70,7 +74,9 @@ fun TeacherClassroomDetailScreen(
     onCreatePreTest: () -> Unit,
     onCreatePostTest: () -> Unit,
     onEditTest: (ClassroomTestUi) -> Unit,
-    onDeleteTest: (ClassroomTestUi) -> Unit
+    onDeleteTest: (ClassroomTestUi) -> Unit,
+    onCreateMaterial: () -> Unit,
+    onOpenMaterial: (String) -> Unit
 ) {
     val pendingDelete = remember { mutableStateOf<ClassroomTestUi?>(null) }
     Column(
@@ -84,7 +90,8 @@ fun TeacherClassroomDetailScreen(
         Text(text = state.classroomName, style = MaterialTheme.typography.headlineMedium)
         val meta = listOfNotNull(
             state.subject.takeIf { it.isNotBlank() },
-            state.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" }
+            state.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" },
+            state.joinCode.takeIf { it.isNotBlank() }?.let { "Code: $it" }
         ).joinToString(separator = " · ")
         if (meta.isNotBlank()) {
             Text(text = meta, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)

@@ -36,6 +36,7 @@ fun CreateClassroomRoute(
         name = state.name,
         grade = state.grade,
         subject = state.subject,
+        joinCode = state.joinCode,
         isSaving = state.isSaving,
         errorMessage = state.errorMessage,
         onNameChanged = viewModel::updateName,
@@ -51,6 +52,7 @@ fun CreateClassroomScreen(
     name: String,
     grade: String,
     subject: String,
+    joinCode: String,
     isSaving: Boolean,
     errorMessage: String?,
     onNameChanged: (String) -> Unit,
@@ -100,6 +102,14 @@ fun CreateClassroomScreen(
             modifier = Modifier.fillMaxWidth(),
             label = { Text("Subject (optional)") },
             singleLine = true
+        )
+
+        OutlinedTextField(
+            value = joinCode,
+            onValueChange = {},
+            modifier = Modifier.fillMaxWidth(),
+            label = { Text("Join code") },
+            readOnly = true
         )
 
         errorMessage?.takeIf { it.isNotBlank() }?.let { message ->

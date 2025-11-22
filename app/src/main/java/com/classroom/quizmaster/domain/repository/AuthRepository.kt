@@ -1,6 +1,7 @@
 package com.classroom.quizmaster.domain.repository
 
 import com.classroom.quizmaster.domain.model.AuthState
+import com.classroom.quizmaster.domain.model.Teacher
 import kotlinx.coroutines.flow.Flow
 
 interface AuthRepository {
@@ -10,4 +11,5 @@ interface AuthRepository {
     suspend fun signInWithGoogle(idToken: String)
     suspend fun signInAnonymously(nickname: String)
     suspend fun logout()
+    suspend fun getTeacher(teacherId: String): Flow<Teacher?>
 }

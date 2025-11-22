@@ -2,6 +2,9 @@ package com.classroom.quizmaster.data.remote
 
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.Teacher
+import com.classroom.quizmaster.domain.model.Student
+import com.classroom.quizmaster.domain.model.JoinRequest
+import com.classroom.quizmaster.domain.model.JoinRequestStatus
 import com.google.firebase.firestore.FieldValue
 import com.google.firebase.firestore.FirebaseFirestore
 import kotlinx.coroutines.tasks.await
@@ -18,13 +21,53 @@ class FirebaseClassroomDataSource @Inject constructor(
 ) {
 
     private fun teachersCollection() = firestore.collection("teachers")
-
+    private fun studentsCollection() = firestore.collection("students")
     private fun classroomsCollection() = firestore.collection("classrooms")
+    private fun joinRequestsCollection() = firestore.collection("joinRequests")
 
     suspend fun fetchTeacherProfile(): Result<Teacher?> = try {
         val uid = authDataSource.currentUserId() ?: return Result.success(null)
         val snapshot = teachersCollection().document(uid).get().await()
         Result.success(snapshot.toObject(FirestoreTeacher::class.java)?.toDomain(uid))
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun searchTeachers(query: String): Result<List<Teacher>> = try {
+        val snapshot = teachersCollection()
+            .whereGreaterThanOrEqualTo("displayName", query)
+            .whereLessThanOrEqualTo("displayName", query + "\uf8ff")
+            .limit(20)
+            .get()
+            .await()
+
+        val teachers = snapshot.documents.mapNotNull { doc ->
+            doc.toObject(FirestoreTeacher::class.java)?.toDomain(doc.id)
+        }
+        Result.success(teachers)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun getClassroomsForTeacher(teacherId: String): Result<List<Classroom>> = try {
+        val snapshot = classroomsCollection()
+            .whereEqualTo("teacherId", teacherId)
+            .whereEqualTo("isArchived", false)
+            .get()
+            .await()
+
+        val classrooms = snapshot.documents.mapNotNull { doc ->
+            doc.toObject(FirestoreClassroom::class.java)?.toDomain(doc.id)
+        }
+        Result.success(classrooms)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+
+    suspend fun fetchStudentProfile(studentId: String): Result<Student?> = try {
+        val snapshot = studentsCollection().document(studentId).get().await()
+        Result.success(snapshot.toObject(FirestoreStudent::class.java)?.toDomain(studentId))
     } catch (error: Exception) {
         Result.failure(error)
     }
@@ -67,6 +110,24 @@ class FirebaseClassroomDataSource @Inject constructor(
         Result.failure(error)
     }
 
+    suspend fun getClassroomByJoinCode(joinCode: String): Result<Classroom> = try {
+        val snapshot = classroomsCollection()
+            .whereEqualTo("joinCode", joinCode)
+            .limit(1)
+            .get()
+            .await()
+
+        if (snapshot.isEmpty) {
+            Result.failure(Exception("Classroom not found"))
+        } else {
+            val doc = snapshot.documents[0]
+            Result.success(doc.toObject(FirestoreClassroom::class.java)!!.toDomain(doc.id))
+        }
+    } catch (e: Exception) {
+        Result.failure(e)
+    }
+
+
     suspend fun upsertClassroom(classroom: Classroom): Result<String> = try {
         val document = if (classroom.id.isBlank()) {
             classroomsCollection().document()
@@ -75,6 +136,43 @@ class FirebaseClassroomDataSource @Inject constructor(
         }
         document.set(FirestoreClassroom.fromDomain(classroom)).await()
         Result.success(document.id)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun createJoinRequest(joinRequest: JoinRequest): Result<String> = try {
+        val document = joinRequestsCollection().document()
+        document.set(FirestoreJoinRequest.fromDomain(joinRequest)).await()
+        Result.success(document.id)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun approveJoinRequest(requestId: String): Result<Unit> = try {
+        val requestRef = joinRequestsCollection().document(requestId)
+        firestore.runTransaction {
+            val request = it.get(requestRef).toObject(FirestoreJoinRequest::class.java)!!
+            val classroomRef = classroomsCollection().document(request.classroomId)
+            it.update(classroomRef, "students", FieldValue.arrayUnion(request.studentId))
+            it.update(requestRef, "status", JoinRequestStatus.APPROVED.name)
+            it.update(requestRef, "resolvedAt", FieldValue.serverTimestamp())
+        }.await()
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun denyJoinRequest(requestId: String): Result<Unit> = try {
+        joinRequestsCollection()
+            .document(requestId)
+            .update(
+                mapOf(
+                    "status" to JoinRequestStatus.DENIED.name,
+                    "resolvedAt" to FieldValue.serverTimestamp()
+                )
+            )
+            .await()
+        Result.success(Unit)
     } catch (error: Exception) {
         Result.failure(error)
     }
@@ -119,15 +217,38 @@ class FirebaseClassroomDataSource @Inject constructor(
         }
     }
 
+    private data class FirestoreStudent(
+        val displayName: String = "",
+        val email: String = "",
+        val createdAt: Long = Clock.System.now().toEpochMilliseconds()
+    ) {
+        fun toDomain(id: String): Student = Student(
+            id = id,
+            displayName = displayName,
+            email = email,
+            createdAt = Instant.fromEpochMilliseconds(createdAt)
+        )
+
+        companion object {
+            fun fromDomain(student: Student) = FirestoreStudent(
+                displayName = student.displayName,
+                email = student.email,
+                createdAt = student.createdAt.toEpochMilliseconds()
+            )
+        }
+    }
+
     private data class FirestoreClassroom(
         val teacherId: String = "",
         val name: String = "",
         val grade: String = "",
         val subject: String = "",
+        val joinCode: String = "",
         val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
         val updatedAt: Long = createdAt,
         val isArchived: Boolean = false,
-        val archivedAt: Long? = null
+        val archivedAt: Long? = null,
+        val students: List<String> = emptyList()
     ) {
         fun toDomain(id: String): Classroom = Classroom(
             id = id,
@@ -135,10 +256,12 @@ class FirebaseClassroomDataSource @Inject constructor(
             name = name,
             grade = grade,
             subject = subject,
+            joinCode = joinCode,
             createdAt = Instant.fromEpochMilliseconds(createdAt),
             updatedAt = Instant.fromEpochMilliseconds(updatedAt),
             isArchived = isArchived,
-            archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
+            archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds),
+            students = students
         )
 
         companion object {
@@ -147,10 +270,42 @@ class FirebaseClassroomDataSource @Inject constructor(
                 name = classroom.name,
                 grade = classroom.grade,
                 subject = classroom.subject,
+                joinCode = classroom.joinCode,
                 createdAt = classroom.createdAt.toEpochMilliseconds(),
                 updatedAt = classroom.updatedAt.toEpochMilliseconds(),
                 isArchived = classroom.isArchived,
-                archivedAt = classroom.archivedAt?.toEpochMilliseconds()
+                archivedAt = classroom.archivedAt?.toEpochMilliseconds(),
+                students = classroom.students
+            )
+        }
+    }
+
+    private data class FirestoreJoinRequest(
+        val studentId: String = "",
+        val classroomId: String = "",
+        val teacherId: String = "",
+        val status: String = JoinRequestStatus.PENDING.name,
+        val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
+        val resolvedAt: Long? = null
+    ) {
+        fun toDomain(id: String): JoinRequest = JoinRequest(
+            id = id,
+            studentId = studentId,
+            classroomId = classroomId,
+            teacherId = teacherId,
+            status = JoinRequestStatus.valueOf(status),
+            createdAt = Instant.fromEpochMilliseconds(createdAt),
+            resolvedAt = resolvedAt?.let(Instant::fromEpochMilliseconds)
+        )
+
+        companion object {
+            fun fromDomain(joinRequest: JoinRequest) = FirestoreJoinRequest(
+                studentId = joinRequest.studentId,
+                classroomId = joinRequest.classroomId,
+                teacherId = joinRequest.teacherId,
+                status = joinRequest.status.name,
+                createdAt = joinRequest.createdAt.toEpochMilliseconds(),
+                resolvedAt = joinRequest.resolvedAt?.toEpochMilliseconds()
             )
         }
     }

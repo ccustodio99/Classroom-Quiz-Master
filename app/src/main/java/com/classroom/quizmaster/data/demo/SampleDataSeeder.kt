@@ -18,7 +18,6 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
 import kotlin.time.Duration.Companion.hours
 import java.util.UUID
 import timber.log.Timber
@@ -48,6 +47,7 @@ class SampleDataSeeder @Inject constructor(
                     name = template.name,
                     grade = template.grade,
                     subject = template.subject,
+                    joinCode = UUID.randomUUID().toString().substring(0, 8).uppercase(),
                     createdAt = now,
                     updatedAt = now
                 )
@@ -73,7 +73,7 @@ class SampleDataSeeder @Inject constructor(
                     topicTemplate.quizzes.forEach { quizTemplate ->
                         val quizNow = Clock.System.now()
                         val quizId = "seed-quiz-${UUID.randomUUID()}"
-                        val questions = quizTemplate.questions.mapIndexed { index, question ->
+                        val questions = quizTemplate.questions.map { question ->
                             Question(
                                 id = "",
                                 quizId = quizId,
@@ -101,20 +101,19 @@ class SampleDataSeeder @Inject constructor(
                         quizRepository.upsert(quiz)
 
                         if (quizTemplate.assignment != null) {
-                            val openAt = quizNow
-                            val closeAt = openAt + quizTemplate.assignment.windowHours.hours
+                            val closeAt = quizNow + quizTemplate.assignment.windowHours.hours
                             val assignment = Assignment(
                                 id = "seed-assignment-${UUID.randomUUID()}",
                                 quizId = quizId,
                                 classroomId = classroomId,
                                 topicId = topicId,
-                                openAt = openAt,
+                                openAt = quizNow,
                                 closeAt = closeAt,
                                 attemptsAllowed = quizTemplate.assignment.attempts,
                                 scoringMode = quizTemplate.assignment.scoringMode,
                                 revealAfterSubmit = quizTemplate.assignment.revealAfterSubmit,
-                                createdAt = openAt,
-                                updatedAt = openAt
+                                createdAt = quizNow,
+                                updatedAt = quizNow
                             )
                             assignmentRepository.createAssignment(assignment)
                         }
@@ -233,7 +232,7 @@ class SampleDataSeeder @Inject constructor(
                                     ),
                                     SampleQuestion(
                                         type = QuestionType.MCQ,
-                                        stem = "Which equation represents the sentence: 'Six less than twice a number is 8'?",
+                                        stem = "Which equation represents the sentence: 'Six less than twice a number is 8'?'",
                                         choices = listOf("2x - 6 = 8", "6x - 2 = 8", "2x + 6 = 8", "6 - 2x = 8"),
                                         correctAnswers = listOf("2x - 6 = 8"),
                                         explanation = "Twice a number is 2x, six less is subtract 6."

@@ -1,10 +1,5 @@
 package com.classroom.quizmaster.ui.state
 
-import androidx.compose.ui.graphics.Color
-import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
-import com.classroom.quizmaster.data.lan.LanServiceDescriptor
-import com.classroom.quizmaster.data.network.ConnectivityMonitor
-import com.classroom.quizmaster.data.network.ConnectivityStatus
 import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.domain.model.Participant
 import com.classroom.quizmaster.domain.model.Question
@@ -18,7 +13,6 @@ import com.classroom.quizmaster.domain.usecase.StartSessionUseCase
 import com.classroom.quizmaster.domain.usecase.SubmitAnswerUseCase
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.AvatarOption
-import com.classroom.quizmaster.ui.model.ConnectionQuality
 import com.classroom.quizmaster.ui.model.LeaderboardRowUi
 import com.classroom.quizmaster.ui.model.PlayerLobbyUi
 import com.classroom.quizmaster.ui.model.QuestionDraftUi
@@ -26,15 +20,10 @@ import com.classroom.quizmaster.ui.model.QuestionTypeUi
 import com.classroom.quizmaster.ui.model.StatusChipType
 import com.classroom.quizmaster.ui.model.StatusChipUi
 import com.classroom.quizmaster.ui.student.end.StudentEndUiState
-import com.classroom.quizmaster.ui.student.entry.LanHostUi
 import com.classroom.quizmaster.ui.student.entry.StudentEntryUiState
-import com.classroom.quizmaster.ui.student.lobby.StudentLobbyUiState
-import com.classroom.quizmaster.ui.student.play.StudentPlayUiState
-import com.classroom.quizmaster.ui.student.play.SubmissionStatus
 import com.classroom.quizmaster.ui.teacher.host.HostLiveUiState
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyUiState
-import javax.inject.Inject
-import javax.inject.Singleton
+import com.classroom.quizmaster.util.NicknamePolicy
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
@@ -46,14 +35,16 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
-import kotlinx.datetime.Instant
-import com.classroom.quizmaster.util.NicknamePolicy
+import javax.inject.Inject
+import javax.inject.Singleton
+
 
 @Singleton
 class RealSessionRepositoryUi @Inject constructor(
@@ -64,8 +55,7 @@ class RealSessionRepositoryUi @Inject constructor(
     private val preferences: AppPreferencesDataSource,
     private val submitAnswerUseCase: SubmitAnswerUseCase,
     private val startSessionUseCase: StartSessionUseCase,
-    private val connectivityMonitor: ConnectivityMonitor,
-    private val dispatcher: CoroutineDispatcher = Dispatchers.Default
+    dispatcher: CoroutineDispatcher = Dispatchers.Default
 ) : SessionRepositoryUi {
 
     private val scope = CoroutineScope(SupervisorJob() + dispatcher)
@@ -73,16 +63,12 @@ class RealSessionRepositoryUi @Inject constructor(
     private val hostContext = MutableStateFlow<HostContext?>(null)
     private val muteSfx = MutableStateFlow(false)
     private val studentReady = MutableStateFlow(false)
-    private val selectedHost = MutableStateFlow<LanHostSnapshot?>(null)
-    private val hostDescriptors = MutableStateFlow<Map<String, LanHostSnapshot>>(emptyMap())
     private val entryState = MutableStateFlow(
         StudentEntryUiState(
-            avatarOptions = defaultAvatars,
             statusMessage = DEFAULT_STATUS_MESSAGE,
             networkAvailable = true
         )
     )
-    private val submissionStatus = MutableStateFlow(SubmissionStatus.Idle to "")
     private val hostStatusMessage = MutableStateFlow<String?>(null)
 
     private val sessionState = sessionRepository.session
@@ -97,16 +83,10 @@ class RealSessionRepositoryUi @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, com.classroom.quizmaster.domain.model.AuthState())
     private val preferredNickname = preferences.preferredNickname
         .stateIn(scope, SharingStarted.Eagerly, null)
-    private val connectivityState = connectivityMonitor.status
-        .stateIn(scope, SharingStarted.Eagerly, ConnectivityStatus.offline())
 
     private var discoveryJob: Job? = null
 
     init {
-        connectivityState
-            .onEach { status -> updateEntryNetworkStatus(status.isOffline) }
-            .launchIn(scope)
-
         authState
             .onEach { state -> applyDefaultNickname(state) }
             .launchIn(scope)
@@ -117,7 +97,7 @@ class RealSessionRepositoryUi @Inject constructor(
     }
 
     override val launchLobby: Flow<LaunchLobbyUiState> =
-        combine(sessionState, participantsState, pendingOps, hostStatusMessage, connectivityState) { session, participants, pending, message, connectivity ->
+        combine(sessionState, participantsState, pendingOps, hostStatusMessage) { session, participants, pending, message ->
             val base = if (session == null) {
                 LaunchLobbyUiState()
             } else {
@@ -130,7 +110,7 @@ class RealSessionRepositoryUi @Inject constructor(
                     players = participants.map { it.toPlayerLobby(session.teacherId) },
                     hideLeaderboard = session.hideLeaderboard,
                     lockAfterFirst = session.lockAfterQ1,
-                    statusChips = buildStatusChips(pending, connectivity.isOffline)
+                    statusChips = buildStatusChips(pending, false)
                 )
             }
             if (message.isNullOrBlank()) base else base.copy(snackbarMessage = message)
@@ -165,80 +145,8 @@ class RealSessionRepositoryUi @Inject constructor(
 
     override val studentEntry: Flow<StudentEntryUiState> = entryState.asStateFlow()
 
-    override val studentLobby: Flow<StudentLobbyUiState> =
-        combine(sessionState, participantsState, studentReady, selectedHost, authState) { session, participants, ready, host, auth ->
-            val joinCode = session?.joinCode.orEmpty()
-            val hostName = host?.ui?.teacherName
-                ?: session?.teacherId?.takeIf { it.isNotBlank() }
-                ?: "Host"
-            val status = when (session?.status) {
-                SessionStatus.ACTIVE -> "Quiz in progress"
-                SessionStatus.ENDED -> "Session ended"
-                SessionStatus.LOBBY -> "Waiting for host"
-                null -> "Searching for lobby"
-            }
-            val leaderboardPreview = participants.sortedByDescending { it.totalPoints }
-                .take(5)
-                .mapIndexed { index, participant ->
-                    participant.toLeaderboardRow(index + 1, auth.userId)
-                }
-            StudentLobbyUiState(
-                studentId = auth.userId.orEmpty(),
-                hostName = hostName,
-                joinCode = joinCode.ifBlank { host?.ui?.joinCode.orEmpty() },
-                joinStatus = status,
-                players = participants.map { it.toPlayerLobby(session?.teacherId.orEmpty()) },
-                ready = ready,
-                lockedMessage = session?.takeIf { it.lockAfterQ1 }?.let { "Host will lock after question 1" },
-                countdownSeconds = 0,
-                leaderboardPreview = leaderboardPreview,
-                connectionQuality = host?.ui?.quality ?: ConnectionQuality.Fair
-            )
-        }
-            .distinctUntilChanged()
-
-    override val studentPlay: Flow<StudentPlayUiState> =
-        combine(sessionState, quizzesState, participantsState, submissionStatus, selectedHost) { session, quizzes, participants, submission, host ->
-            if (session == null) {
-                StudentPlayUiState(
-                    connectionQuality = host?.ui?.quality ?: ConnectionQuality.Fair,
-                    submissionStatus = submission.first,
-                    submissionMessage = submission.second
-                )
-            } else {
-                val quiz = quizzes.firstOrNull { it.id == session.quizId }
-                val currentQuestion = quiz?.questions?.getOrNull(session.currentIndex)
-                val totalQuestions = quiz?.questions?.size?.takeIf { it > 0 } ?: quiz?.questionCount ?: 0
-                val progress = if (totalQuestions == 0) 0f else (session.currentIndex + 1f) / totalQuestions
-                val currentParticipant = authState.value.userId?.let { uid ->
-                    participants.firstOrNull { it.uid == uid }
-                }
-                StudentPlayUiState(
-                    question = currentQuestion?.toDraft(),
-                    timerSeconds = currentQuestion?.timeLimitSeconds ?: 45,
-                    selectedAnswers = emptySet(),
-                    reveal = session.reveal,
-                    progress = progress.coerceIn(0f, 1f),
-                    leaderboard = participants.sortedByDescending { it.totalPoints }
-                        .mapIndexed { index, participant ->
-                            participant.toLeaderboardRow(index + 1, authState.value.userId)
-                        },
-                    distribution = emptyList(),
-                    streak = 0,
-                    totalScore = currentParticipant?.totalPoints ?: 0,
-                    latencyMs = host?.ui?.latencyMs ?: 0,
-                    connectionQuality = host?.ui?.quality ?: ConnectionQuality.Good,
-                    submissionStatus = submission.first,
-                    submissionMessage = submission.second,
-                    showLeaderboard = !session.hideLeaderboard,
-                    requiresManualSubmit = currentQuestion?.let { requiresManualSubmit(it.type) } ?: false
-                )
-            }
-        }
-            .distinctUntilChanged()
-
     override val studentEnd: Flow<StudentEndUiState> =
-        combine(sessionState, participantsState, quizzesState, authState) { session, participants, quizzes, auth ->
+        combine(sessionState, participantsState, authState) { session, participants, auth ->
             if (session?.status != SessionStatus.ENDED) {
                 StudentEndUiState()
             } else {
@@ -270,6 +178,8 @@ class RealSessionRepositoryUi @Inject constructor(
             }
         }
             .distinctUntilChanged()
+
+    override val avatarOptions: Flow<List<AvatarOption>> = flowOf(emptyList())
 
     override suspend fun configureHostContext(classroomId: String, topicId: String?, quizId: String?) {
         if (classroomId.isBlank()) {
@@ -366,18 +276,13 @@ class RealSessionRepositoryUi @Inject constructor(
         hostStatusMessage.value = null
         muteSfx.value = false
         studentReady.value = false
-        selectedHost.value = null
-        hostDescriptors.value = emptyMap()
         entryState.update {
             it.copy(
-                lanHosts = emptyList(),
-                selectedHostId = null,
                 statusMessage = "Scan for nearby hosts",
                 isJoining = false,
                 isDiscovering = false
             )
         }
-        submissionStatus.value = SubmissionStatus.Idle to ""
     }
 
     override suspend fun revealAnswer() {
@@ -391,7 +296,6 @@ class RealSessionRepositoryUi @Inject constructor(
         val totalQuestions = quiz?.questions?.size?.takeIf { it > 0 } ?: quiz?.questionCount ?: 0
         val nextIndex = (current.currentIndex + 1).coerceAtMost((totalQuestions - 1).coerceAtLeast(0))
         sessionRepository.updateSessionState(current.copy(currentIndex = nextIndex, reveal = false))
-        submissionStatus.value = SubmissionStatus.Idle to "Waiting for question"
     }
 
     override suspend fun kickParticipant(uid: String) {
@@ -402,133 +306,28 @@ class RealSessionRepositoryUi @Inject constructor(
         studentReady.update { !it }
     }
 
-    override suspend fun refreshLanHosts() {
-        discoveryJob?.cancel()
+    override suspend fun submitStudentAnswer(questionId: String, answers: List<String>) {
+        val studentId = authState.value.userId ?: return
+        val session = sessionState.value ?: return
+        val now = Clock.System.now()
+        submitAnswerUseCase.invoke(session.id, questionId, studentId, answers, now)
+    }
+
+    override suspend fun joinWithCode(joinCode: String, nickname: String, avatarId: String?): Result<Unit> = runCatching {
+        classroomRepository.createJoinRequest(joinCode)
+    }
+
+    override suspend fun updateStudentProfile(nickname: String, avatarId: String?) {
+        val sanitized = NicknamePolicy.sanitize(nickname, "Anonymous")
         entryState.update {
             it.copy(
-                isDiscovering = true,
-                statusMessage = "Scanning for hosts…",
-                lanHosts = emptyList(),
-                errorMessage = null
+                statusMessage = "Welcome, $sanitized"
             )
-        }
-        hostDescriptors.value = emptyMap()
-        discoveryJob = scope.launch {
-            sessionRepository.discoverHosts().collect { event ->
-                when (event) {
-                    is LanDiscoveryEvent.ServiceFound -> {
-                        val snapshot = event.descriptor.toSnapshot()
-                        hostDescriptors.update { current -> current + (snapshot.ui.id to snapshot) }
-                        entryState.update { state ->
-                            state.copy(
-                                lanHosts = hostDescriptors.value.values.map { it.ui },
-                                lastSeenHosts = "just now",
-                                isDiscovering = false,
-                                statusMessage = "Hosts updated"
-                            )
-                        }
-                    }
-
-                    is LanDiscoveryEvent.Error -> {
-                        entryState.update { state ->
-                            state.copy(
-                                errorMessage = event.message,
-                                isDiscovering = false,
-                                statusMessage = "Unable to discover hosts"
-                            )
-                        }
-                    }
-
-                    LanDiscoveryEvent.Timeout -> {
-                        entryState.update { state ->
-                            state.copy(
-                                isDiscovering = false,
-                                lastSeenHosts = "moments ago"
-                            )
-                        }
-                    }
-                }
-            }
-        }
-    }
-
-    override suspend fun joinLanHost(hostId: String, nickname: String, avatarId: String?): Result<Unit> {
-        val descriptor = hostDescriptors.value[hostId]?.descriptor
-            ?: return Result.failure(IllegalArgumentException("Host unavailable"))
-        entryState.update { it.copy(isJoining = true, errorMessage = null) }
-        val sanitized = NicknamePolicy.sanitize(nickname.ifBlank { "Student" }, descriptor.serviceName)
-        val result = sessionRepository.joinLanHost(descriptor, sanitized)
-        if (result.isSuccess) {
-            selectedHost.value = hostDescriptors.value[hostId]
-            entryState.update {
-                it.copy(
-                    isJoining = false,
-                    statusMessage = "Joined ${selectedHost.value?.ui?.teacherName ?: "host"}",
-                    selectedHostId = hostId
-                )
-            }
-            preferences.setPreferredNickname(sanitized)
-            studentReady.value = true
-        } else {
-            entryState.update { it.copy(isJoining = false, errorMessage = result.exceptionOrNull()?.message) }
-        }
-        return result
-    }
-
-    override suspend fun joinWithCode(joinCode: String, nickname: String, avatarId: String?): Result<Unit> {
-        val snapshot = hostDescriptors.value.values.firstOrNull { it.descriptor.joinCode.equals(joinCode, ignoreCase = true) }
-            ?: return Result.failure(IllegalArgumentException("Join code not recognized"))
-        return joinLanHost(snapshot.ui.id, nickname, avatarId)
-    }
-
-    override suspend fun submitStudentAnswer(answerIds: List<String>) {
-        val session = sessionState.value ?: return
-        val quiz = quizzesState.value.firstOrNull { it.id == session.quizId } ?: return
-        val question = quiz.questions.getOrNull(session.currentIndex) ?: return
-        val userId = authState.value.userId ?: "guest-${Clock.System.now().toEpochMilliseconds()}"
-        submissionStatus.value = SubmissionStatus.Sending to "Submitting…"
-        val result = runCatching {
-            submitAnswerUseCase(
-                uid = userId,
-                questionId = question.id,
-                selected = answerIds,
-                correctAnswers = question.answerKey,
-                timeTakenMs = 0L,
-                timeLimitMs = question.timeLimitSeconds.coerceAtLeast(1) * 1_000L,
-                nonce = Clock.System.now().toEpochMilliseconds().toString(),
-                revealHappened = session.reveal
-            )
-        }
-        if (result.isSuccess) {
-            submissionStatus.value = SubmissionStatus.Acknowledged to "Answer received"
-        } else {
-            submissionStatus.value = SubmissionStatus.Error to (result.exceptionOrNull()?.message ?: "Submission failed")
-            throw result.exceptionOrNull() ?: IllegalStateException("Unknown error")
         }
     }
 
     override suspend fun clearStudentError() {
         entryState.update { it.copy(errorMessage = null) }
-    }
-
-    private fun updateEntryNetworkStatus(isOffline: Boolean) {
-        entryState.update { state ->
-            if (isOffline) {
-                state.copy(
-                    networkAvailable = false,
-                    statusMessage = OFFLINE_STATUS_MESSAGE
-                )
-            } else {
-                val restoredStatus = when (state.statusMessage) {
-                    OFFLINE_STATUS_MESSAGE, "" -> DEFAULT_STATUS_MESSAGE
-                    else -> state.statusMessage
-                }
-                state.copy(
-                    networkAvailable = true,
-                    statusMessage = restoredStatus
-                )
-            }
-        }
     }
 
     private fun applyDefaultNickname(state: com.classroom.quizmaster.domain.model.AuthState) {
@@ -547,12 +346,11 @@ class RealSessionRepositoryUi @Inject constructor(
 
     private fun applyNicknameIfEmpty(nickname: String) {
         entryState.update { state ->
-            if (state.nickname.isNotBlank()) {
+            if (state.isJoining) {
                 state
             } else {
                 state.copy(
-                    nickname = nickname,
-                    nicknameError = NicknamePolicy.validationError(nickname)
+                    statusMessage = "Welcome back, $nickname"
                 )
             }
         }
@@ -622,9 +420,7 @@ class RealSessionRepositoryUi @Inject constructor(
             QuestionType.FILL_IN -> QuestionTypeUi.FillIn
             QuestionType.MATCHING -> QuestionTypeUi.Match
         }
-        val populatedAnswers = if (answerOptions.isNotEmpty()) {
-            answerOptions
-        } else {
+        val populatedAnswers = answerOptions.ifEmpty {
             defaultAnswersForType(typeUi)
         }
         return QuestionDraftUi(
@@ -658,32 +454,10 @@ class RealSessionRepositoryUi @Inject constructor(
             QuestionType.FILL_IN, QuestionType.MATCHING -> true
         }
 
-    private fun LanServiceDescriptor.toSnapshot(): LanHostSnapshot {
-        val serviceLabel = serviceName.substringBefore('.')
-        val label = teacherName?.takeIf { it.isNotBlank() }
-            ?: serviceLabel.substringBeforeLast('-').ifBlank { serviceLabel }
-        val ui = LanHostUi(
-            id = token.ifBlank { serviceName },
-            teacherName = label,
-            subject = "Live quiz",
-            players = 0,
-            latencyMs = 0,
-            joinCode = joinCode,
-            quality = ConnectionQuality.Good,
-            lastSeen = "just now"
-        )
-        return LanHostSnapshot(descriptor = this, ui = ui, seenAt = Clock.System.now())
-    }
-
     private fun avatarForNickname(name: String): AvatarOption {
         val initials = name.split(" ").filter { it.isNotBlank() }.map { it.first().uppercaseChar() }
         val label = if (initials.isNotEmpty()) initials.joinToString("") else name.take(2).uppercase()
-        val palette = defaultAvatars
-        val index = kotlin.math.abs(name.hashCode()) % palette.size
-        val colors = palette[index].colors.ifEmpty {
-            listOf(Color(0xFF6EE7B7), Color(0xFF3B82F6))
-        }
-        return AvatarOption(name.ifBlank { label.lowercase() }, label, colors, palette[index].iconName)
+        return AvatarOption(name.ifBlank { label.lowercase() }, label, emptyList(), null)
     }
 
     private fun failHostContext(message: String) {
@@ -697,22 +471,7 @@ class RealSessionRepositoryUi @Inject constructor(
         val quizId: String?
     )
 
-    private data class LanHostSnapshot(
-        val descriptor: LanServiceDescriptor,
-        val ui: LanHostUi,
-        val seenAt: Instant
-    )
-
     companion object {
-        private const val DEFAULT_STATUS_MESSAGE = "Scan for nearby hosts"
-        private const val OFFLINE_STATUS_MESSAGE = "Offline mode: LAN hosting stays available. We'll sync when you're online."
-        private val defaultAvatars = listOf(
-            AvatarOption("aurora", "AU", listOf(Color(0xFF34D399), Color(0xFF3B82F6)), "spark"),
-            AvatarOption("zen", "ZE", listOf(Color(0xFFFDE68A), Color(0xFFF97316)), "pencil"),
-            AvatarOption("luna", "LU", listOf(Color(0xFF818CF8), Color(0xFF3730A3)), "atom"),
-            AvatarOption("coco", "CO", listOf(Color(0xFFFECACA), Color(0xFFFB7185)), "flag"),
-            AvatarOption("mango", "MA", listOf(Color(0xFFFFF3BF), Color(0xFFF59E0B)), "compass"),
-            AvatarOption("iris", "IR", listOf(Color(0xFFBBF7D0), Color(0xFF2DD4BF)), "compass")
-        )
+        private const val DEFAULT_STATUS_MESSAGE = "Scan for nearby teachers"
     }
 }

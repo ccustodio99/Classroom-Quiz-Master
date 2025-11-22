@@ -20,6 +20,7 @@ import com.classroom.quizmaster.domain.model.QuizCategory
 import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
+import com.classroom.quizmaster.util.JoinCodeGenerator
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlinx.coroutines.CoroutineDispatcher
@@ -198,8 +199,10 @@ class QuizRepositoryImpl @Inject constructor(
             name = "Period 1 Algebra",
             grade = "8",
             subject = "Math",
+            joinCode = JoinCodeGenerator.generate(),
             createdAt = now,
-            updatedAt = now
+            updatedAt = now,
+            students = emptyList()
         )
         val demoTopic = Topic(
             id = topicId,
@@ -218,10 +221,12 @@ class QuizRepositoryImpl @Inject constructor(
                     name = demoClassroom.name,
                     grade = demoClassroom.grade,
                     subject = demoClassroom.subject,
+                    joinCode = demoClassroom.joinCode,
                     createdAt = now.toEpochMilliseconds(),
                     updatedAt = now.toEpochMilliseconds(),
                     isArchived = false,
-                    archivedAt = null
+                    archivedAt = null,
+                    students = emptyList()
                 )
             )
             topicDao.upsert(
