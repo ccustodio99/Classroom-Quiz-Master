@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
@@ -21,12 +22,12 @@ import androidx.compose.ui.unit.dp
 
 @Composable
 fun JoinClassroomScreen(
+    state: JoinClassroomUiState,
     onJoin: (String) -> Unit,
     onBack: () -> Unit,
     onSearch: () -> Unit
 ) {
     var joinCode by remember { mutableStateOf("") }
-    var errorMessage by remember { mutableStateOf<String?>(null) }
 
     Column(
         modifier = Modifier
@@ -42,14 +43,23 @@ fun JoinClassroomScreen(
             label = { Text("Classroom Code") },
             modifier = Modifier.fillMaxWidth()
         )
-        errorMessage?.let {
+        state.errorMessage?.let {
             Spacer(modifier = Modifier.height(8.dp))
             Text(it, color = MaterialTheme.colorScheme.error)
+        }
+        state.statusMessage?.let {
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(it, color = MaterialTheme.colorScheme.primary)
+        }
+        if (state.isLoading) {
+            Spacer(modifier = Modifier.height(8.dp))
+            CircularProgressIndicator()
         }
         Spacer(modifier = Modifier.height(16.dp))
         Button(
             onClick = { onJoin(joinCode) },
-            modifier = Modifier.fillMaxWidth()
+            modifier = Modifier.fillMaxWidth(),
+            enabled = !state.isLoading
         ) {
             Text("Join")
         }

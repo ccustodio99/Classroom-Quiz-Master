@@ -14,7 +14,8 @@ import kotlinx.coroutines.launch
 data class JoinClassroomUiState(
     val isLoading: Boolean = false,
     val errorMessage: String? = null,
-    val success: Boolean = false
+    val success: Boolean = false,
+    val statusMessage: String? = null
 )
 
 @HiltViewModel
@@ -27,11 +28,17 @@ class JoinClassroomViewModel @Inject constructor(
 
     fun joinClassroom(joinCode: String, onJoinSuccess: () -> Unit) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, errorMessage = null) }
+            _uiState.update { it.copy(isLoading = true, errorMessage = null, statusMessage = null, success = false) }
             runCatching {
-                classroomRepository.createJoinRequest(joinCode)
+                classroomRepository.createJoinRequest(joinCode.trim())
             }.onSuccess {
-                _uiState.update { it.copy(isLoading = false, success = true) }
+                _uiState.update {
+                    it.copy(
+                        isLoading = false,
+                        success = true,
+                        statusMessage = "Request sent. Wait for teacher approval."
+                    )
+                }
                 onJoinSuccess()
             }.onFailure { e ->
                 _uiState.update { it.copy(isLoading = false, errorMessage = e.message) }

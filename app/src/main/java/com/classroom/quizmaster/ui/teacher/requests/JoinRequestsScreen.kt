@@ -24,7 +24,7 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
-import com.classroom.quizmaster.domain.model.JoinRequest
+import com.classroom.quizmaster.domain.model.JoinRequestStatus
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.SimpleTopBar
 
@@ -84,22 +84,32 @@ fun JoinRequestsScreen(
 
 @Composable
 private fun JoinRequestCard(
-    request: JoinRequest,
+    request: JoinRequestUi,
     onApprove: (String) -> Unit,
     onDeny: (String) -> Unit
 ) {
+    val isPending = request.status == JoinRequestStatus.PENDING
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
         Column(modifier = Modifier.padding(16.dp)) {
-            Text("Student: ${request.studentId}", style = MaterialTheme.typography.titleMedium)
-            Text("Classroom: ${request.classroomId}", style = MaterialTheme.typography.bodyMedium)
+            Text("Student: ${request.studentName}", style = MaterialTheme.typography.titleMedium)
+            Text("Classroom: ${request.classroomName}", style = MaterialTheme.typography.bodyMedium)
+            Text(
+                text = when (request.status) {
+                    JoinRequestStatus.PENDING -> "Awaiting approval"
+                    JoinRequestStatus.APPROVED -> "Approved"
+                    JoinRequestStatus.DENIED -> "Denied"
+                },
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
             Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                Button(onClick = { onApprove(request.id) }) {
+                Button(onClick = { onApprove(request.id) }, enabled = isPending) {
                     Text("Approve")
                 }
-                Button(onClick = { onDeny(request.id) }) {
+                Button(onClick = { onDeny(request.id) }, enabled = isPending) {
                     Text("Deny")
                 }
             }

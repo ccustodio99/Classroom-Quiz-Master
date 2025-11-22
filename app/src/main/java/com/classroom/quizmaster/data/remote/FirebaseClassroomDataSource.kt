@@ -64,6 +64,21 @@ class FirebaseClassroomDataSource @Inject constructor(
         Result.failure(error)
     }
 
+    suspend fun getClassroomsForStudent(studentId: String): Result<List<Classroom>> = try {
+        val snapshot = classroomsCollection()
+            .whereArrayContains("students", studentId)
+            .whereEqualTo("isArchived", false)
+            .get()
+            .await()
+
+        val classrooms = snapshot.documents.mapNotNull { doc ->
+            doc.toObject(FirestoreClassroom::class.java)?.toDomain(doc.id)
+        }
+        Result.success(classrooms)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
 
     suspend fun fetchStudentProfile(studentId: String): Result<Student?> = try {
         val snapshot = studentsCollection().document(studentId).get().await()
@@ -144,6 +159,19 @@ class FirebaseClassroomDataSource @Inject constructor(
         val document = joinRequestsCollection().document()
         document.set(FirestoreJoinRequest.fromDomain(joinRequest)).await()
         Result.success(document.id)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun fetchJoinRequestsForTeacher(teacherId: String): Result<List<JoinRequest>> = try {
+        val snapshot = joinRequestsCollection()
+            .whereEqualTo("teacherId", teacherId)
+            .get()
+            .await()
+        val requests = snapshot.documents.mapNotNull { doc ->
+            doc.toObject(FirestoreJoinRequest::class.java)?.toDomain(doc.id)
+        }
+        Result.success(requests)
     } catch (error: Exception) {
         Result.failure(error)
     }
