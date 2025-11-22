@@ -34,10 +34,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.lifecycle.viewModelScope
-import com.classroom.quizmaster.ui.components.AvatarPicker
 import com.classroom.quizmaster.ui.components.AssistiveInfoCard
 import com.classroom.quizmaster.ui.components.EmptyState
-import com.classroom.quizmaster.ui.components.NickNameField
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SegmentOption
 import com.classroom.quizmaster.ui.components.SegmentedControl
@@ -45,13 +43,11 @@ import com.classroom.quizmaster.ui.components.ScreenHeader
 import com.classroom.quizmaster.ui.components.SectionCard
 import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.components.TagChip
-import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.model.ConnectionQuality
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 import com.classroom.quizmaster.ui.state.SessionRepositoryUi
 import com.classroom.quizmaster.util.JoinCodeGenerator
-import com.classroom.quizmaster.util.NicknamePolicy
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -75,10 +71,6 @@ data class LanHostUi(
 
 data class StudentEntryUiState(
     val tab: EntryTab = EntryTab.Lan,
-    val nickname: String = "",
-    val nicknameError: String? = null,
-    val avatarOptions: List<AvatarOption> = emptyList(),
-    val selectedAvatarId: String? = null,
     val lanHosts: List<LanHostUi> = emptyList(),
     val selectedHostId: String? = null,
     val joinCode: String = "",
@@ -106,7 +98,6 @@ class StudentEntryViewModel @Inject constructor(
             sessionRepositoryUi.studentEntry.collectLatest { incoming ->
                 _uiState.update { current ->
                     current.copy(
-                        avatarOptions = incoming.avatarOptions,
                         lanHosts = incoming.lanHosts,
                         statusMessage = incoming.statusMessage,
                         isDiscovering = incoming.isDiscovering,
@@ -123,18 +114,6 @@ class StudentEntryViewModel @Inject constructor(
 
     fun selectTab(tab: EntryTab) {
         _uiState.update { it.copy(tab = tab).recalculateJoinEligibility() }
-    }
-
-    fun updateNickname(value: String) {
-        val trimmed = value.take(24)
-        val error = NicknamePolicy.validationError(trimmed)
-        _uiState.update {
-            it.copy(nickname = trimmed, nicknameError = error).recalculateJoinEligibility()
-        }
-    }
-
-    fun selectAvatar(id: String) {
-        _uiState.update { it.copy(selectedAvatarId = id).recalculateJoinEligibility() }
     }
 
     fun updateJoinCode(raw: String) {
@@ -163,18 +142,9 @@ class StudentEntryViewModel @Inject constructor(
     fun joinLan(onJoined: () -> Unit) {
         val state = _uiState.value
         val hostId = state.selectedHostId ?: return
-        val nicknameError = NicknamePolicy.validationError(state.nickname)
-        if (nicknameError != null) {
-            _uiState.update { it.copy(nicknameError = nicknameError) }
-            return
-        }
-        val sanitized = NicknamePolicy.sanitize(
-            state.nickname.ifBlank { "Player" },
-            hostId + state.joinCode
-        )
         viewModelScope.launch {
             _uiState.update { it.copy(isJoining = true, errorMessage = null) }
-            sessionRepositoryUi.joinLanHost(hostId, sanitized, state.selectedAvatarId)
+            sessionRepositoryUi.joinLanHost(hostId, "", null)
                 .onSuccess {
                     _uiState.update { it.copy(isJoining = false) }
                     onJoined()
@@ -198,18 +168,9 @@ class StudentEntryViewModel @Inject constructor(
             }
             return
         }
-        val nicknameError = NicknamePolicy.validationError(state.nickname)
-        if (nicknameError != null) {
-            _uiState.update { it.copy(nicknameError = nicknameError) }
-            return
-        }
-        val sanitized = NicknamePolicy.sanitize(
-            state.nickname.ifBlank { "Player" },
-            state.joinCode
-        )
         viewModelScope.launch {
             _uiState.update { it.copy(isJoining = true, errorMessage = null) }
-            sessionRepositoryUi.joinWithCode(state.joinCode, sanitized, state.selectedAvatarId)
+            sessionRepositoryUi.joinWithCode(state.joinCode, "", null)
                 .onSuccess {
                     _uiState.update { it.copy(isJoining = false) }
                     onJoined()
@@ -231,13 +192,11 @@ class StudentEntryViewModel @Inject constructor(
     }
 
     private fun StudentEntryUiState.recalculateJoinEligibility(): StudentEntryUiState {
-        val hasNickname = nicknameError == null && nickname.isNotBlank()
-        val hasAvatar = selectedAvatarId != null || avatarOptions.isEmpty()
         val lanReady = selectedHostId != null
         val codeReady = joinCodeValid
         val allowJoin = when (tab) {
-            EntryTab.Lan -> hasNickname && hasAvatar && lanReady
-            EntryTab.Code -> hasNickname && hasAvatar && codeReady
+            EntryTab.Lan -> lanReady
+            EntryTab.Code -> codeReady
         }
         return copy(canJoin = allowJoin)
     }
@@ -255,8 +214,6 @@ fun StudentEntryRoute(
     StudentEntryScreen(
         state = state,
         onTabSelect = viewModel::selectTab,
-        onNicknameChange = viewModel::updateNickname,
-        onAvatarSelect = viewModel::selectAvatar,
         onJoinCodeChange = viewModel::updateJoinCode,
         onHostSelect = viewModel::selectHost,
         onRefreshLan = viewModel::refreshLanHosts,
@@ -271,8 +228,6 @@ fun StudentEntryRoute(
 fun StudentEntryScreen(
     state: StudentEntryUiState,
     onTabSelect: (EntryTab) -> Unit,
-    onNicknameChange: (String) -> Unit,
-    onAvatarSelect: (String) -> Unit,
     onJoinCodeChange: (String) -> Unit,
     onHostSelect: (String) -> Unit,
     onRefreshLan: () -> Unit,
@@ -304,21 +259,6 @@ fun StudentEntryScreen(
             ) {
                 Text("Are you a teacher? Sign in")
             }
-        }
-        SectionCard(
-            title = "Your profile",
-            subtitle = "Pick the name and avatar everyone will see when you join."
-        ) {
-            NickNameField(
-                value = state.nickname,
-                onValueChange = onNicknameChange,
-                errorText = state.nicknameError
-            )
-            AvatarPicker(
-                avatars = state.avatarOptions,
-                selectedId = state.selectedAvatarId,
-                onAvatarSelected = { onAvatarSelect(it.id) }
-            )
         }
         SectionCard(
             title = "How do you want to join?",
@@ -572,40 +512,8 @@ private fun JoinCodeCard(
 private fun StudentEntryPreview() {
     QuizMasterTheme {
         StudentEntryScreen(
-            state = StudentEntryUiState(
-                avatarOptions = listOf(
-                    AvatarOption("1", "Nova", emptyList(), "spark"),
-                    AvatarOption("2", "Bolt", emptyList(), "atom"),
-                ),
-                lanHosts = listOf(
-                    LanHostUi(
-                        id = "room1",
-                        teacherName = "Mr. Lee",
-                        subject = "Science lightning round",
-                        players = 6,
-                        latencyMs = 18,
-                        joinCode = "SCILAN",
-                        quality = ConnectionQuality.Good,
-                        lastSeen = "moments ago"
-                    ),
-                    LanHostUi(
-                        id = "room2",
-                        teacherName = "Coach Diaz",
-                        subject = "History warmup",
-                        players = 4,
-                        latencyMs = 32,
-                        joinCode = "HIST24",
-                        quality = ConnectionQuality.Fair,
-                        lastSeen = "1 min ago"
-                    )
-                ),
-                statusMessage = "LAN connected",
-                selectedHostId = "room1",
-                canJoin = true
-            ),
+            state = StudentEntryUiState(),
             onTabSelect = {},
-            onNicknameChange = {},
-            onAvatarSelect = {},
             onJoinCodeChange = {},
             onHostSelect = {},
             onRefreshLan = {},

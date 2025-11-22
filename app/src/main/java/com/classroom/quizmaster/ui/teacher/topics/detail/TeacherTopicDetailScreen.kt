@@ -25,6 +25,8 @@ import com.classroom.quizmaster.ui.components.SecondaryButton
 fun TeacherTopicDetailRoute(
     onBack: () -> Unit,
     onEditTopic: () -> Unit,
+    onCreateMaterial: (String, String) -> Unit,
+    onOpenMaterial: (String) -> Unit,
     onCreateQuiz: (String, String) -> Unit,
     onEditQuiz: (String, String, String) -> Unit,
     onLaunchLive: (String, String, String?) -> Unit,
@@ -38,6 +40,8 @@ fun TeacherTopicDetailRoute(
         state = state,
         onBack = onBack,
         onEditTopic = onEditTopic,
+        onCreateMaterial = { onCreateMaterial(viewModel.classroomId, viewModel.topicId) },
+        onOpenMaterial = onOpenMaterial,
         onCreateQuiz = { onCreateQuiz(viewModel.classroomId, viewModel.topicId) },
         onEditQuiz = { quizId -> onEditQuiz(viewModel.classroomId, viewModel.topicId, quizId) },
         onLaunchLive = { quizId -> onLaunchLive(viewModel.classroomId, viewModel.topicId, quizId) },
@@ -52,6 +56,8 @@ fun TeacherTopicDetailScreen(
     state: TopicDetailUiState,
     onBack: () -> Unit,
     onEditTopic: () -> Unit,
+    onCreateMaterial: () -> Unit,
+    onOpenMaterial: (String) -> Unit,
     onCreateQuiz: () -> Unit,
     onEditQuiz: (String) -> Unit,
     onLaunchLive: (String) -> Unit,
@@ -89,6 +95,54 @@ fun TeacherTopicDetailScreen(
         if (state.errorMessage != null) {
             EmptyState(title = "Topic unavailable", message = state.errorMessage)
             return@Column
+        }
+        Text(text = "Learning materials", style = MaterialTheme.typography.titleLarge)
+        PrimaryButton(
+            text = "Add material",
+            onClick = onCreateMaterial,
+            enabled = !state.isLoading
+        )
+        if (state.materials.isEmpty()) {
+            EmptyState(
+                title = "No materials yet",
+                message = "Attach notes, files, or links for this topic."
+            )
+        } else {
+            state.materials.forEach { material ->
+                Surface(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .clickable { onOpenMaterial(material.id) },
+                    shape = MaterialTheme.shapes.medium,
+                    tonalElevation = 2.dp
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(16.dp),
+                        verticalArrangement = Arrangement.spacedBy(6.dp)
+                    ) {
+                        Text(text = material.title, style = MaterialTheme.typography.titleMedium)
+                        if (material.description.isNotBlank()) {
+                            Text(
+                                text = material.description,
+                                style = MaterialTheme.typography.bodyMedium,
+                                color = MaterialTheme.colorScheme.onSurfaceVariant
+                            )
+                        }
+                        val attachmentLabel = if (material.attachmentCount == 1) {
+                            "1 attachment"
+                        } else {
+                            "${material.attachmentCount} attachments"
+                        }
+                        Text(
+                            text = "$attachmentLabel - ${material.updatedRelative}",
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant
+                        )
+                    }
+                }
+            }
         }
         PrimaryButton(
             text = "Create quiz",

@@ -40,16 +40,17 @@
     <string name="auth_banner_title">Welcome to Classroom Quiz Master</string>
     <string name="auth_banner_body">Teachers create &amp; host quizzes. Students join with a code or over LAN.</string>
     <string name="auth_hero_body">Manage quizzes, launch live sessions, and sync reports across your classrooms.</string>
-    <string name="auth_teacher_section_title">Teacher</string>
-    <string name="auth_teacher_section_subtitle">Sign in or create a new teacher account.</string>
+    <string name="auth_teacher_section_title">Teacher or student</string>
+    <string name="auth_teacher_section_subtitle">Sign in or create an account to host or join quizzes.</string>
     <string name="auth_teacher_tab_sign_in">Sign in</string>
     <string name="auth_teacher_tab_create">Create account</string>
+    <string name="auth_sign_in_role_label">Sign in as</string>
     <string name="auth_signup_step_one">Step 1 of 2 · Account credentials</string>
-    <string name="auth_signup_title_step_one">Create teacher account</string>
-    <string name="auth_signup_step_one_description">Use an email and password to secure your teacher account.</string>
-    <string name="auth_signup_step_two">Step 2 of 2 · Classroom details</string>
-    <string name="auth_signup_title_step_two">Set up your classroom</string>
-    <string name="auth_signup_step_two_description">Tell us how you’ll use Classroom Quiz Master so we can personalize your dashboard.</string>
+    <string name="auth_signup_title_step_one">Create your account</string>
+    <string name="auth_signup_step_one_description">Use an email and password to secure your account.</string>
+    <string name="auth_signup_step_two">Step 2 of 2 A? Profile details</string>
+    <string name="auth_signup_title_step_two">Finish your profile</string>
+    <string name="auth_signup_step_two_description">Tell us how you’ll use Classroom Quiz Master so we can personalize your experience.</string>
     <string name="auth_signup_role_teacher">I’m a teacher</string>
     <string name="auth_signup_role_student">I’m a student</string>
     <string name="auth_signup_role_prompt">Choose a role so we can show the right fields.</string>
@@ -198,3 +199,8 @@
     <string name="pref_large_text">Large text</string>
     <string name="pref_talkback_hint">Optimized for TalkBack</string>
 </resources>
+
+
+
+
+

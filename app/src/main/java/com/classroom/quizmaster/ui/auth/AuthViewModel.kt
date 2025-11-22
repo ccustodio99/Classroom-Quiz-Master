@@ -4,9 +4,13 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.data.demo.OfflineDemoManager
 import com.classroom.quizmaster.data.auth.LocalAuthManager
+import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.data.network.ConnectivityMonitor
 import com.classroom.quizmaster.data.network.ConnectivityStatus
 import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.model.UserRole
+import com.classroom.quizmaster.ui.model.AvatarOption
+import com.classroom.quizmaster.ui.state.SessionRepositoryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import java.io.IOException
 import java.net.SocketTimeoutException
@@ -18,6 +22,7 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharedFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
 import com.google.firebase.FirebaseNetworkException
@@ -43,7 +48,8 @@ data class ProfileFormState(
     val role: SignupRole = SignupRole.None,
     val school: String = "",
     val subject: String = "",
-    val nickname: String = ""
+    val nickname: String = "",
+    val avatarId: String? = null
 )
 
 data class AuthUiState(
@@ -51,6 +57,7 @@ data class AuthUiState(
     val signup: SignupFormState = SignupFormState(),
     val profile: ProfileFormState = ProfileFormState(),
     val signupStep: SignupStep = SignupStep.Credentials,
+    val avatarOptions: List<AvatarOption> = emptyList(),
     val loading: Boolean = false,
     val bannerMessage: String? = null,
     val errorMessage: String? = null,
@@ -64,6 +71,7 @@ enum class SignupStep { Credentials, Profile }
 
 sealed interface AuthEffect {
     data object TeacherAuthenticated : AuthEffect
+    data object StudentAuthenticated : AuthEffect
     data object DemoMode : AuthEffect
     data class Error(val message: String) : AuthEffect
 }
@@ -73,6 +81,8 @@ class AuthViewModel @Inject constructor(
     private val offlineDemoManager: OfflineDemoManager,
     private val localAuthManager: LocalAuthManager,
     private val authRepository: AuthRepository,
+    private val sessionRepositoryUi: SessionRepositoryUi,
+    private val preferences: AppPreferencesDataSource,
     connectivityMonitor: ConnectivityMonitor
 ) : ViewModel() {
 
@@ -88,9 +98,18 @@ class AuthViewModel @Inject constructor(
         viewModelScope.launch {
             connectivityMonitor.status.collect { status ->
                 latestConnectivity = status
-                _uiState.value = _uiState.value.copy(isOffline = status.isOffline)
+                _uiState.update { it.copy(isOffline = status.isOffline) }
             }
         }
+        viewModelScope.launch {
+            sessionRepositoryUi.avatarOptions.collect { avatars ->
+                _uiState.update { it.copy(avatarOptions = avatars) }
+            }
+        }
+    }
+
+    fun onAvatarSelected(id: String) {
+        _uiState.update { it.copy(profile = it.profile.copy(avatarId = id)) }
     }
 
     fun updateLoginEmail(value: String) {
@@ -178,7 +197,7 @@ class AuthViewModel @Inject constructor(
         )
     }
 
-    fun signInTeacher() = launchWithProgress {
+    fun signIn() = launchWithProgress {
         val login = _uiState.value.login
         if (!login.email.contains("@") || login.password.length < 6) {
             emitError("Enter a valid email and 6+ char password.")
@@ -194,8 +213,13 @@ class AuthViewModel @Inject constructor(
 
         runCatching { authRepository.signInWithEmail(email, password) }
             .onSuccess {
-                cacheCredentialsFromFirebase(email, password)
-                _effects.emit(AuthEffect.TeacherAuthenticated)
+                val authState = cacheCredentialsFromFirebase(email, password, persistOffline = true)
+                val signupRole = if (authState.role == UserRole.TEACHER) SignupRole.Teacher else SignupRole.Student
+                rememberUserRole(authState.userId, signupRole)
+                when (authState.role) {
+                    UserRole.TEACHER -> _effects.emit(AuthEffect.TeacherAuthenticated)
+                    UserRole.STUDENT -> _effects.emit(AuthEffect.StudentAuthenticated)
+                }
             }
             .onFailure { error ->
                 if (error.isNetworkIssue()) {
@@ -206,7 +230,7 @@ class AuthViewModel @Inject constructor(
             }
     }
 
-    fun signUpTeacher() = launchWithProgress {
+    fun signUp() = launchWithProgress {
         when (_uiState.value.signupStep) {
             SignupStep.Credentials -> handleCredentialsStep()
             SignupStep.Profile -> handleProfileStep()
@@ -288,13 +312,21 @@ class AuthViewModel @Inject constructor(
                 runCatching {
                     authRepository.signUpWithEmail(email, password, displayName)
                 }.onSuccess {
-                    localAuthManager.cacheCredentials(email, password, displayName)
+                    val authState = authRepository.authState.first { it.isAuthenticated && !it.userId.isNullOrBlank() }
+                    if (profile.role == SignupRole.Teacher) {
+                        localAuthManager.cacheCredentials(email, password, displayName)
+                    }
+                    rememberUserRole(authState.userId, profile.role)
                     _uiState.value = _uiState.value.copy(
                         signup = SignupFormState(),
                         profile = ProfileFormState(),
                         signupStep = SignupStep.Credentials
                     )
-                    _effects.emit(AuthEffect.TeacherAuthenticated)
+                    when (profile.role) {
+                        SignupRole.Teacher -> _effects.emit(AuthEffect.TeacherAuthenticated)
+                        SignupRole.Student -> _effects.emit(AuthEffect.StudentAuthenticated)
+                        SignupRole.None -> Unit
+                    }
                 }.onFailure { error ->
                     emitError(mapAuthError(error))
                 }
@@ -302,12 +334,34 @@ class AuthViewModel @Inject constructor(
         }
     }
 
-    private suspend fun cacheCredentialsFromFirebase(email: String, password: String) {
+    private suspend fun cacheCredentialsFromFirebase(
+        email: String,
+        password: String,
+        persistOffline: Boolean
+    ): com.classroom.quizmaster.domain.model.AuthState {
         val authState = authRepository.authState.first { it.isAuthenticated && !it.userId.isNullOrBlank() }
-        val displayName = authState.teacherProfile?.displayName
-            ?: authState.displayName
-            ?: email.substringBefore('@')
-        localAuthManager.cacheCredentials(email, password, displayName)
+        if (persistOffline && authState.role == UserRole.TEACHER) {
+            val displayName = authState.teacherProfile?.displayName
+                ?: authState.displayName
+                ?: email.substringBefore('@')
+            localAuthManager.cacheCredentials(email, password, displayName)
+        }
+        return authState
+    }
+
+    private suspend fun rememberUserRole(userId: String?, role: SignupRole) {
+        val resolvedRole = when (role) {
+            SignupRole.Teacher -> UserRole.TEACHER
+            SignupRole.Student -> UserRole.STUDENT
+            SignupRole.None -> null
+        }
+        if (userId != null && resolvedRole != null) {
+            preferences.setUserRole(userId, resolvedRole)
+            if (resolvedRole == UserRole.STUDENT) {
+                val profile = _uiState.value.profile
+                sessionRepositoryUi.updateStudentProfile(profile.nickname, profile.avatarId)
+            }
+        }
     }
 
     private suspend fun performOfflineFallback(email: String, password: String) {

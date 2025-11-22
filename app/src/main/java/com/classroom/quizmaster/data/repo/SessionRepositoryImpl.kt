@@ -27,6 +27,8 @@ import com.classroom.quizmaster.domain.model.LearningMaterial
 import com.classroom.quizmaster.domain.model.Participant
 import com.classroom.quizmaster.domain.model.Session
 import com.classroom.quizmaster.domain.model.SessionStatus
+import com.classroom.quizmaster.domain.model.UserRole
+import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.sync.FirestoreSyncWorker
@@ -49,6 +51,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.onEach
@@ -70,6 +73,7 @@ class SessionRepositoryImpl @Inject constructor(
     private val database: QuizMasterDatabase,
     private val firebaseSessionDataSource: FirebaseSessionDataSource,
     private val authDataSource: FirebaseAuthDataSource,
+    private val authRepository: AuthRepository,
     private val lanHostServer: LanHostServer,
     private val lanClient: LanClient,
     private val nsdClient: NsdClient,
@@ -623,7 +627,8 @@ class SessionRepositoryImpl @Inject constructor(
         startedAt = Instant.fromEpochMilliseconds(startedAt)
     )
 
-    private suspend fun isTeacherAccount(): Boolean = !authDataSource.isCurrentUserAnonymous()
+    private suspend fun isTeacherAccount(): Boolean =
+        authRepository.authState.firstOrNull { it.isAuthenticated }?.role == UserRole.TEACHER
 
     @Serializable
     private data class PendingAttemptPayload(

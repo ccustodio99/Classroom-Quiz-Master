@@ -8,6 +8,7 @@ import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
 import com.classroom.quizmaster.ui.materials.toSummaryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.flatMapLatest
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 
 @HiltViewModel
+@OptIn(ExperimentalCoroutinesApi::class)
 class StudentMaterialsViewModel @Inject constructor(
     private val sessionRepository: SessionRepository,
     private val learningMaterialRepository: LearningMaterialRepository

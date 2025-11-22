@@ -5,6 +5,7 @@ import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
 import com.classroom.quizmaster.data.network.ConnectivityMonitor
 import com.classroom.quizmaster.data.network.ConnectivityStatus
+import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.domain.model.Participant
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.QuestionType
@@ -60,6 +61,7 @@ class RealSessionRepositoryUi @Inject constructor(
     private val quizRepository: QuizRepository,
     private val classroomRepository: ClassroomRepository,
     private val authRepository: AuthRepository,
+    private val preferences: AppPreferencesDataSource,
     private val submitAnswerUseCase: SubmitAnswerUseCase,
     private val startSessionUseCase: StartSessionUseCase,
     private val connectivityMonitor: ConnectivityMonitor,
@@ -93,6 +95,8 @@ class RealSessionRepositoryUi @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, emptyList())
     private val authState = authRepository.authState
         .stateIn(scope, SharingStarted.Eagerly, com.classroom.quizmaster.domain.model.AuthState())
+    private val preferredNickname = preferences.preferredNickname
+        .stateIn(scope, SharingStarted.Eagerly, null)
     private val connectivityState = connectivityMonitor.status
         .stateIn(scope, SharingStarted.Eagerly, ConnectivityStatus.offline())
 
@@ -101,6 +105,14 @@ class RealSessionRepositoryUi @Inject constructor(
     init {
         connectivityState
             .onEach { status -> updateEntryNetworkStatus(status.isOffline) }
+            .launchIn(scope)
+
+        authState
+            .onEach { state -> applyDefaultNickname(state) }
+            .launchIn(scope)
+
+        preferredNickname
+            .onEach { saved -> applyPreferredNickname(saved) }
             .launchIn(scope)
     }
 
@@ -264,7 +276,8 @@ class RealSessionRepositoryUi @Inject constructor(
             failHostContext("Select a classroom to host")
             return
         }
-        val teacherId = authState.value.userId
+        val auth = authState.value
+        val teacherId = auth.teacherProfile?.id ?: auth.userId
         if (teacherId.isNullOrBlank()) {
             failHostContext("Sign in as a teacher to host a quiz")
             return
@@ -331,12 +344,20 @@ class RealSessionRepositoryUi @Inject constructor(
 
     override suspend fun startSession() {
         val context = hostContext.value ?: return
-        val quizId = context.quizId ?: selectQuizForContext(context) ?: throw IllegalStateException("Select a quiz before starting")
+        val quizId = context.quizId ?: selectQuizForContext(context)
+        if (quizId.isNullOrBlank()) {
+            failHostContext("Choose a quiz to host")
+            return
+        }
         val hostName = authState.value.teacherProfile?.displayName
             ?: authState.value.displayName
             ?: "Host"
-        startSessionUseCase(quizId, context.classroomId, hostName)
-        hostContext.value = context.copy(quizId = quizId)
+        runCatching { startSessionUseCase(quizId, context.classroomId, hostName) }
+            .onSuccess {
+                hostContext.value = context.copy(quizId = quizId)
+                hostStatusMessage.value = null
+            }
+            .onFailure { err -> failHostContext(err.message ?: "Unable to start lobby") }
     }
 
     override suspend fun endSession() {
@@ -446,6 +467,7 @@ class RealSessionRepositoryUi @Inject constructor(
                     selectedHostId = hostId
                 )
             }
+            preferences.setPreferredNickname(sanitized)
             studentReady.value = true
         } else {
             entryState.update { it.copy(isJoining = false, errorMessage = result.exceptionOrNull()?.message) }
@@ -504,6 +526,33 @@ class RealSessionRepositoryUi @Inject constructor(
                 state.copy(
                     networkAvailable = true,
                     statusMessage = restoredStatus
+                )
+            }
+        }
+    }
+
+    private fun applyDefaultNickname(state: com.classroom.quizmaster.domain.model.AuthState) {
+        if (state.role != com.classroom.quizmaster.domain.model.UserRole.STUDENT) return
+        val candidate = state.displayName?.takeIf { it.isNotBlank() }
+        if (!candidate.isNullOrBlank()) {
+            applyNicknameIfEmpty(candidate)
+        }
+    }
+
+    private fun applyPreferredNickname(saved: String?) {
+        if (!saved.isNullOrBlank()) {
+            applyNicknameIfEmpty(saved)
+        }
+    }
+
+    private fun applyNicknameIfEmpty(nickname: String) {
+        entryState.update { state ->
+            if (state.nickname.isNotBlank()) {
+                state
+            } else {
+                state.copy(
+                    nickname = nickname,
+                    nicknameError = NicknamePolicy.validationError(nickname)
                 )
             }
         }

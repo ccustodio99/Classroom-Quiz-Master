@@ -32,15 +32,17 @@ class AuthRepositoryImpl @Inject constructor(
     override val authState: Flow<AuthState> = combine(
         authDataSource.authState,
         preferences.featureFlags,
-        preferences.lastTeacherId
-    ) { state, flags, lastTeacherId ->
-        Triple(state, flags, lastTeacherId)
+        preferences.lastTeacherId,
+        preferences.userRoles
+    ) { state, flags, lastTeacherId, roles ->
+        AuthStateBundle(state, flags, lastTeacherId, roles)
     }
-        .switchMapLatest { (state, flags, lastTeacherId) ->
+        .switchMapLatest { (state, flags, lastTeacherId, roles) ->
+            val normalized = state.overrideRole(roles)
             when {
-                state.isAuthenticated && state.role == UserRole.TEACHER -> flow {
+                normalized.isAuthenticated && normalized.role == UserRole.TEACHER -> flow {
                     val resolved = classroomDataSource.fetchTeacherProfile().getOrNull()
-                    emit(resolved?.let { state.copy(teacherProfile = it) } ?: state)
+                    emit(resolved?.let { normalized.copy(teacherProfile = it) } ?: normalized)
                 }
                 (flags.contains(DemoMode.OFFLINE_FLAG) || flags.contains(LocalAuthManager.LOCAL_TEACHER_FLAG)) &&
                     !lastTeacherId.isNullOrBlank() -> flow {
@@ -62,7 +64,7 @@ class AuthRepositoryImpl @Inject constructor(
                         )
                     )
                 }
-                else -> flowOf(state)
+                else -> flowOf(normalized)
             }
         }
         .distinctUntilChanged()
@@ -94,3 +96,15 @@ private fun TeacherEntity.toDomain(): Teacher = Teacher(
     email = email,
     createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt)
 )
+
+private data class AuthStateBundle(
+    val state: AuthState,
+    val flags: Set<String>,
+    val lastTeacherId: String?,
+    val roles: Map<String, UserRole>
+)
+
+private fun AuthState.overrideRole(roleMap: Map<String, UserRole>): AuthState {
+    val override = userId?.let { roleMap[it] }
+    return if (override != null && override != role) copy(role = override) else this
+}

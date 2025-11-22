@@ -10,6 +10,12 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.PlayArrow
+import androidx.compose.material.icons.filled.Stop
+import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -80,16 +86,31 @@ fun LaunchLobbyScreen(
     val context = LocalContext.current
     val copyConfirmation = stringResource(R.string.launch_lobby_copy_confirmation)
     val scanInstructions = stringResource(R.string.launch_lobby_scan_instructions)
+    val blockingMessage = state.snackbarMessage
+        ?.takeIf { it.isNotBlank() && state.joinCode == "----" && state.qrPayload.isBlank() }
+    val controlsEnabled = blockingMessage == null
+    val scrollState = rememberScrollState()
+    val headline = if (state.joinCode == "----" && state.qrPayload.isBlank()) {
+        "Prepare lobby"
+    } else {
+        "LAN lobby ready"
+    }
+    val supporting = when {
+        blockingMessage != null -> blockingMessage
+        state.joinCode == "----" -> "Tap Start to generate a join code"
+        else -> "${state.discoveredPeers} peers nearby"
+    }
 
     Column(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(scrollState),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         ConnectivityBanner(
-            headline = "LAN lobby ready",
-            supportingText = "${state.discoveredPeers} peers nearby",
+            headline = headline,
+            supportingText = supporting,
             statusChips = state.statusChips
         )
         state.snackbarMessage
@@ -100,6 +121,11 @@ fun LaunchLobbyScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
             }
+        HostActionShortcuts(
+            enabled = controlsEnabled,
+            onStart = { showStartDialog = true },
+            onEnd = { showEndDialog = true }
+        )
         JoinCodeCard(
             code = state.joinCode,
             expiresIn = state.qrSubtitle,
@@ -148,17 +174,29 @@ fun LaunchLobbyScreen(
         }
         SecondaryButton(
             text = if (state.hideLeaderboard) "Show leaderboard" else "Hide leaderboard",
-            onClick = { onToggleLeaderboard(!state.hideLeaderboard) }
+            onClick = { onToggleLeaderboard(!state.hideLeaderboard) },
+            enabled = controlsEnabled
         )
         SecondaryButton(
             text = if (state.lockAfterFirst) "Unlock after Q1" else "Lock joins after Q1",
-            onClick = { onToggleLock(!state.lockAfterFirst) }
+            onClick = { onToggleLock(!state.lockAfterFirst) },
+            enabled = controlsEnabled
         )
         BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
             val buttonWidth = (maxWidth - 12.dp) / 2
             Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PrimaryButton(text = "Start", onClick = { showStartDialog = true }, modifier = Modifier.width(buttonWidth))
-                SecondaryButton(text = "End", onClick = { showEndDialog = true }, modifier = Modifier.width(buttonWidth))
+                PrimaryButton(
+                    text = "Start",
+                    onClick = { showStartDialog = true },
+                    modifier = Modifier.width(buttonWidth),
+                    enabled = controlsEnabled
+                )
+                SecondaryButton(
+                    text = "End",
+                    onClick = { showEndDialog = true },
+                    modifier = Modifier.width(buttonWidth),
+                    enabled = controlsEnabled
+                )
             }
         }
     }
@@ -179,6 +217,52 @@ fun LaunchLobbyScreen(
             onEnd()
         }
     )
+}
+
+@Composable
+private fun HostActionShortcuts(
+    enabled: Boolean,
+    onStart: () -> Unit,
+    onEnd: () -> Unit
+) {
+    Surface(
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 2.dp,
+        color = MaterialTheme.colorScheme.surfaceVariant
+    ) {
+        Column(
+            modifier = Modifier.padding(12.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp)
+        ) {
+            Text(
+                text = "Host actions",
+                style = MaterialTheme.typography.titleMedium
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onStart, enabled = enabled) {
+                    Icon(
+                        Icons.Filled.PlayArrow,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
+                    Text(text = "Start")
+                }
+                TextButton(onClick = onEnd, enabled = enabled) {
+                    Icon(
+                        Icons.Filled.Stop,
+                        contentDescription = null,
+                        modifier = Modifier.padding(end = 6.dp)
+                    )
+                    Text(text = "End")
+                }
+            }
+            Text(
+                text = "Quick access if the footer buttons are out of view.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+    }
 }
 
 @QuizPreviews

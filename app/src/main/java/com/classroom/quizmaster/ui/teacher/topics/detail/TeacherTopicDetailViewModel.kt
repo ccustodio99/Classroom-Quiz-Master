@@ -6,7 +6,10 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.domain.model.QuizCategory
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
+import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
+import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
+import com.classroom.quizmaster.ui.materials.toSummaryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.SharingStarted
@@ -25,6 +28,7 @@ class TeacherTopicDetailViewModel @Inject constructor(
     private val classroomRepository: ClassroomRepository,
     private val quizRepository: QuizRepository,
     private val assignmentRepository: AssignmentRepository,
+    private val learningMaterialRepository: LearningMaterialRepository,
     savedStateHandle: SavedStateHandle
 ) : ViewModel() {
 
@@ -44,8 +48,12 @@ class TeacherTopicDetailViewModel @Inject constructor(
             classroomRepository.classrooms,
             classroomRepository.topics,
             quizRepository.quizzes,
-            assignmentRepository.assignments
-        ) { classrooms, topics, quizzes, assignments ->
+            assignmentRepository.assignments,
+            learningMaterialRepository.observeTeacherMaterials(
+                classroomId = classroomIdArg,
+                topicId = topicIdArg
+            )
+        ) { classrooms, topics, quizzes, assignments, materials ->
             val classroom = classrooms.firstOrNull { it.id == classroomIdArg && !it.isArchived }
             val topic = topics.firstOrNull {
                 it.id == topicIdArg &&
@@ -96,6 +104,10 @@ class TeacherTopicDetailViewModel @Inject constructor(
                         )
                     }
                     .filterNotNull()
+                val materialsForTopic: List<MaterialSummaryUi> = materials
+                    .filter { !it.isArchived }
+                    .sortedByDescending { it.updatedAt }
+                    .map { it.toSummaryUi() }
                 TopicDetailUiState(
                     classroomId = classroomIdArg,
                     topicId = topicIdArg,
@@ -104,6 +116,7 @@ class TeacherTopicDetailViewModel @Inject constructor(
                     topicDescription = topic.description,
                     quizzes = topicQuizzes,
                     assignments = assignmentsForTopic,
+                    materials = materialsForTopic,
                     isLoading = false
                 )
             }
@@ -131,6 +144,7 @@ data class TopicDetailUiState(
     val topicDescription: String = "",
     val quizzes: List<QuizSummaryUi> = emptyList(),
     val assignments: List<AssignmentSummaryUi> = emptyList(),
+    val materials: List<MaterialSummaryUi> = emptyList(),
     val isLoading: Boolean = true,
     val errorMessage: String? = null
 )

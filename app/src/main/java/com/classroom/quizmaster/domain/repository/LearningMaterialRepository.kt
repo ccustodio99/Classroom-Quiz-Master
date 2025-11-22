@@ -27,6 +27,10 @@ interface LearningMaterialRepository {
 
     suspend fun delete(materialId: String)
 
+    suspend fun move(materialId: String, targetClassroomId: String, targetTopicId: String? = null)
+
+    suspend fun duplicate(materialId: String, targetClassroomId: String, targetTopicId: String? = null): String
+
     suspend fun shareSnapshotForClassroom(classroomId: String)
 
     suspend fun importSnapshot(classroomId: String, materials: List<LearningMaterial>)

@@ -17,7 +17,7 @@ import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
-import androidx.compose.material.icons.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -302,7 +302,8 @@ private fun ActionCards(
     onMaterials: () -> Unit
 ) {
     Text(text = "Actions", style = MaterialTheme.typography.titleLarge)
-    val cards = if (actionCards.isEmpty()) defaultActionCards else actionCards
+    val cards = (if (actionCards.isEmpty()) defaultActionCards else actionCards)
+        .filterNot { it.id == ACTION_MATERIALS }
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         cards.forEach {
             val baseAction = resolveAction(
@@ -317,7 +318,6 @@ private fun ActionCards(
                 ACTION_CREATE_QUIZ -> hasTopics && canCreateQuiz
                 ACTION_ASSIGNMENTS -> hasTopics
                 ACTION_REPORTS -> true
-                ACTION_MATERIALS -> true
                 else -> true
             }
 
@@ -346,7 +346,6 @@ private fun resolveAction(
         ACTION_CREATE_QUIZ -> onCreateQuiz
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
-        ACTION_MATERIALS -> onMaterials
         else -> null
     }
     if (primary != null) return primary
@@ -354,7 +353,6 @@ private fun resolveAction(
         ACTION_CREATE_QUIZ -> onCreateQuiz
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
-        ACTION_MATERIALS -> onMaterials
         else -> null
     }
 }
@@ -486,7 +484,7 @@ private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
     ACTION_REPORTS -> Icons.Outlined.Timeline
-    ACTION_MATERIALS -> Icons.Outlined.LibraryBooks
+    ACTION_MATERIALS -> Icons.AutoMirrored.Outlined.LibraryBooks
     else -> Icons.AutoMirrored.Outlined.ArrowForward
 }
 
@@ -498,13 +496,6 @@ private val defaultActionCards = listOf(
         route = ACTION_CREATE_QUIZ,
         ctaLabel = "Create quiz",
         primary = true
-    ),
-    HomeActionCard(
-        id = ACTION_MATERIALS,
-        title = "Learning materials",
-        description = "Author lesson notes and attachments.",
-        route = ACTION_MATERIALS,
-        ctaLabel = "Manage"
     ),
     HomeActionCard(
         id = ACTION_ASSIGNMENTS,

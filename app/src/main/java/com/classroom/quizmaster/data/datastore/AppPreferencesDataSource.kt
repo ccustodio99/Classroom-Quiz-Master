@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.longPreferencesKey
 import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
+import com.classroom.quizmaster.domain.model.UserRole
 import dagger.hilt.android.qualifiers.ApplicationContext
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -36,6 +37,7 @@ class AppPreferencesDataSource @Inject constructor(
         val LAN_AUTO_JOIN = booleanPreferencesKey("lan_auto_join")
         val SAMPLE_SEEDED_TEACHERS = stringSetPreferencesKey("sample_seeded_teachers")
         val SAMPLE_SEEDED_CLASSROOMS = stringSetPreferencesKey("sample_seeded_classrooms")
+        val USER_ROLES = stringSetPreferencesKey("user_roles")
     }
 
     val highContrastEnabled: Flow<Boolean> =
@@ -71,6 +73,21 @@ class AppPreferencesDataSource @Inject constructor(
     val lanAutoJoinEnabled: Flow<Boolean> =
         context.prefStore.data.map { it[Keys.LAN_AUTO_JOIN] ?: false }
 
+    val userRoles: Flow<Map<String, UserRole>> =
+        context.prefStore.data.map { prefs ->
+            (prefs[Keys.USER_ROLES] ?: emptySet())
+                .mapNotNull { entry ->
+                    val parts = entry.split("|", limit = 2)
+                    if (parts.size == 2) {
+                        val role = runCatching { UserRole.valueOf(parts[1]) }.getOrNull()
+                        if (role != null) parts[0] to role else null
+                    } else {
+                        null
+                    }
+                }
+                .toMap()
+        }
+
     suspend fun setHighContrast(enabled: Boolean) {
         context.prefStore.edit { it[Keys.HIGH_CONTRAST] = enabled }
     }
@@ -92,6 +109,15 @@ class AppPreferencesDataSource @Inject constructor(
     suspend fun setPreferredAvatar(avatar: String?) {
         context.prefStore.edit {
             if (avatar == null) it.remove(Keys.PREFERRED_AVATAR) else it[Keys.PREFERRED_AVATAR] = avatar
+        }
+    }
+
+    suspend fun setUserRole(userId: String, role: UserRole) {
+        context.prefStore.edit { prefs ->
+            val existing = prefs[Keys.USER_ROLES] ?: emptySet()
+            val filtered = existing.filterNot { it.startsWith("$userId|") }.toMutableSet()
+            filtered += "$userId|${role.name}"
+            prefs[Keys.USER_ROLES] = filtered
         }
     }
 

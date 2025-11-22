@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.state
 
+import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.student.end.StudentEndUiState
 import com.classroom.quizmaster.ui.student.entry.StudentEntryUiState
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyUiState
@@ -25,6 +26,7 @@ interface SessionRepositoryUi {
     val studentLobby: Flow<StudentLobbyUiState>
     val studentPlay: Flow<StudentPlayUiState>
     val studentEnd: Flow<StudentEndUiState>
+    val avatarOptions: Flow<List<AvatarOption>>
 
     suspend fun configureHostContext(classroomId: String, topicId: String? = null, quizId: String? = null)
     suspend fun updateLeaderboardHidden(hidden: Boolean)
@@ -40,6 +42,7 @@ interface SessionRepositoryUi {
     suspend fun joinLanHost(hostId: String, nickname: String, avatarId: String?): Result<Unit>
     suspend fun joinWithCode(joinCode: String, nickname: String, avatarId: String?): Result<Unit>
     suspend fun submitStudentAnswer(answerIds: List<String>)
+    suspend fun updateStudentProfile(nickname: String, avatarId: String?)
     suspend fun clearStudentError()
 }
 

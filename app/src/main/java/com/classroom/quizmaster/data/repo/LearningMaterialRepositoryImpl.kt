@@ -8,9 +8,11 @@ import com.classroom.quizmaster.data.local.dao.ClassroomDao
 import com.classroom.quizmaster.data.local.dao.MaterialDao
 import com.classroom.quizmaster.data.local.dao.SessionDao
 import com.classroom.quizmaster.data.local.dao.TopicDao
+import com.classroom.quizmaster.data.local.entity.ClassroomEntity
 import com.classroom.quizmaster.data.local.entity.LearningMaterialEntity
 import com.classroom.quizmaster.data.local.entity.MaterialAttachmentEntity
 import com.classroom.quizmaster.data.local.entity.MaterialWithAttachments
+import com.classroom.quizmaster.data.local.entity.TopicEntity
 import com.classroom.quizmaster.domain.model.LearningMaterial
 import com.classroom.quizmaster.domain.model.MaterialAttachment
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
@@ -171,6 +173,69 @@ class LearningMaterialRepositoryImpl @Inject constructor(
         broadcastIfHosting(stored.material.classroomId)
     }
 
+    override suspend fun move(
+        materialId: String,
+        targetClassroomId: String,
+        targetTopicId: String?
+    ): Unit = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: error("No authenticated teacher")
+        val stored = materialDao.getMaterial(materialId) ?: error("Material $materialId not found")
+        check(stored.material.teacherId == teacherId) { "Cannot move another teacher's material" }
+        val (classroom, topic) = resolveDestination(teacherId, targetClassroomId, targetTopicId)
+        val now = Clock.System.now().toEpochMilliseconds()
+        val updated = stored.material.copy(
+            classroomId = classroom.id,
+            classroomName = classroom.name,
+            topicId = topic?.id.orEmpty(),
+            topicName = topic?.name.orEmpty(),
+            updatedAt = now
+        )
+        database.withTransaction {
+            materialDao.upsertMaterial(updated)
+        }
+        broadcastIfHosting(stored.material.classroomId)
+        broadcastIfHosting(classroom.id)
+    }
+
+    override suspend fun duplicate(
+        materialId: String,
+        targetClassroomId: String,
+        targetTopicId: String?
+    ): String = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: error("No authenticated teacher")
+        val stored = materialDao.getMaterial(materialId) ?: error("Material $materialId not found")
+        check(stored.material.teacherId == teacherId) { "Cannot copy another teacher's material" }
+        val (classroom, topic) = resolveDestination(teacherId, targetClassroomId, targetTopicId)
+        val now = Clock.System.now().toEpochMilliseconds()
+        val newMaterialId = UUID.randomUUID().toString()
+        val duplicated = stored.material.copy(
+            id = newMaterialId,
+            classroomId = classroom.id,
+            classroomName = classroom.name,
+            topicId = topic?.id.orEmpty(),
+            topicName = topic?.name.orEmpty(),
+            createdAt = now,
+            updatedAt = now,
+            isArchived = false,
+            archivedAt = null
+        )
+        val attachments = stored.attachments.map { attachment ->
+            attachment.copy(
+                id = UUID.randomUUID().toString(),
+                materialId = newMaterialId,
+                downloadedAt = null
+            )
+        }
+        database.withTransaction {
+            materialDao.upsertMaterial(duplicated)
+            if (attachments.isNotEmpty()) {
+                materialDao.upsertAttachments(attachments)
+            }
+        }
+        broadcastIfHosting(classroom.id)
+        newMaterialId
+    }
+
     override suspend fun shareSnapshotForClassroom(classroomId: String): Unit = withContext(ioDispatcher) {
         if (lanHostServer.activePort == null) return@withContext
         val snapshot = materialDao.listActiveForClassroom(classroomId)
@@ -200,6 +265,23 @@ class LearningMaterialRepositoryImpl @Inject constructor(
         val currentSession = sessionDao.currentSession() ?: return
         if (currentSession.classroomId != classroomId) return
         shareSnapshotForClassroom(classroomId)
+    }
+
+    private suspend fun resolveDestination(
+        teacherId: String,
+        classroomId: String,
+        topicId: String?
+    ): Pair<ClassroomEntity, TopicEntity?> {
+        val classroom = classroomDao.get(classroomId) ?: error("Classroom $classroomId not found")
+        check(classroom.teacherId == teacherId) { "Cannot target another teacher's classroom" }
+        val normalizedTopicId = topicId?.takeIf { it.isNotBlank() }
+        val topic = normalizedTopicId?.let { candidateId ->
+            val entity = topicDao.get(candidateId) ?: error("Topic $candidateId not found")
+            check(entity.teacherId == teacherId) { "Cannot target another teacher's topic" }
+            check(entity.classroomId == classroom.id) { "Topic does not belong to classroom ${classroom.name}" }
+            entity
+        }
+        return classroom to topic
     }
 
     private fun LearningMaterial.toEntity(): LearningMaterialEntity =

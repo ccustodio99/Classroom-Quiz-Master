@@ -16,11 +16,12 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.asStateFlow
-import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
+import timber.log.Timber
 import java.util.UUID
 
 @HiltViewModel
@@ -42,11 +43,80 @@ class MaterialEditorViewModel @Inject constructor(
 
     init {
         viewModelScope.launch {
-            val classrooms = classroomRepository.classrooms.first()
-            val topics = classroomRepository.topics.first()
+            runCatching { classroomRepository.refresh() }
+                .onFailure { Timber.w(it, "Failed to refresh classrooms/topics") }
+        }
+
+        viewModelScope.launch {
             val material = materialIdArg.takeIf { it.isNotBlank() }
                 ?.let { learningMaterialRepository.get(it) }
-            _uiState.value = buildInitialState(classrooms, topics, material)
+            var seededMaterial = false
+
+            combine(classroomRepository.classrooms, classroomRepository.topics) { classrooms, topics ->
+                classrooms to topics
+            }.collect { (classrooms, topics) ->
+                val classroomOptions = classrooms
+                    .filterNot { it.isArchived }
+                    .sortedBy { it.name.lowercase() }
+                    .map { classroom ->
+                        SelectionOptionUi(
+                            id = classroom.id,
+                            label = classroom.name,
+                            supportingText = listOfNotNull(
+                                classroom.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" },
+                                classroom.subject.takeIf { it.isNotBlank() }
+                            ).joinToString(" · ")
+                        )
+                    }
+
+                val topicsByClassroom = topics
+                    .filterNot { it.isArchived }
+                    .groupBy { it.classroomId }
+                    .mapValues { (_, grouped) ->
+                        grouped.sortedBy { it.name.lowercase() }
+                            .map { topic -> SelectionOptionUi(topic.id, topic.name, topic.description) }
+                    }
+
+                _uiState.update { current ->
+                    val selectedClassroom = current.selectedClassroomId
+                        .takeIf { id -> id.isNotBlank() && classroomOptions.any { it.id == id } }
+                        ?: material?.classroomId
+                            ?.takeIf { id -> !seededMaterial && classroomOptions.any { option -> option.id == id } }
+                        ?: classroomArg.takeIf { arg -> arg.isNotBlank() && classroomOptions.any { it.id == arg } }
+                        ?: classroomOptions.firstOrNull()?.id.orEmpty()
+
+                    val topicOptions = topicsByClassroom[selectedClassroom].orEmpty()
+                    val selectedTopic = current.selectedTopicId
+                        .takeIf { id -> id.isNotBlank() && topicOptions.any { it.id == id } }
+                        ?: material?.topicId
+                            ?.takeIf { id -> !seededMaterial && topicOptions.any { option -> option.id == id } }
+                        ?: topicArg.takeIf { arg -> arg.isNotBlank() && topicOptions.any { it.id == arg } }
+                        ?: topicOptions.firstOrNull()?.id.orEmpty()
+
+                    if (!seededMaterial && material != null) {
+                        seededMaterial = true
+                        MaterialEditorUiState(
+                            materialId = material.id,
+                            title = material.title,
+                            description = material.description,
+                            body = material.body,
+                            classroomOptions = classroomOptions,
+                            topicsByClassroom = topicsByClassroom,
+                            selectedClassroomId = selectedClassroom,
+                            selectedTopicId = selectedTopic,
+                            attachments = material.attachments.map { it.toDraft() },
+                            createdAt = material.createdAt
+                        ).validate()
+                    } else {
+                        current.copy(
+                            classroomOptions = classroomOptions,
+                            topicsByClassroom = topicsByClassroom,
+                            selectedClassroomId = selectedClassroom,
+                            selectedTopicId = selectedTopic
+                        ).validate()
+                    }
+                }
+            }
         }
     }
 
@@ -90,67 +160,27 @@ class MaterialEditorViewModel @Inject constructor(
         if (!current.canSave || current.isSaving) return
         val payload = current.toDomain()
         viewModelScope.launch {
-            updateState { copy(isSaving = true) }
-            runCatching { learningMaterialRepository.upsert(payload) }
-                .onSuccess { id ->
-                    updateState { copy(isSaving = false) }
-                    _events.emit(MaterialEditorEvent.Saved(id))
-                }
-                .onFailure { err ->
-                    updateState { copy(isSaving = false, errorMessage = err.message ?: "Unable to save material") }
-                    _events.emit(MaterialEditorEvent.Error(err.message ?: "Unable to save material"))
-                }
-        }
-    }
-
-    private fun buildInitialState(
-        classrooms: List<com.classroom.quizmaster.domain.model.Classroom>,
-        topics: List<com.classroom.quizmaster.domain.model.Topic>,
-        material: LearningMaterial?
-    ): MaterialEditorUiState {
-        val classroomOptions = classrooms.filterNot { it.isArchived }
-            .sortedBy { it.name.lowercase() }
-            .map { classroom ->
-                SelectionOptionUi(
-                    id = classroom.id,
-                    label = classroom.name,
-                    supportingText = listOfNotNull(
-                        classroom.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" },
-                        classroom.subject.takeIf { it.isNotBlank() }
-                    ).joinToString(" • ")
+            updateState { copy(isSaving = true, errorMessage = null) }
+            val saveResult = runCatching { learningMaterialRepository.upsert(payload) }
+            val materialId = saveResult.getOrElse { err ->
+                updateState { copy(isSaving = false, errorMessage = err.message ?: "Unable to save material") }
+                _events.emit(MaterialEditorEvent.Error(err.message ?: "Unable to save material"))
+                return@launch
+            }
+            val syncResult = runCatching {
+                learningMaterialRepository.shareSnapshotForClassroom(payload.classroomId)
+            }
+            updateState { copy(isSaving = false) }
+            if (syncResult.isFailure) {
+                _events.emit(
+                    MaterialEditorEvent.Error(
+                        syncResult.exceptionOrNull()?.message
+                            ?: "Saved, but could not sync materials to students"
+                    )
                 )
             }
-        val topicsByClassroom = topics.filterNot { it.isArchived }
-            .groupBy { it.classroomId }
-            .mapValues { (_, grouped) ->
-                grouped.sortedBy { it.name.lowercase() }
-                    .map { topic -> SelectionOptionUi(topic.id, topic.name, topic.description) }
-            }
-        val selectedClassroom = when {
-            material?.classroomId?.isNotBlank() == true -> material.classroomId
-            classroomArg.isNotBlank() -> classroomArg
-            else -> classroomOptions.firstOrNull()?.id.orEmpty()
+            _events.emit(MaterialEditorEvent.Saved(materialId))
         }
-        val topicOptions = topicsByClassroom[selectedClassroom].orEmpty()
-        val selectedTopic = when {
-            material?.topicId?.isNotBlank() == true -> material.topicId
-            topicArg.isNotBlank() -> topicArg
-            else -> topicOptions.firstOrNull()?.id.orEmpty()
-        }
-        val createdAt = material?.createdAt ?: Clock.System.now()
-        val attachments = material?.attachments?.map { it.toDraft() } ?: emptyList()
-        return MaterialEditorUiState(
-            materialId = material?.id,
-            title = material?.title.orEmpty(),
-            description = material?.description.orEmpty(),
-            body = material?.body.orEmpty(),
-            classroomOptions = classroomOptions,
-            topicsByClassroom = topicsByClassroom,
-            selectedClassroomId = selectedClassroom,
-            selectedTopicId = selectedTopic,
-            attachments = attachments,
-            createdAt = createdAt
-        ).validate()
     }
 
     private fun updateState(transform: MaterialEditorUiState.() -> MaterialEditorUiState) {

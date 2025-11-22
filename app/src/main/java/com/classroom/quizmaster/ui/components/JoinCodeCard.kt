@@ -78,7 +78,10 @@ fun JoinCodeCard(
                 }
             }
             Text(
-                text = "Expires in $expiresIn | $peersConnected peers nearby",
+                text = listOfNotNull(
+                    expiresIn.takeIf { it.isNotBlank() }?.let { "Expires in $it" },
+                    "$peersConnected peers nearby"
+                ).joinToString(" | "),
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

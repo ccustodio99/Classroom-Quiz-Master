@@ -12,7 +12,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.text.KeyboardActions
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.GTranslate
 import androidx.compose.material.icons.filled.Visibility
 import androidx.compose.material.icons.filled.VisibilityOff
 import androidx.compose.material3.Checkbox
@@ -32,13 +31,11 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusDirection
-import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.text.input.ImeAction
@@ -49,6 +46,8 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.R
+import com.classroom.quizmaster.ui.components.AvatarPicker
+import com.classroom.quizmaster.ui.components.NickNameField
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.QuizSnackbar
 import com.classroom.quizmaster.ui.components.SegmentOption
@@ -57,23 +56,21 @@ import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 import kotlinx.coroutines.flow.collectLatest
-import kotlinx.coroutines.launch
 
 @Composable
 fun AuthRoute(
     onTeacherAuthenticated: () -> Unit,
-    onStudentEntry: () -> Unit,
+    onStudentAuthenticated: () -> Unit,
     viewModel: AuthViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val snackbarHost = remember { SnackbarHostState() }
-    val snackbarScope = rememberCoroutineScope()
-    val context = LocalContext.current
 
     LaunchedEffect(Unit) {
         viewModel.effects.collectLatest { effect ->
             when (effect) {
                 AuthEffect.TeacherAuthenticated -> onTeacherAuthenticated()
+                AuthEffect.StudentAuthenticated -> onStudentAuthenticated()
                 AuthEffect.DemoMode -> {
                     snackbarHost.showSnackbar("Offline demo enabled")
                     onTeacherAuthenticated()
@@ -97,16 +94,11 @@ fun AuthRoute(
         onProfileSchoolChange = viewModel::updateProfileSchool,
         onProfileSubjectChange = viewModel::updateProfileSubject,
         onProfileNicknameChange = viewModel::updateProfileNickname,
+        onAvatarSelected = viewModel::onAvatarSelected,
         onSignupBack = viewModel::backToSignupCredentials,
-        onLogin = viewModel::signInTeacher,
-        onSignup = viewModel::signUpTeacher,
-        onDemo = viewModel::continueOfflineDemo,
-        onGoogle = {
-            snackbarScope.launch {
-                snackbarHost.showSnackbar(context.getString(R.string.google_placeholder))
-            }
-        },
-        onStudentEntry = onStudentEntry
+        onLogin = viewModel::signIn,
+        onSignup = viewModel::signUp,
+        onDemo = viewModel::continueOfflineDemo
     )
 }
 
@@ -125,12 +117,11 @@ fun AuthScreen(
     onProfileSchoolChange: (String) -> Unit,
     onProfileSubjectChange: (String) -> Unit,
     onProfileNicknameChange: (String) -> Unit,
+    onAvatarSelected: (String) -> Unit,
     onSignupBack: () -> Unit,
     onLogin: () -> Unit,
     onSignup: () -> Unit,
-    onDemo: () -> Unit,
-    onGoogle: () -> Unit,
-    onStudentEntry: () -> Unit
+    onDemo: () -> Unit
 ) {
     var teacherTab by rememberSaveable { mutableStateOf(TeacherAuthTab.SignIn) }
 
@@ -141,7 +132,6 @@ fun AuthScreen(
             .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        WelcomeBanner()
         HeroSection()
         if (state.isOffline) {
             StatusMessageCard(
@@ -165,7 +155,6 @@ fun AuthScreen(
             onLoginEmail = onLoginEmail,
             onLoginPassword = onLoginPassword,
             onLogin = onLogin,
-            onGoogle = onGoogle,
             onDemo = onDemo,
             onSignupEmail = onSignupEmail,
             onSignupPassword = onSignupPassword,
@@ -177,48 +166,22 @@ fun AuthScreen(
             onProfileSchoolChange = onProfileSchoolChange,
             onProfileSubjectChange = onProfileSubjectChange,
             onProfileNicknameChange = onProfileNicknameChange,
+            onAvatarSelected = onAvatarSelected,
             onSignupBack = onSignupBack
         )
-        StudentEntryCard(onStudentEntry = onStudentEntry)
-    }
-}
-
-@Composable
-private fun WelcomeBanner() {
-    Surface(
-        shape = MaterialTheme.shapes.extraLarge,
-        tonalElevation = 4.dp,
-        color = MaterialTheme.colorScheme.primaryContainer,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Column(
-            modifier = Modifier.padding(20.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auth_banner_title),
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-            Text(
-                text = stringResource(R.string.auth_banner_body),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onPrimaryContainer
-            )
-        }
     }
 }
 
 @Composable
 private fun HeroSection() {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         Text(
             text = stringResource(id = R.string.app_name),
             style = MaterialTheme.typography.displaySmall
         )
         Text(
             text = stringResource(R.string.auth_hero_body),
-            style = MaterialTheme.typography.bodyMedium,
+            style = MaterialTheme.typography.bodyLarge,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
@@ -232,7 +195,6 @@ private fun TeacherAuthCard(
     onLoginEmail: (String) -> Unit,
     onLoginPassword: (String) -> Unit,
     onLogin: () -> Unit,
-    onGoogle: () -> Unit,
     onDemo: () -> Unit,
     onSignupEmail: (String) -> Unit,
     onSignupPassword: (String) -> Unit,
@@ -244,6 +206,7 @@ private fun TeacherAuthCard(
     onProfileSchoolChange: (String) -> Unit,
     onProfileSubjectChange: (String) -> Unit,
     onProfileNicknameChange: (String) -> Unit,
+    onAvatarSelected: (String) -> Unit,
     onSignupBack: () -> Unit
 ) {
     Surface(
@@ -291,7 +254,6 @@ private fun TeacherAuthCard(
                     onLoginEmail = onLoginEmail,
                     onLoginPassword = onLoginPassword,
                     onLogin = onLogin,
-                    onGoogle = onGoogle,
                     onDemo = onDemo
                 )
 
@@ -312,6 +274,7 @@ private fun TeacherAuthCard(
                         onProfileSchoolChange = onProfileSchoolChange,
                         onProfileSubjectChange = onProfileSubjectChange,
                         onProfileNicknameChange = onProfileNicknameChange,
+                        onAvatarSelected = onAvatarSelected,
                         onBack = onSignupBack,
                         onComplete = onSignup
                     )
@@ -358,7 +321,6 @@ private fun TeacherSignInForm(
     onLoginEmail: (String) -> Unit,
     onLoginPassword: (String) -> Unit,
     onLogin: () -> Unit,
-    onGoogle: () -> Unit,
     onDemo: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
@@ -402,11 +364,6 @@ private fun TeacherSignInForm(
                 !passwordError &&
                 !state.loading,
             isLoading = state.loading
-        )
-        SecondaryButton(
-            text = stringResource(R.string.auth_google),
-            onClick = onGoogle,
-            leadingIcon = { androidx.compose.material3.Icon(Icons.Filled.GTranslate, contentDescription = null) }
         )
         TextButton(onClick = onDemo) {
             Text(text = stringResource(R.string.auth_demo))
@@ -518,13 +475,14 @@ private fun SignupProfileForm(
     onProfileSchoolChange: (String) -> Unit,
     onProfileSubjectChange: (String) -> Unit,
     onProfileNicknameChange: (String) -> Unit,
+    onAvatarSelected: (String) -> Unit,
     onBack: () -> Unit,
     onComplete: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
     val canComplete = when (state.profile.role) {
         SignupRole.Teacher -> state.profile.fullName.isNotBlank() && state.profile.school.isNotBlank()
-        SignupRole.Student -> state.profile.nickname.isNotBlank()
+        SignupRole.Student -> state.profile.nickname.isNotBlank() && state.profile.avatarId != null
         SignupRole.None -> false
     }
 
@@ -577,18 +535,15 @@ private fun SignupProfileForm(
             )
 
             SignupRole.Student -> {
-                Text(
-                    text = stringResource(R.string.auth_signup_student_hint),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-                AuthTextField(
+                NickNameField(
                     value = state.profile.nickname,
-                    label = stringResource(R.string.auth_signup_student_nickname),
                     onValueChange = onProfileNicknameChange,
-                    supportingText = stringResource(R.string.auth_signup_student_helper),
-                    imeAction = ImeAction.Done,
-                    onImeAction = { focusManager.clearFocus() }
+                    errorText = null
+                )
+                AvatarPicker(
+                    avatars = state.avatarOptions,
+                    selectedId = state.profile.avatarId,
+                    onAvatarSelected = { onAvatarSelected(it.id) }
                 )
             }
 
@@ -742,35 +697,6 @@ private fun AuthTextField(
     )
 }
 
-@Composable
-private fun StudentEntryCard(onStudentEntry: () -> Unit) {
-    Surface(
-        modifier = Modifier.fillMaxWidth(),
-        shape = MaterialTheme.shapes.extraLarge,
-        tonalElevation = 2.dp
-    ) {
-        Column(
-            modifier = Modifier.padding(24.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
-        ) {
-            Text(
-                text = stringResource(R.string.auth_student_heading),
-                style = MaterialTheme.typography.titleMedium
-            )
-            Text(
-                text = stringResource(R.string.auth_student_description),
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-            PrimaryButton(
-                text = stringResource(R.string.auth_continue_student),
-                onClick = onStudentEntry,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
-    }
-}
-
 private enum class TeacherAuthTab { SignIn, CreateAccount }
 
 @QuizPreviews
@@ -791,12 +717,11 @@ private fun AuthScreenPreview() {
             onProfileSchoolChange = {},
             onProfileSubjectChange = {},
             onProfileNicknameChange = {},
+            onAvatarSelected = {},
             onSignupBack = {},
             onLogin = {},
             onSignup = {},
-            onDemo = {},
-            onGoogle = {},
-            onStudentEntry = {}
+            onDemo = {}
         )
     }
 }

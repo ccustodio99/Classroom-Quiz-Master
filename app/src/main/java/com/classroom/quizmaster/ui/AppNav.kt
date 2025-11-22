@@ -3,7 +3,7 @@ package com.classroom.quizmaster.ui
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -93,7 +93,13 @@ sealed class AppRoute(val route: String) {
     data object TeacherReports : AppRoute("teacher/reports")
     data object TeacherAssignments : AppRoute("teacher/assignments")
     data object TeacherMaterials : AppRoute("teacher/materials")
-    data object TeacherMaterialCreate : AppRoute("teacher/materials/create")
+    data object TeacherMaterialCreate : AppRoute("teacher/materials/create?classroomId={classroomId}&topicId={topicId}") {
+        fun build(classroomId: String?, topicId: String?): String {
+            val classroomParam = classroomId?.takeIf { it.isNotBlank() } ?: ""
+            val topicParam = topicId?.takeIf { it.isNotBlank() } ?: ""
+            return "teacher/materials/create?classroomId=$classroomParam&topicId=$topicParam"
+        }
+    }
     data object TeacherMaterialEdit : AppRoute("teacher/materials/{materialId}/edit") {
         fun build(materialId: String) = "teacher/materials/$materialId/edit"
     }
@@ -130,7 +136,7 @@ fun AppNav(
             BottomNavItem(AppRoute.StudentEntry.route, Icons.Outlined.Home, "Join"),
             BottomNavItem(AppRoute.StudentLobby.route, Icons.Outlined.Groups, "Lobby"),
             BottomNavItem(AppRoute.StudentPlay.route, Icons.Outlined.EmojiEvents, "Play"),
-            BottomNavItem(AppRoute.StudentMaterials.route, Icons.Outlined.LibraryBooks, "Materials")
+            BottomNavItem(AppRoute.StudentMaterials.route, Icons.AutoMirrored.Outlined.LibraryBooks, "Materials")
         )
     }
 
@@ -178,8 +184,7 @@ fun AppNav(
                 }
 
                 NeutralWelcomeScreen(
-                    onTeacherFlow = { navController.navigate(AppRoute.Auth.route) },
-                    onStudentFlow = { navController.navigate(AppRoute.StudentEntry.route) },
+                    onLogin = { navController.navigate(AppRoute.Auth.route) },
                     onOfflineDemo = welcomeViewModel::enableOfflineDemo,
                     isOfflineDemoLoading = loading
                 )
@@ -191,8 +196,9 @@ fun AppNav(
                             popUpTo(AppRoute.Auth.route) { inclusive = true }
                         }
                     },
-                    onStudentEntry = {
+                    onStudentAuthenticated = {
                         navController.navigate(AppRoute.StudentEntry.route) {
+                            popUpTo(AppRoute.Auth.route) { inclusive = true }
                             launchSingleTop = true
                         }
                     }
@@ -307,6 +313,12 @@ fun AppNav(
                         onEditTopic = {
                             navController.navigate(AppRoute.TeacherTopicEdit.build(classroomId, topicId))
                         },
+                        onCreateMaterial = { classId, topicIdArg ->
+                            navController.navigate(AppRoute.TeacherMaterialCreate.build(classId, topicIdArg))
+                        },
+                        onOpenMaterial = { materialId ->
+                            navController.navigate(AppRoute.MaterialDetail.build(materialId, role = "teacher"))
+                        },
                         onCreateQuiz = { classId, topicIdArg ->
                             navController.navigate(AppRoute.TeacherQuizCreate.build(classId, topicIdArg))
                         },
@@ -336,7 +348,9 @@ fun AppNav(
                 route = AppRoute.TeacherTopicEdit.route,
                 arguments = listOf(
                     navArgument("classroomId") { type = NavType.StringType },
-                    navArgument("topicId") { type = NavType.StringType }
+                    navArgument(
+                        "topicId"
+                    ) { type = NavType.StringType }
                 )
             ) {
                 EditTopicRoute(
@@ -413,7 +427,9 @@ fun AppNav(
             composable(AppRoute.TeacherMaterials.route) {
                 TeacherMaterialsRoute(
                     onBack = { navController.popBackStack() },
-                    onCreateMaterial = { navController.navigate(AppRoute.TeacherMaterialCreate.route) },
+                    onCreateMaterial = { classroomId, topicId ->
+                        navController.navigate(AppRoute.TeacherMaterialCreate.build(classroomId, topicId))
+                    },
                     onMaterialSelected = { materialId ->
                         navController.navigate(AppRoute.MaterialDetail.build(materialId, role = "teacher"))
                     },
@@ -422,7 +438,13 @@ fun AppNav(
                     }
                 )
             }
-            composable(AppRoute.TeacherMaterialCreate.route) {
+            composable(
+                route = AppRoute.TeacherMaterialCreate.route,
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType; defaultValue = "" },
+                    navArgument("topicId") { type = NavType.StringType; defaultValue = "" }
+                )
+            ) {
                 MaterialEditorRoute(
                     onBack = { navController.popBackStack() },
                     onSaved = {

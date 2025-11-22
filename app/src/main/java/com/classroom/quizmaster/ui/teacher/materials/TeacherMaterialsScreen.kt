@@ -20,6 +20,7 @@ import androidx.compose.material.icons.outlined.MoreVert
 import androidx.compose.material.icons.outlined.SyncAlt
 import androidx.compose.foundation.border
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
@@ -33,6 +34,7 @@ import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -55,7 +57,7 @@ import com.classroom.quizmaster.ui.model.SelectionOptionUi
 @Composable
 fun TeacherMaterialsRoute(
     onBack: () -> Unit,
-    onCreateMaterial: () -> Unit,
+    onCreateMaterial: (String?, String?) -> Unit,
     onMaterialSelected: (String) -> Unit,
     onEditMaterial: (String) -> Unit,
     viewModel: TeacherMaterialsViewModel = hiltViewModel()
@@ -70,14 +72,20 @@ fun TeacherMaterialsRoute(
     TeacherMaterialsScreen(
         state = state,
         onBack = onBack,
-        onCreateMaterial = onCreateMaterial,
+        onCreateMaterial = { onCreateMaterial(state.selectedClassroomId, state.selectedTopicId) },
         onMaterialSelected = onMaterialSelected,
         onEditMaterial = onEditMaterial,
         onSelectClassroom = viewModel::selectClassroom,
         onSelectTopic = viewModel::selectTopic,
         onToggleArchived = viewModel::toggleArchived,
         onShare = viewModel::shareCurrentClassroom,
-        onArchiveMaterial = viewModel::archive
+        onArchiveMaterial = viewModel::archive,
+        onMoveMaterial = viewModel::requestMove,
+        onCopyMaterial = viewModel::requestCopy,
+        onDismissTransferDialog = viewModel::dismissTransferDialog,
+        onTransferClassroomSelected = viewModel::selectTransferClassroom,
+        onTransferTopicSelected = viewModel::selectTransferTopic,
+        onConfirmTransfer = viewModel::confirmTransfer
     )
 }
 
@@ -92,7 +100,13 @@ fun TeacherMaterialsScreen(
     onSelectTopic: (String?) -> Unit,
     onToggleArchived: (Boolean) -> Unit,
     onShare: () -> Unit,
-    onArchiveMaterial: (String) -> Unit
+    onArchiveMaterial: (String) -> Unit,
+    onMoveMaterial: (String) -> Unit,
+    onCopyMaterial: (String) -> Unit,
+    onDismissTransferDialog: () -> Unit,
+    onTransferClassroomSelected: (String) -> Unit,
+    onTransferTopicSelected: (String?) -> Unit,
+    onConfirmTransfer: () -> Unit
 ) {
     Scaffold(
         topBar = {
@@ -146,7 +160,9 @@ fun TeacherMaterialsScreen(
                     materials = state.materials,
                     onMaterialSelected = onMaterialSelected,
                     onEditMaterial = onEditMaterial,
-                    onArchiveMaterial = onArchiveMaterial
+                    onArchiveMaterial = onArchiveMaterial,
+                    onMoveMaterial = onMoveMaterial,
+                    onCopyMaterial = onCopyMaterial
                 )
             }
         }
@@ -203,7 +219,9 @@ private fun MaterialsList(
     materials: List<MaterialSummaryUi>,
     onMaterialSelected: (String) -> Unit,
     onEditMaterial: (String) -> Unit,
-    onArchiveMaterial: (String) -> Unit
+    onArchiveMaterial: (String) -> Unit,
+    onMoveMaterial: (String) -> Unit,
+    onCopyMaterial: (String) -> Unit
 ) {
     LazyColumn(
         modifier = Modifier.fillMaxSize(),
@@ -215,10 +233,72 @@ private fun MaterialsList(
                 summary = material,
                 onClick = { onMaterialSelected(material.id) },
                 onEdit = { onEditMaterial(material.id) },
-                onArchive = { onArchiveMaterial(material.id) }
+                onArchive = { onArchiveMaterial(material.id) },
+                onMove = { onMoveMaterial(material.id) },
+                onCopy = { onCopyMaterial(material.id) }
             )
         }
     }
+}
+
+@Composable
+private fun MaterialTransferDialog(
+    dialog: MaterialTransferDialogUi,
+    onDismiss: () -> Unit,
+    onConfirm: () -> Unit,
+    onClassroomSelected: (String) -> Unit,
+    onTopicSelected: (String?) -> Unit
+) {
+    val actionLabel = if (dialog.mode == MaterialTransferMode.Move) "Move" else "Copy"
+    val classroomSelection = dialog.classroomOptions.firstOrNull { it.id == dialog.selectedClassroomId }
+    val topicSelection = dialog.topicOptions.firstOrNull { it.id == dialog.selectedTopicId }
+    val optionLabel: (SelectionOptionUi) -> String = { option ->
+        if (option.supportingText.isNotBlank()) {
+            "${option.label} - ${option.supportingText}"
+        } else {
+            option.label
+        }
+    }
+    AlertDialog(
+        onDismissRequest = {
+            if (!dialog.isSubmitting) onDismiss()
+        },
+        title = { Text("$actionLabel material") },
+        text = {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text("Choose a destination for \"${dialog.materialTitle}\"")
+                DropdownField(
+                    label = "Classroom",
+                    items = dialog.classroomOptions,
+                    selectedItem = classroomSelection,
+                    onItemSelected = { option -> onClassroomSelected(option.id) },
+                    itemLabel = optionLabel,
+                    enabled = !dialog.isSubmitting
+                )
+                DropdownField(
+                    label = "Topic (optional)",
+                    items = dialog.topicOptions,
+                    selectedItem = topicSelection,
+                    onItemSelected = { option -> onTopicSelected(option.id.takeIf { it.isNotBlank() }) },
+                    itemLabel = optionLabel,
+                    enabled = !dialog.isSubmitting && dialog.selectedClassroomId != null && dialog.topicOptions.isNotEmpty()
+                )
+            }
+        },
+        confirmButton = {
+            TextButton(
+                onClick = onConfirm,
+                enabled = !dialog.isSubmitting && !dialog.selectedClassroomId.isNullOrBlank()
+            ) {
+                Text(actionLabel)
+            }
+        },
+        dismissButton = {
+            TextButton(onClick = onDismiss, enabled = !dialog.isSubmitting) {
+                Text("Cancel")
+            }
+        }
+    )
 }
 
 @Composable
@@ -226,7 +306,9 @@ private fun MaterialRow(
     summary: MaterialSummaryUi,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onArchive: () -> Unit
+    onArchive: () -> Unit,
+    onMove: () -> Unit,
+    onCopy: () -> Unit
 ) {
     val menuExpanded = remember { mutableStateOf(false) }
     Card(
@@ -274,6 +356,14 @@ private fun MaterialRow(
                     DropdownMenuItem(text = { Text("Edit") }, onClick = {
                         menuExpanded.value = false
                         onEdit()
+                    })
+                    DropdownMenuItem(text = { Text("Move to...") }, onClick = {
+                        menuExpanded.value = false
+                        onMove()
+                    })
+                    DropdownMenuItem(text = { Text("Copy to...") }, onClick = {
+                        menuExpanded.value = false
+                        onCopy()
                     })
                     DropdownMenuItem(text = { Text("Archive") }, onClick = {
                         menuExpanded.value = false
@@ -338,3 +428,4 @@ private fun AttachmentTypeChips(types: List<MaterialAttachmentType>) {
         }
     }
 }
+

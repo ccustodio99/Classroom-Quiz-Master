@@ -10,6 +10,7 @@ import dagger.hilt.android.qualifiers.ApplicationContext
 import java.net.Inet4Address
 import javax.inject.Inject
 import javax.inject.Singleton
+import kotlinx.coroutines.Job
 import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
@@ -59,42 +60,61 @@ class NsdClient @Inject constructor(
                 trySend(LanDiscoveryEvent.Error(message))
             }
 
-            private fun resolve(serviceInfo: NsdServiceInfo, timeoutJob: kotlinx.coroutines.Job) {
-                val resolver = object : NsdManager.ResolveListener {
-                    override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
-                        emitError("Resolve failed $errorCode")
-                    }
-
-                    override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
-                        timeoutJob.cancel()
-                        val attributes = serviceInfo.attributes
-                        val token = attributes["token"]?.decodeToString().orEmpty()
-                        val joinCode = attributes["join"]?.decodeToString().orEmpty()
-                        val ts = attributes["ts"]?.decodeToString()?.toLongOrNull() ?: 0L
-                        val teacherName = attributes["teacher"]?.decodeToString()
-                        val host = serviceInfo.primaryHostAddress()
-                        trySend(
-                            LanDiscoveryEvent.ServiceFound(
-                                LanServiceDescriptor(
-                                    serviceInfo.serviceName,
-                                    host,
-                                    serviceInfo.port,
-                                    token,
-                                    joinCode,
-                                    timestamp = ts,
-                                    teacherName = teacherName
-                                )
+            private fun resolve(serviceInfo: NsdServiceInfo, timeoutJob: Job) {
+                fun emitResolved(info: NsdServiceInfo) {
+                    timeoutJob.cancel()
+                    val attributes = info.attributes
+                    val token = attributes["token"]?.decodeToString().orEmpty()
+                    val joinCode = attributes["join"]?.decodeToString().orEmpty()
+                    val ts = attributes["ts"]?.decodeToString()?.toLongOrNull() ?: 0L
+                    val teacherName = attributes["teacher"]?.decodeToString()
+                    val host = info.primaryHostAddress()
+                    trySend(
+                        LanDiscoveryEvent.ServiceFound(
+                            LanServiceDescriptor(
+                                info.serviceName,
+                                host,
+                                info.port,
+                                token,
+                                joinCode,
+                                timestamp = ts,
+                                teacherName = teacherName
                             )
                         )
-                    }
-                }
-                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
-                    nsdManager.resolveService(
-                        serviceInfo,
-                        ContextCompat.getMainExecutor(context),
-                        resolver
                     )
+                }
+
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.UPSIDE_DOWN_CAKE) {
+                    val executor = ContextCompat.getMainExecutor(context)
+                    val callback = object : NsdManager.ServiceInfoCallback {
+                        override fun onServiceInfoCallbackRegistrationFailed(errorCode: Int) {
+                            emitError("Resolve failed $errorCode")
+                            runCatching { nsdManager.unregisterServiceInfoCallback(this) }
+                        }
+
+                        override fun onServiceUpdated(serviceInfo: NsdServiceInfo) {
+                            emitResolved(serviceInfo)
+                            runCatching { nsdManager.unregisterServiceInfoCallback(this) }
+                        }
+
+                        override fun onServiceLost() {
+                            Timber.w("NSD service info lost ${serviceInfo.serviceName}")
+                            runCatching { nsdManager.unregisterServiceInfoCallback(this) }
+                        }
+
+                        override fun onServiceInfoCallbackUnregistered() = Unit
+                    }
+                    nsdManager.registerServiceInfoCallback(serviceInfo, executor, callback)
                 } else {
+                    val resolver = object : NsdManager.ResolveListener {
+                        override fun onResolveFailed(serviceInfo: NsdServiceInfo?, errorCode: Int) {
+                            emitError("Resolve failed $errorCode")
+                        }
+
+                        override fun onServiceResolved(serviceInfo: NsdServiceInfo) {
+                            emitResolved(serviceInfo)
+                        }
+                    }
                     @Suppress("DEPRECATION")
                     nsdManager.resolveService(serviceInfo, resolver)
                 }

@@ -19,14 +19,12 @@ import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import com.classroom.quizmaster.ui.components.PrimaryButton
-import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 
 @Composable
 fun NeutralWelcomeScreen(
-    onTeacherFlow: () -> Unit,
-    onStudentFlow: () -> Unit,
+    onLogin: () -> Unit,
     onOfflineDemo: () -> Unit,
     modifier: Modifier = Modifier,
     isOfflineDemoLoading: Boolean = false
@@ -68,43 +66,21 @@ fun NeutralWelcomeScreen(
         }
 
         Column(
-            verticalArrangement = Arrangement.spacedBy(16.dp),
+            verticalArrangement = Arrangement.spacedBy(4.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            PrimaryButton(
+                text = "Login / Create Account",
+                onClick = onLogin,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                PrimaryButton(
-                    text = "I'm a teacher",
-                    onClick = onTeacherFlow,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    text = "Sign in to create quizzes, launch LAN sessions, and review reports.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-            Column(
-                verticalArrangement = Arrangement.spacedBy(4.dp),
+            )
+            Text(
+                text = "Sign in to create quizzes, launch LAN sessions, and join classroom games.",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
-            ) {
-                SecondaryButton(
-                    text = "I'm a student",
-                    onClick = onStudentFlow,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                Text(
-                    text = "Join classroom games with a code or over local network.",
-                    style = MaterialTheme.typography.bodySmall,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant,
-                    textAlign = TextAlign.Center,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
+            )
         }
 
         TextButton(onClick = onOfflineDemo, enabled = !isOfflineDemoLoading) {
@@ -118,8 +94,7 @@ fun NeutralWelcomeScreen(
 private fun NeutralWelcomeScreenPreview() {
     QuizMasterTheme {
         NeutralWelcomeScreen(
-            onTeacherFlow = {},
-            onStudentFlow = {},
+            onLogin = {},
             onOfflineDemo = {}
         )
     }
