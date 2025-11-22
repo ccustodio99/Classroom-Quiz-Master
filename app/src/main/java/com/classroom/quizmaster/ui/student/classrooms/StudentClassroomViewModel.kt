@@ -52,7 +52,9 @@ class StudentClassroomViewModel @Inject constructor(
                     ClassroomSummaryUi(
                         id = classroom.id,
                         name = classroom.name,
-                        teacherName = teacherNames[classroom.teacherId].ifBlank { "Teacher" },
+                        teacherName = teacherNames[classroom.teacherId]
+                            .orEmpty()
+                            .ifBlank { "Teacher" },
                         joinCode = classroom.joinCode
                     )
                 }

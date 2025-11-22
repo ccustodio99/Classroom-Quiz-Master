@@ -6,7 +6,11 @@ import com.classroom.quizmaster.BuildConfig
 import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.data.demo.SampleDataSeeder
 import com.classroom.quizmaster.data.network.ConnectivityMonitor
+import com.classroom.quizmaster.data.network.ConnectivityStatus
 import com.classroom.quizmaster.domain.model.AuthState
+import com.classroom.quizmaster.domain.model.Classroom
+import com.classroom.quizmaster.domain.model.Quiz
+import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
@@ -85,7 +89,14 @@ class TeacherHomeViewModel @Inject constructor(
             classroomRepository.classrooms,
             classroomRepository.topics,
             quizRepository.quizzes
-        ) { home, auth, seeded, seedUi, connectivity, classrooms, topics, quizzes ->
+        ) { home: TeacherHomeUiState,
+            auth: AuthState,
+            seeded: Set<String>,
+            seedUi: SeedUi,
+            connectivity: ConnectivityStatus,
+            classrooms: List<Classroom>,
+            topics: List<Topic>,
+            quizzes: List<Quiz> ->
             val classroomOverviews = classrooms.map { classroom ->
                 val topicCount = topics.count { topic -> topic.classroomId == classroom.id }
                 val quizCount = quizzes.count { quiz -> quiz.classroomId == classroom.id }
