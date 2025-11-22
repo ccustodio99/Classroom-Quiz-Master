@@ -184,6 +184,10 @@
     <string name="message_assignment_submitted">Assignment submitted</string>
     <string name="message_host_stopped">Hosting stopped</string>
     <string name="message_wait_for_wan">Offline. Changes will sync when online.</string>
+    <string name="teacher_classroom_join_code_label">Classroom join code</string>
+    <string name="teacher_classroom_join_code_description">Share this code with students so they can request to join.</string>
+    <string name="teacher_classroom_join_code_copy_content_description">Copy join code</string>
+    <string name="teacher_classroom_join_code_copied">Join code copied</string>
 
     <!-- Errors -->
     <string name="error_network_unavailable">Network unavailable. Check your connection.</string>
