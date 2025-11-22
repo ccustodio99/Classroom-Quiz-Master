@@ -27,6 +27,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import timber.log.Timber
 
 data class ClassroomOverviewUi(
     val id: String,
@@ -99,6 +100,17 @@ class TeacherHomeViewModel @Inject constructor(
         quizRepository.quizzes
     ) { classrooms: List<Classroom>, topics: List<Topic>, quizzes: List<Quiz> ->
         ContentData(classrooms, topics, quizzes)
+    }
+
+    init {
+        viewModelScope.launch {
+            runCatching {
+                classroomRepository.refresh()
+                quizRepository.refresh()
+            }.onFailure { error ->
+                Timber.w(error, "Failed to refresh teacher home data")
+            }
+        }
     }
 
     val uiState: StateFlow<TeacherHomeUiState> = combine(combinedHeader, combinedContent) { header, content ->
