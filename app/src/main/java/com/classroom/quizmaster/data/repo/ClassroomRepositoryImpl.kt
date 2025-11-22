@@ -125,7 +125,7 @@ class ClassroomRepositoryImpl @Inject constructor(
             }
             .distinctUntilChanged()
 
-     override val joinRequests: Flow<List<JoinRequest>> =
+    override val joinRequests: Flow<List<JoinRequest>> =
         authRepository.authState
             .switchMapLatest { auth ->
                 val teacherId = auth.userId
@@ -134,7 +134,10 @@ class ClassroomRepositoryImpl @Inject constructor(
                 } else {
                     joinRequestDao.observeForTeacher(teacherId)
                         .map { entities ->
-                            entities.map { it.toDomain() }
+                            entities
+                                .map { it.toDomain() }
+                                .filter { it.status == JoinRequestStatus.PENDING }
+                                .sortedByDescending { it.createdAt }
                         }
                 }
             }

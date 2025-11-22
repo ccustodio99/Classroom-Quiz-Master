@@ -1,5 +1,6 @@
 package com.classroom.quizmaster.ui.teacher.classrooms.detail
 
+import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -9,19 +10,31 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.ContentCopy
+import androidx.compose.material3.AlertDialog
+import androidx.compose.material3.Card
+import androidx.compose.material3.CardDefaults
+import androidx.compose.material3.Icon
+import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.getValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalClipboardManager
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.stringResource
+import androidx.compose.ui.text.AnnotatedString
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.classroom.quizmaster.R
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
@@ -79,6 +92,9 @@ fun TeacherClassroomDetailScreen(
     onOpenMaterial: (String) -> Unit
 ) {
     val pendingDelete = remember { mutableStateOf<ClassroomTestUi?>(null) }
+    val clipboard = LocalClipboardManager.current
+    val context = LocalContext.current
+    val copiedMessage = stringResource(R.string.teacher_classroom_join_code_copied)
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -95,6 +111,15 @@ fun TeacherClassroomDetailScreen(
         ).joinToString(separator = " · ")
         if (meta.isNotBlank()) {
             Text(text = meta, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+        }
+        state.joinCode.takeIf { it.isNotBlank() }?.let { joinCode ->
+            JoinCodeShareCard(
+                joinCode = joinCode,
+                onCopy = {
+                    clipboard.setText(AnnotatedString(joinCode))
+                    Toast.makeText(context, copiedMessage, Toast.LENGTH_SHORT).show()
+                }
+            )
         }
         if (state.errorMessage != null) {
             EmptyState(title = "Classroom unavailable", message = state.errorMessage)
@@ -196,6 +221,46 @@ fun TeacherClassroomDetailScreen(
                     }
                 }
             )
+        }
+    }
+}
+
+@Composable
+private fun JoinCodeShareCard(
+    joinCode: String,
+    onCopy: () -> Unit
+) {
+    Card(
+        modifier = Modifier.fillMaxWidth(),
+        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant),
+        elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                Text(
+                    text = stringResource(R.string.teacher_classroom_join_code_label),
+                    style = MaterialTheme.typography.labelMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(text = joinCode, style = MaterialTheme.typography.headlineSmall)
+                Text(
+                    text = stringResource(R.string.teacher_classroom_join_code_description),
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            IconButton(onClick = onCopy) {
+                Icon(
+                    imageVector = Icons.Default.ContentCopy,
+                    contentDescription = stringResource(R.string.teacher_classroom_join_code_copy_content_description)
+                )
+            }
         }
     }
 }
