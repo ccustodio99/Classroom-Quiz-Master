@@ -8,6 +8,8 @@ import com.classroom.quizmaster.data.demo.SampleDataSeeder
 import com.classroom.quizmaster.data.network.ConnectivityMonitor
 import com.classroom.quizmaster.domain.model.AuthState
 import com.classroom.quizmaster.domain.repository.AuthRepository
+import com.classroom.quizmaster.domain.repository.ClassroomRepository
+import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.ui.model.QuizOverviewUi
 import com.classroom.quizmaster.ui.model.StatusChipType
 import com.classroom.quizmaster.ui.model.StatusChipUi
@@ -64,6 +66,8 @@ data class TeacherHomeUiState(
 class TeacherHomeViewModel @Inject constructor(
     private val quizRepositoryUi: QuizRepositoryUi,
     private val authRepository: AuthRepository,
+    private val classroomRepository: ClassroomRepository,
+    private val quizRepository: QuizRepository,
     private val preferences: AppPreferencesDataSource,
     private val sampleDataSeeder: SampleDataSeeder,
     connectivityMonitor: ConnectivityMonitor
@@ -71,22 +75,27 @@ class TeacherHomeViewModel @Inject constructor(
 
     private val seedStatus = MutableStateFlow(SeedUi())
 
-    private val baseState = combine(
-        quizRepositoryUi.teacherHome,
-        authRepository.authState,
-        preferences.sampleSeededTeachers,
-        seedStatus
-    ) { home, auth, seeded, seedUi ->
-        CombinedHomeState(home, auth, seeded, seedUi)
-    }
-
     val uiState: StateFlow<TeacherHomeUiState> =
-        combine(baseState, connectivityMonitor.status) { combined, connectivity ->
-            val teacherId = combined.auth.userId
-            val hasSeededData = !teacherId.isNullOrBlank() && combined.seededTeachers.contains(teacherId)
+        combine(
+            quizRepositoryUi.teacherHome,
+            authRepository.authState,
+            preferences.sampleSeededTeachers,
+            seedStatus,
+            connectivityMonitor.status,
+            classroomRepository.classrooms,
+            classroomRepository.topics,
+            quizRepository.quizzes
+        ) { home, auth, seeded, seedUi, connectivity, classrooms, topics, quizzes ->
+            val classroomOverviews = classrooms.map { classroom ->
+                val topicCount = topics.count { topic -> topic.classroomId == classroom.id }
+                val quizCount = quizzes.count { quiz -> quiz.classroomId == classroom.id }
+                ClassroomOverviewUi(classroom.id, classroom.name, classroom.grade, topicCount, quizCount)
+            }
+            val teacherId = auth.userId
+            val hasSeededData = !teacherId.isNullOrBlank() && seeded.contains(teacherId)
             val canSeed = BuildConfig.DEBUG && !teacherId.isNullOrBlank() && !hasSeededData
             val showSampleCard = BuildConfig.DEBUG && (
-                canSeed || hasSeededData || combined.seedUi.isSeeding || combined.seedUi.isClearing
+                canSeed || hasSeededData || seedUi.isSeeding || seedUi.isClearing
                 )
             val offline = connectivity.isOffline
             val bannerHeadline = if (offline) "You're offline" else ""
@@ -100,16 +109,17 @@ class TeacherHomeViewModel @Inject constructor(
             } else {
                 emptyList()
             }
-            combined.base.copy(
+            home.copy(
+                classrooms = classroomOverviews,
                 connectivityHeadline = bannerHeadline,
                 connectivitySupporting = bannerSupporting,
                 statusChips = chips,
                 showSampleDataCard = showSampleCard,
-                isSeedingSamples = combined.seedUi.isSeeding,
-                isClearingSamples = combined.seedUi.isClearing,
-                canSeedSampleData = canSeed && !combined.seedUi.isSeeding && !combined.seedUi.isClearing,
-                canClearSampleData = hasSeededData && !combined.seedUi.isSeeding && !combined.seedUi.isClearing,
-                sampleSeedMessage = combined.seedUi.message
+                isSeedingSamples = seedUi.isSeeding,
+                isClearingSamples = seedUi.isClearing,
+                canSeedSampleData = canSeed && !seedUi.isSeeding && !seedUi.isClearing,
+                canClearSampleData = hasSeededData && !seedUi.isSeeding && !seedUi.isClearing,
+                sampleSeedMessage = seedUi.message
             )
         }
             .stateIn(
@@ -150,12 +160,5 @@ class TeacherHomeViewModel @Inject constructor(
         val isSeeding: Boolean = false,
         val isClearing: Boolean = false,
         val message: String? = null
-    )
-
-    private data class CombinedHomeState(
-        val base: TeacherHomeUiState,
-        val auth: AuthState,
-        val seededTeachers: Set<String>,
-        val seedUi: SeedUi
     )
 }

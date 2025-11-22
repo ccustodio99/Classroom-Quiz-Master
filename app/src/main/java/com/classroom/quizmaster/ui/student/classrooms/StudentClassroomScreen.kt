@@ -29,17 +29,6 @@ import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.SimpleTopBar
 
-data class ClassroomSummaryUi(
-    val id: String,
-    val name: String,
-    val teacherName: String,
-    val joinCode: String
-)
-
-data class StudentClassroomUiState(
-    val classrooms: List<ClassroomSummaryUi> = emptyList()
-)
-
 @Composable
 fun StudentClassroomRoute(
     onBack: () -> Unit,
@@ -84,13 +73,11 @@ fun StudentClassroomScreen(
             ) {
                 EmptyState(
                     title = "No classrooms yet",
-                    message = "Your teacher will send classrooms over LAN when available.",
-                    actions = {
-                        Button(onClick = onJoinClassroom) {
-                            Text("Join a classroom")
-                        }
-                    }
+                    message = "Join a classroom to get started."
                 )
+                Button(onClick = onJoinClassroom) {
+                    Text("Join a classroom")
+                }
             }
         } else {
             LazyColumn(

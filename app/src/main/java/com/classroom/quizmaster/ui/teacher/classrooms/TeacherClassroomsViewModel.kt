@@ -8,29 +8,19 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.launch
 import javax.inject.Inject
 
-data class StudentClassroomUiState(
-    val classrooms: List<ClassroomSummaryUi> = emptyList()
-)
-
-data class ClassroomSummaryUi(
-    val id: String,
-    val name: String,
-    val teacherName: String,
-    val joinCode: String
-)
-
 @HiltViewModel
-class StudentClassroomViewModel @Inject constructor(
-    classroomRepository: ClassroomRepository
+class TeacherClassroomsViewModel @Inject constructor(
+    private val classroomRepository: ClassroomRepository
 ) : ViewModel() {
 
-    val uiState: StateFlow<StudentClassroomUiState> =
+    val uiState: StateFlow<TeacherClassroomUiState> =
         classroomRepository.classrooms
             .map { classrooms ->
-                StudentClassroomUiState(
-                    classrooms = classrooms.filter { !it.isArchived }.map {
+                TeacherClassroomUiState(
+                    classrooms = classrooms.map {
                         ClassroomSummaryUi(
                             id = it.id,
                             name = it.name,
@@ -43,6 +33,17 @@ class StudentClassroomViewModel @Inject constructor(
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = StudentClassroomUiState()
+                initialValue = TeacherClassroomUiState()
             )
+
+    fun archive(classroomId: String) {
+        viewModelScope.launch {
+            classroomRepository.archiveClassroom(classroomId)
+        }
+    }
 }
+
+data class TeacherClassroomUiState(
+    val classrooms: List<ClassroomSummaryUi> = emptyList(),
+    val emptyMessage: String = ""
+)

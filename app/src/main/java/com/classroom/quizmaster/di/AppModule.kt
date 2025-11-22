@@ -14,6 +14,8 @@ import com.classroom.quizmaster.data.local.dao.QuizDao
 import com.classroom.quizmaster.data.local.dao.SessionDao
 import com.classroom.quizmaster.data.local.dao.TopicDao
 import com.classroom.quizmaster.data.local.dao.TeacherDao
+import com.classroom.quizmaster.data.local.dao.StudentDao
+import com.classroom.quizmaster.data.local.dao.JoinRequestDao
 import dagger.Module
 import dagger.Provides
 import dagger.hilt.InstallIn
@@ -92,6 +94,14 @@ object AppModule {
     @Provides
     @Singleton
     fun provideTeacherDao(database: QuizMasterDatabase): TeacherDao = database.teacherDao()
+
+    @Provides
+    @Singleton
+    fun provideStudentDao(database: QuizMasterDatabase): StudentDao = database.studentDao()
+
+    @Provides
+    @Singleton
+    fun provideJoinRequestDao(database: QuizMasterDatabase): JoinRequestDao = database.joinRequestDao()
 
     @Provides
     @Singleton

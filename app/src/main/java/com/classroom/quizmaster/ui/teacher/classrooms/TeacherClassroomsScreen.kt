@@ -36,6 +36,9 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.SimpleTopBar
+import com.classroom.quizmaster.ui.student.classrooms.ClassroomSummaryUi
+import com.classroom.quizmaster.ui.student.classrooms.TeacherClassroomUiState
+import com.classroom.quizmaster.ui.student.classrooms.TeacherClassroomsViewModel
 
 @Composable
 fun TeacherClassroomsRoute(
@@ -91,7 +94,7 @@ fun TeacherClassroomsScreen(
             ) {
                 EmptyState(
                     title = "Nothing here",
-                    message = state.emptyMessage.ifBlank { "Start by creating a classroom for your class." }
+                    message = "Start by creating a classroom for your class."
                 )
             }
         } else {

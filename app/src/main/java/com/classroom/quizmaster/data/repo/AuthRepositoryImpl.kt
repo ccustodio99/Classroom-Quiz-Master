@@ -40,7 +40,7 @@ class AuthRepositoryImpl @Inject constructor(
         .switchMapLatest { (state, flags, lastTeacherId, roles) ->
             val normalized = state.overrideRole(roles)
             when {
-                normalized.isAuthenticated && normalized.role == UserRole.TEACHER -> flow {
+                normalized.isAuthenticated && normalized.isTeacher -> flow {
                     val resolved = classroomDataSource.fetchTeacherProfile().getOrNull()
                     emit(resolved?.let { normalized.copy(teacherProfile = it) } ?: normalized)
                 }
@@ -59,6 +59,7 @@ class AuthRepositoryImpl @Inject constructor(
                             displayName = teacher.displayName,
                             email = teacher.email,
                             isAuthenticated = true,
+                            isTeacher = true,
                             role = UserRole.TEACHER,
                             teacherProfile = teacher
                         )
@@ -111,5 +112,5 @@ private data class AuthStateBundle(
 
 private fun AuthState.overrideRole(roleMap: Map<String, UserRole>): AuthState {
     val override = userId?.let { roleMap[it] }
-    return if (override != null && override != role) copy(role = override) else this
+    return if (override != null && override != role) copy(role = override, isTeacher = override == UserRole.TEACHER) else this
 }

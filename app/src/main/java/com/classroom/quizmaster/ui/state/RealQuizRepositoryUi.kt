@@ -247,7 +247,7 @@ class RealQuizRepositoryUi @Inject constructor(
         .sortedByDescending { it.createdAt }
         .map { classroom ->
             val topicCount = topics.count { it.classroomId == classroom.id }
-            val quizCount = quizzes.count { it.classroomId == classroom.id && it.category == QuizCategory.STANDARD }
+            val quizCount = quizzes.count { it.classroomId == classroom.id }
             ClassroomOverviewUi(
                 id = classroom.id,
                 name = classroom.name,

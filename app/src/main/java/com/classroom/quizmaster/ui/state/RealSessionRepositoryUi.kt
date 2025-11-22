@@ -21,6 +21,8 @@ import com.classroom.quizmaster.ui.model.StatusChipType
 import com.classroom.quizmaster.ui.model.StatusChipUi
 import com.classroom.quizmaster.ui.student.end.StudentEndUiState
 import com.classroom.quizmaster.ui.student.entry.StudentEntryUiState
+import com.classroom.quizmaster.ui.student.lobby.StudentLobbyUiState
+import com.classroom.quizmaster.ui.student.play.StudentPlayUiState
 import com.classroom.quizmaster.ui.teacher.host.HostLiveUiState
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyUiState
 import com.classroom.quizmaster.util.NicknamePolicy
@@ -40,10 +42,10 @@ import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
-import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
+import com.classroom.quizmaster.ui.model.defaultAvatarOptions
 
 
 @Singleton
@@ -83,8 +85,6 @@ class RealSessionRepositoryUi @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, com.classroom.quizmaster.domain.model.AuthState())
     private val preferredNickname = preferences.preferredNickname
         .stateIn(scope, SharingStarted.Eagerly, null)
-
-    private var discoveryJob: Job? = null
 
     init {
         authState
@@ -145,6 +145,12 @@ class RealSessionRepositoryUi @Inject constructor(
 
     override val studentEntry: Flow<StudentEntryUiState> = entryState.asStateFlow()
 
+    override val studentLobby: Flow<StudentLobbyUiState>
+        get() = flowOf(StudentLobbyUiState())
+
+    override val studentPlay: Flow<StudentPlayUiState>
+        get() = flowOf(StudentPlayUiState())
+
     override val studentEnd: Flow<StudentEndUiState> =
         combine(sessionState, participantsState, authState) { session, participants, auth ->
             if (session?.status != SessionStatus.ENDED) {
@@ -179,7 +185,7 @@ class RealSessionRepositoryUi @Inject constructor(
         }
             .distinctUntilChanged()
 
-    override val avatarOptions: Flow<List<AvatarOption>> = flowOf(emptyList())
+    override val avatarOptions: Flow<List<AvatarOption>> = flowOf(defaultAvatarOptions)
 
     override suspend fun configureHostContext(classroomId: String, topicId: String?, quizId: String?) {
         if (classroomId.isBlank()) {
@@ -306,11 +312,30 @@ class RealSessionRepositoryUi @Inject constructor(
         studentReady.update { !it }
     }
 
-    override suspend fun submitStudentAnswer(questionId: String, answers: List<String>) {
+    override suspend fun refreshLanHosts() {
+        // TODO: Implement
+    }
+
+    override suspend fun joinLanHost(hostId: String, nickname: String, avatarId: String?): Result<Unit> {
+        // TODO: Implement
+        return Result.success(Unit)
+    }
+
+    override suspend fun submitStudentAnswer(answerIds: List<String>) {
         val studentId = authState.value.userId ?: return
         val session = sessionState.value ?: return
-        val now = Clock.System.now()
-        submitAnswerUseCase.invoke(session.id, questionId, studentId, answers, now)
+        val question = quizzesState.value.firstOrNull { it.id == session.quizId }?.questions?.getOrNull(session.currentIndex) ?: return
+
+        submitAnswerUseCase(
+            uid = studentId,
+            questionId = question.id,
+            selected = answerIds,
+            correctAnswers = question.answerKey,
+            timeTakenMs = 0L, // This should be calculated
+            timeLimitMs = question.timeLimitSeconds * 1000L,
+            nonce = "",
+            revealHappened = session.reveal
+        )
     }
 
     override suspend fun joinWithCode(joinCode: String, nickname: String, avatarId: String?): Result<Unit> = runCatching {
@@ -334,25 +359,13 @@ class RealSessionRepositoryUi @Inject constructor(
         if (state.role != com.classroom.quizmaster.domain.model.UserRole.STUDENT) return
         val candidate = state.displayName?.takeIf { it.isNotBlank() }
         if (!candidate.isNullOrBlank()) {
-            applyNicknameIfEmpty(candidate)
+            entryState.update { it.copy(statusMessage = "Welcome, $candidate") }
         }
     }
 
     private fun applyPreferredNickname(saved: String?) {
         if (!saved.isNullOrBlank()) {
-            applyNicknameIfEmpty(saved)
-        }
-    }
-
-    private fun applyNicknameIfEmpty(nickname: String) {
-        entryState.update { state ->
-            if (state.isJoining) {
-                state
-            } else {
-                state.copy(
-                    statusMessage = "Welcome back, $nickname"
-                )
-            }
+            entryState.update { it.copy(statusMessage = "Welcome back, $saved") }
         }
     }
 
@@ -385,7 +398,7 @@ class RealSessionRepositoryUi @Inject constructor(
 
     private fun Participant.toPlayerLobby(teacherId: String): PlayerLobbyUi = PlayerLobbyUi(
         id = uid,
-        nickname = nickname.ifBlank { "Student" },
+        nickname = nickname.ifBlank { authState.value.displayName ?: "Student" },
         avatar = avatarForNickname(nickname),
         ready = totalPoints > 0,
         tag = when {
@@ -457,7 +470,7 @@ class RealSessionRepositoryUi @Inject constructor(
     private fun avatarForNickname(name: String): AvatarOption {
         val initials = name.split(" ").filter { it.isNotBlank() }.map { it.first().uppercaseChar() }
         val label = if (initials.isNotEmpty()) initials.joinToString("") else name.take(2).uppercase()
-        return AvatarOption(name.ifBlank { label.lowercase() }, label, emptyList(), null)
+        return AvatarOption(name.ifBlank { label.lowercase() }, label, emptyList(), "")
     }
 
     private fun failHostContext(message: String) {
