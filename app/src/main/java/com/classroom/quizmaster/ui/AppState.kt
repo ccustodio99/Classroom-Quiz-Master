@@ -46,7 +46,7 @@ class QuizMasterAppState internal constructor(
         when {
             value.startsWith("teacher/") -> {
                 currentShell = AppShell.Teacher
-                teacherTopBarVisible = value != AppRoute.TeacherHost.route
+                teacherTopBarVisible = value != AppRoute.TeacherHost.route && value != AppRoute.TeacherHome.route
                 studentTopBarVisible = false
                 neutralTopBarVisible = false
                 studentBottomBarVisible = false
