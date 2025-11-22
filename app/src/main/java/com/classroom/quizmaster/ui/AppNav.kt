@@ -213,6 +213,7 @@ fun AppNav(
                     onReports = { navController.navigate(AppRoute.TeacherReports.route) },
                     onClassrooms = { navController.navigate(AppRoute.TeacherClassrooms.route) },
                     onJoinRequests = { navController.navigate(AppRoute.TeacherJoinRequests.route) },
+                    onProfile = { navController.navigate(AppRoute.TeacherHome.route) },
                     onViewArchived = { navController.navigate(AppRoute.TeacherArchived.route) },
                     onClassroomSelected = { classroomId ->
                         navController.navigate(AppRoute.TeacherClassroomDetail.build(classroomId))

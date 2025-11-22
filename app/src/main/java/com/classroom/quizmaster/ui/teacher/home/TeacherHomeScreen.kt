@@ -18,10 +18,14 @@ import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.outlined.Settings
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.TopAppBar
+import androidx.compose.material3.IconButton
+import androidx.compose.material3.Scaffold
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +55,7 @@ fun TeacherHomeRoute(
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit,
+    onProfile: () -> Unit,
     onViewArchived: () -> Unit,
     onClassroomSelected: (String) -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
@@ -71,6 +76,7 @@ fun TeacherHomeRoute(
         onReports = onReports,
         onClassrooms = onClassrooms,
         onJoinRequests = onJoinRequests,
+        onProfile = onProfile,
         onViewArchived = onViewArchived,
         onSeedSampleData = viewModel::seedSampleData,
         onClearSampleData = viewModel::clearSampleData,
@@ -87,6 +93,7 @@ fun TeacherHomeScreen(
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit,
+    onProfile: () -> Unit,
     onViewArchived: () -> Unit,
     onSeedSampleData: () -> Unit,
     onClearSampleData: () -> Unit,
@@ -102,70 +109,87 @@ fun TeacherHomeScreen(
         }
     }
 
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
-    ) {
-        Text(text = state.greeting, style = MaterialTheme.typography.headlineLarge)
-        if (state.teacherName.isNotBlank()) {
-            Text(
-                text = state.teacherName,
-                style = MaterialTheme.typography.titleMedium,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
+    Scaffold(
+        topBar = {
+            TopAppBar(
+                title = { Text(text = "Home") },
+                actions = {
+                    IconButton(onClick = onProfile) {
+                        Icon(
+                            imageVector = Icons.Outlined.Settings,
+                            contentDescription = "Profile and settings"
+                        )
+                    }
+                }
             )
         }
-        if (
-            state.connectivityHeadline.isNotBlank() ||
-                state.connectivitySupporting.isNotBlank() ||
-                state.statusChips.isNotEmpty()
+    ) { paddingValues ->
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .verticalScroll(rememberScrollState())
+                .padding(paddingValues)
+                .padding(horizontal = 16.dp, vertical = 8.dp),
+            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            ConnectivityBanner(
-                headline = state.connectivityHeadline,
-                supportingText = state.connectivitySupporting,
-                statusChips = state.statusChips
+            Text(text = state.greeting, style = MaterialTheme.typography.headlineLarge)
+            if (state.teacherName.isNotBlank()) {
+                Text(
+                    text = state.teacherName,
+                    style = MaterialTheme.typography.titleMedium,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            if (
+                state.connectivityHeadline.isNotBlank() ||
+                    state.connectivitySupporting.isNotBlank() ||
+                    state.statusChips.isNotEmpty()
+            ) {
+                ConnectivityBanner(
+                    headline = state.connectivityHeadline,
+                    supportingText = state.connectivitySupporting,
+                    statusChips = state.statusChips
+                )
+            }
+            if (state.isOfflineDemo) {
+                TagChip(text = "Offline demo activated")
+            }
+            ClassroomsSection(
+                classrooms = state.classrooms,
+                onCreateClassroom = onCreateClassroom,
+                onViewArchived = onViewArchived,
+                onClassroomSelected = onClassroomSelected,
+                onJoinRequests = onJoinRequests
             )
-        }
-        if (state.isOfflineDemo) {
-            TagChip(text = "Offline demo activated")
-        }
-        ClassroomsSection(
-            classrooms = state.classrooms,
-            onCreateClassroom = onCreateClassroom,
-            onViewArchived = onViewArchived,
-            onClassroomSelected = onClassroomSelected,
-            onJoinRequests = onJoinRequests
-        )
-        ActionCards(
-            actionCards = state.actionCards,
-            hasTopics = hasTopics,
-            canCreateQuiz = canCreateQuiz,
-            onCreateQuiz = createQuizAction,
-            onAssignments = onAssignments,
-            onReports = onReports,
-            onClassrooms = onClassrooms
-        )
-        RecentQuizzesSection(
-            quizzes = state.recentQuizzes,
-            hasTopics = hasTopics,
-            canCreateQuiz = canCreateQuiz,
-            onCreateQuiz = if (hasTopics) createQuizAction else onCreateClassroom,
-            emptyMessage = state.emptyMessage
-        )
-        if (state.showSampleDataCard) {
-            SampleDataCard(
-                canSeed = state.canSeedSampleData,
-                canClear = state.canClearSampleData,
-                isSeeding = state.isSeedingSamples,
-                isClearing = state.isClearingSamples,
-                message = state.sampleSeedMessage,
-                onSeed = onSeedSampleData,
-                onClear = onClearSampleData
+            ActionCards(
+                actionCards = state.actionCards,
+                hasTopics = hasTopics,
+                canCreateQuiz = canCreateQuiz,
+                onCreateQuiz = createQuizAction,
+                onAssignments = onAssignments,
+                onReports = onReports,
+                onClassrooms = onClassrooms
             )
+            RecentQuizzesSection(
+                quizzes = state.recentQuizzes,
+                hasTopics = hasTopics,
+                canCreateQuiz = canCreateQuiz,
+                onCreateQuiz = if (hasTopics) createQuizAction else onCreateClassroom,
+                emptyMessage = state.emptyMessage
+            )
+            if (state.showSampleDataCard) {
+                SampleDataCard(
+                    canSeed = state.canSeedSampleData,
+                    canClear = state.canClearSampleData,
+                    isSeeding = state.isSeedingSamples,
+                    isClearing = state.isClearingSamples,
+                    message = state.sampleSeedMessage,
+                    onSeed = onSeedSampleData,
+                    onClear = onClearSampleData
+                )
+            }
+            Spacer(modifier = Modifier.height(32.dp))
         }
-        Spacer(modifier = Modifier.height(32.dp))
     }
 }
 
@@ -608,6 +632,7 @@ private fun TeacherHomePreview() {
             onReports = {},
             onClassrooms = {},
             onJoinRequests = {},
+            onProfile = {},
             onViewArchived = {},
             onSeedSampleData = {},
             onClearSampleData = {},
