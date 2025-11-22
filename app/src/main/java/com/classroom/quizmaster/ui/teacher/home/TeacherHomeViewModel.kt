@@ -79,65 +79,70 @@ class TeacherHomeViewModel @Inject constructor(
 
     private val seedStatus = MutableStateFlow(SeedUi())
 
-    val uiState: StateFlow<TeacherHomeUiState> =
-        combine(
-            quizRepositoryUi.teacherHome,
-            authRepository.authState,
-            preferences.sampleSeededTeachers,
-            seedStatus,
-            connectivityMonitor.status,
-            classroomRepository.classrooms,
-            classroomRepository.topics,
-            quizRepository.quizzes
-        ) { home: TeacherHomeUiState,
-            auth: AuthState,
-            seeded: Set<String>,
-            seedUi: SeedUi,
-            connectivity: ConnectivityStatus,
-            classrooms: List<Classroom>,
-            topics: List<Topic>,
-            quizzes: List<Quiz> ->
-            val classroomOverviews = classrooms.map { classroom ->
-                val topicCount = topics.count { topic -> topic.classroomId == classroom.id }
-                val quizCount = quizzes.count { quiz -> quiz.classroomId == classroom.id }
-                ClassroomOverviewUi(classroom.id, classroom.name, classroom.grade, topicCount, quizCount)
-            }
-            val teacherId = auth.userId
-            val hasSeededData = !teacherId.isNullOrBlank() && seeded.contains(teacherId)
-            val canSeed = BuildConfig.DEBUG && !teacherId.isNullOrBlank() && !hasSeededData
-            val showSampleCard = BuildConfig.DEBUG && (
-                canSeed || hasSeededData || seedUi.isSeeding || seedUi.isClearing
-                )
-            val offline = connectivity.isOffline
-            val bannerHeadline = if (offline) "You're offline" else ""
-            val bannerSupporting = if (offline) {
-                "We'll keep everything saved locally and sync once you're online."
-            } else {
-                ""
-            }
-            val chips = if (offline) {
-                listOf(StatusChipUi("offline", "Offline", StatusChipType.Offline))
-            } else {
-                emptyList()
-            }
-            home.copy(
-                classrooms = classroomOverviews,
-                connectivityHeadline = bannerHeadline,
-                connectivitySupporting = bannerSupporting,
-                statusChips = chips,
-                showSampleDataCard = showSampleCard,
-                isSeedingSamples = seedUi.isSeeding,
-                isClearingSamples = seedUi.isClearing,
-                canSeedSampleData = canSeed && !seedUi.isSeeding && !seedUi.isClearing,
-                canClearSampleData = hasSeededData && !seedUi.isSeeding && !seedUi.isClearing,
-                sampleSeedMessage = seedUi.message
-            )
+    private val combinedHeader = combine(
+        quizRepositoryUi.teacherHome,
+        authRepository.authState,
+        preferences.sampleSeededTeachers,
+        seedStatus,
+        connectivityMonitor.status
+    ) { home: TeacherHomeUiState,
+        auth: AuthState,
+        seeded: Set<String>,
+        seedUi: SeedUi,
+        connectivity: ConnectivityStatus ->
+        HeaderData(home, auth, seeded, seedUi, connectivity)
+    }
+
+    private val combinedContent = combine(
+        classroomRepository.classrooms,
+        classroomRepository.topics,
+        quizRepository.quizzes
+    ) { classrooms: List<Classroom>, topics: List<Topic>, quizzes: List<Quiz> ->
+        ContentData(classrooms, topics, quizzes)
+    }
+
+    val uiState: StateFlow<TeacherHomeUiState> = combine(combinedHeader, combinedContent) { header, content ->
+        val classroomOverviews = content.classrooms.map { classroom ->
+            val topicCount = content.topics.count { topic -> topic.classroomId == classroom.id }
+            val quizCount = content.quizzes.count { quiz -> quiz.classroomId == classroom.id }
+            ClassroomOverviewUi(classroom.id, classroom.name, classroom.grade, topicCount, quizCount)
         }
-            .stateIn(
-                scope = viewModelScope,
-                started = SharingStarted.WhileSubscribed(5_000),
-                initialValue = TeacherHomeUiState()
-            )
+        val teacherId = header.auth.userId
+        val hasSeededData = !teacherId.isNullOrBlank() && header.seeded.contains(teacherId)
+        val canSeed = BuildConfig.DEBUG && !teacherId.isNullOrBlank() && !hasSeededData
+        val showSampleCard = BuildConfig.DEBUG && (
+            canSeed || hasSeededData || header.seedUi.isSeeding || header.seedUi.isClearing
+        )
+        val offline = header.connectivity.isOffline
+        val bannerHeadline = if (offline) "You're offline" else ""
+        val bannerSupporting = if (offline) {
+            "We'll keep everything saved locally and sync once you're online."
+        } else {
+            ""
+        }
+        val chips = if (offline) {
+            listOf(StatusChipUi("offline", "Offline", StatusChipType.Offline))
+        } else {
+            emptyList()
+        }
+        header.home.copy(
+            classrooms = classroomOverviews,
+            connectivityHeadline = bannerHeadline,
+            connectivitySupporting = bannerSupporting,
+            statusChips = chips,
+            showSampleDataCard = showSampleCard,
+            isSeedingSamples = header.seedUi.isSeeding,
+            isClearingSamples = header.seedUi.isClearing,
+            canSeedSampleData = canSeed && !header.seedUi.isSeeding && !header.seedUi.isClearing,
+            canClearSampleData = hasSeededData && !header.seedUi.isSeeding && !header.seedUi.isClearing,
+            sampleSeedMessage = header.seedUi.message
+        )
+    }
+        .stateIn(
+            scope = viewModelScope,
+            started = SharingStarted.WhileSubscribed(5_000),
+            initialValue = TeacherHomeUiState()
+        )
 
     fun seedSampleData() {
         viewModelScope.launch {
@@ -171,5 +176,19 @@ class TeacherHomeViewModel @Inject constructor(
         val isSeeding: Boolean = false,
         val isClearing: Boolean = false,
         val message: String? = null
+    )
+
+    private data class HeaderData(
+        val home: TeacherHomeUiState,
+        val auth: AuthState,
+        val seeded: Set<String>,
+        val seedUi: SeedUi,
+        val connectivity: ConnectivityStatus
+    )
+
+    private data class ContentData(
+        val classrooms: List<Classroom>,
+        val topics: List<Topic>,
+        val quizzes: List<Quiz>
     )
 }
