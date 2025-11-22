@@ -20,7 +20,9 @@ data class TeacherSearchUiState(
     val selectedTeacher: Teacher? = null,
     val classrooms: List<Classroom> = emptyList(),
     val isLoading: Boolean = false,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val joinMessage: String? = null,
+    val isJoining: Boolean = false
 )
 
 @HiltViewModel
@@ -57,7 +59,14 @@ class TeacherSearchViewModel @Inject constructor(
 
     fun onTeacherSelected(teacher: Teacher) {
         viewModelScope.launch {
-            _uiState.update { it.copy(isLoading = true, selectedTeacher = teacher) }
+            _uiState.update {
+                it.copy(
+                    isLoading = true,
+                    selectedTeacher = teacher,
+                    joinMessage = null,
+                    errorMessage = null
+                )
+            }
             runCatching {
                 classroomRepository.getClassroomsForTeacher(teacher.id)
             }.onSuccess { classrooms ->
@@ -72,10 +81,19 @@ class TeacherSearchViewModel @Inject constructor(
 
     fun joinClassroom(classroomId: String, teacherId: String) {
         viewModelScope.launch {
+            _uiState.update { it.copy(isJoining = true, errorMessage = null, joinMessage = null) }
             runCatching {
                 classroomRepository.createJoinRequest(classroomId, teacherId)
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isJoining = false,
+                        joinMessage = "Request sent. Wait for the teacher to approve.",
+                        errorMessage = null
+                    )
+                }
             }.onFailure { e ->
-                _uiState.update { it.copy(errorMessage = e.message) }
+                _uiState.update { it.copy(isJoining = false, errorMessage = e.message) }
             }
         }
     }

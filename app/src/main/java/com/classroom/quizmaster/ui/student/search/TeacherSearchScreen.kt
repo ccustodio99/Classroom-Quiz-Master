@@ -91,15 +91,28 @@ fun TeacherSearchScreen(
             )
             Spacer(modifier = Modifier.height(16.dp))
 
+            uiState.joinMessage?.let { message ->
+                Text(message, color = MaterialTheme.colorScheme.primary)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+            uiState.errorMessage?.let { message ->
+                Text(message, color = MaterialTheme.colorScheme.error)
+                Spacer(modifier = Modifier.height(8.dp))
+            }
+
             if (uiState.selectedTeacher != null) {
                 if (uiState.classrooms.isEmpty()) {
                     EmptyState(title = "No Classrooms", message = "This teacher has no active classrooms.")
                 } else {
                     LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         items(uiState.classrooms) { classroom ->
-                            ClassroomCard(classroom = classroom, onJoin = {
-                                onJoinClassroom(classroom.id, classroom.teacherId)
-                            })
+                            ClassroomCard(
+                                classroom = classroom,
+                                isJoining = uiState.isJoining,
+                                onJoin = {
+                                    onJoinClassroom(classroom.id, classroom.teacherId)
+                                }
+                            )
                         }
                     }
                 }
@@ -134,7 +147,7 @@ private fun TeacherCard(teacher: Teacher, onClick: () -> Unit) {
 }
 
 @Composable
-private fun ClassroomCard(classroom: Classroom, onJoin: () -> Unit) {
+private fun ClassroomCard(classroom: Classroom, isJoining: Boolean, onJoin: () -> Unit) {
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
@@ -144,12 +157,12 @@ private fun ClassroomCard(classroom: Classroom, onJoin: () -> Unit) {
                 .fillMaxWidth()
                 .padding(16.dp),
             horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column {
-                Text(classroom.name, style = MaterialTheme.typography.titleMedium)
-                Text(classroom.subject, style = MaterialTheme.typography.bodyMedium)
-            }
-            Button(onClick = onJoin) {
+            ) {
+                Column {
+                    Text(classroom.name, style = MaterialTheme.typography.titleMedium)
+                    Text(classroom.subject, style = MaterialTheme.typography.bodyMedium)
+                }
+            Button(onClick = onJoin, enabled = !isJoining) {
                 Text("Join")
             }
         }

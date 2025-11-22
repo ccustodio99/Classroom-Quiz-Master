@@ -15,6 +15,7 @@ fun JoinClassroomRoute(
     val uiState by viewModel.uiState.collectAsStateWithLifecycle()
 
     JoinClassroomScreen(
+        state = uiState,
         onJoin = { joinCode ->
             viewModel.joinClassroom(joinCode, onJoin)
         },

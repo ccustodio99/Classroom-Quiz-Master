@@ -142,15 +142,37 @@ class ClassroomRepositoryImpl @Inject constructor(
 
 
     override suspend fun refresh() = withContext(ioDispatcher) {
-        val classrooms = classroomRemote.fetchClassrooms().getOrElse { emptyList() }
-        val topics = topicRemote.fetchTopics().getOrElse { emptyList() }
-        if (classrooms.isEmpty() && topics.isEmpty()) return@withContext
-        database.withTransaction {
-            if (classrooms.isNotEmpty()) {
-                classroomDao.upsertAll(classrooms.map { it.toEntity() })
+        val authState = authRepository.authState.firstOrNull() ?: return@withContext
+        if (authState.isTeacher) {
+            val classrooms = classroomRemote.fetchClassrooms().getOrElse { emptyList() }
+            val topics = topicRemote.fetchTopics().getOrElse { emptyList() }
+            val joinRequests = authState.userId?.let { teacherId ->
+                classroomRemote.fetchJoinRequestsForTeacher(teacherId).getOrElse { emptyList() }
+            }.orEmpty()
+            val students = joinRequests.map { it.studentId }.distinct().mapNotNull { id ->
+                classroomRemote.fetchStudentProfile(id).getOrNull()
             }
-            if (topics.isNotEmpty()) {
-                topicDao.upsertAll(topics.map { it.toEntity() })
+            if (classrooms.isEmpty() && topics.isEmpty() && joinRequests.isEmpty() && students.isEmpty()) return@withContext
+            database.withTransaction {
+                if (classrooms.isNotEmpty()) {
+                    classroomDao.upsertAll(classrooms.map { it.toEntity() })
+                }
+                if (topics.isNotEmpty()) {
+                    topicDao.upsertAll(topics.map { it.toEntity() })
+                }
+                if (joinRequests.isNotEmpty()) {
+                    joinRequestDao.upsertAll(joinRequests.map { it.toEntity() })
+                }
+                if (students.isNotEmpty()) {
+                    studentDao.upsertAll(students.map { it.toEntity() })
+                }
+            }
+        } else {
+            val studentId = authState.userId ?: return@withContext
+            val classrooms = classroomRemote.getClassroomsForStudent(studentId).getOrElse { emptyList() }
+            if (classrooms.isEmpty()) return@withContext
+            database.withTransaction {
+                classroomDao.upsertAll(classrooms.map { it.toEntity() })
             }
         }
     }
@@ -227,7 +249,15 @@ class ClassroomRepositoryImpl @Inject constructor(
 
         classroomRemote.approveJoinRequest(requestId).getOrThrow()
 
-        val updatedRequest = request.copy(status = JoinRequestStatus.APPROVED.name)
+        val updatedRequest = request.copy(
+            status = JoinRequestStatus.APPROVED.name,
+            resolvedAt = Clock.System.now().toEpochMilliseconds()
+        )
+        val classroom = classroomDao.get(request.classroomId)
+        if (classroom != null) {
+            val updatedStudents = (classroom.students + request.studentId).distinct()
+            classroomDao.upsert(classroom.copy(students = updatedStudents))
+        }
         joinRequestDao.upsert(updatedRequest)
     }
 
@@ -238,7 +268,10 @@ class ClassroomRepositoryImpl @Inject constructor(
 
         classroomRemote.denyJoinRequest(requestId).getOrThrow()
 
-        val updatedRequest = request.copy(status = JoinRequestStatus.DENIED.name)
+        val updatedRequest = request.copy(
+            status = JoinRequestStatus.DENIED.name,
+            resolvedAt = Clock.System.now().toEpochMilliseconds()
+        )
         joinRequestDao.upsert(updatedRequest)
     }
 
