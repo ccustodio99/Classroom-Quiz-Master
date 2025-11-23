@@ -19,6 +19,7 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -85,6 +86,7 @@ fun TeacherHomeRoute(
 }
 
 @Composable
+@OptIn(ExperimentalMaterial3Api::class)
 fun TeacherHomeScreen(
     state: TeacherHomeUiState,
     onCreateClassroom: () -> Unit,
