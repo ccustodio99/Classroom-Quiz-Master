@@ -32,6 +32,7 @@ import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
 import com.classroom.quizmaster.ui.student.assignments.StudentAssignmentsRoute
+import com.classroom.quizmaster.ui.student.classrooms.StudentClassroomDetailRoute
 import com.classroom.quizmaster.ui.student.classrooms.StudentClassroomRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
 import com.classroom.quizmaster.ui.teacher.assignments.editor.AssignmentEditorRoute
@@ -125,6 +126,9 @@ sealed class AppRoute(val route: String) {
     data object StudentPlay : AppRoute("student/play")
     data object StudentEnd : AppRoute("student/end")
     data object StudentClassrooms : AppRoute("student/classrooms")
+    data object StudentClassroomDetail : AppRoute("student/classrooms/{classroomId}") {
+        fun build(classroomId: String) = "student/classrooms/$classroomId"
+    }
     data object StudentJoinClassroom : AppRoute("student/classrooms/join")
     data object StudentTeacherSearch : AppRoute("student/search")
 }
@@ -202,7 +206,7 @@ fun AppNav(
                         }
                     },
                     onStudentAuthenticated = {
-                        navController.navigate(AppRoute.StudentJoin.route) {
+                        navController.navigate(AppRoute.StudentClassrooms.route) {
                             popUpTo(AppRoute.Auth.route) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -548,12 +552,24 @@ fun AppNav(
             }
             composable(AppRoute.StudentClassrooms.route) {
                 StudentClassroomRoute(
-                    onBack = { navController.popBackStack() },
                     onJoinClassroom = { navController.navigate(AppRoute.StudentJoinClassroom.route) },
                     onOpenClassroom = { classroomId ->
-                        navController.navigate(AppRoute.TeacherClassroomDetail.build(classroomId))
+                        navController.navigate(AppRoute.StudentClassroomDetail.build(classroomId))
                     }
                 )
+            }
+            composable(
+                route = AppRoute.StudentClassroomDetail.route,
+                arguments = listOf(navArgument("classroomId") { type = NavType.StringType })
+            ) { entry ->
+                val classroomId = entry.arguments?.getString("classroomId").orEmpty()
+                if (classroomId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    StudentClassroomDetailRoute(
+                        onBack = { navController.popBackStack() }
+                    )
+                }
             }
             composable(AppRoute.StudentAssignments.route) {
                 StudentAssignmentsRoute()
