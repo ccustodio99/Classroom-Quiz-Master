@@ -365,9 +365,10 @@ private fun QuestionList(
                         label = { Text("Explanation (shown after reveal)") },
                         modifier = Modifier.fillMaxWidth()
                     )
-                    TextButton(onClick = { /* media picker placeholder */ }) {
-                        Text("Attach media (UI only)")
-                    }
+                    val mediaLabel = question.mediaThumb?.takeIf { it.isNotBlank() }
+                        ?.let { "Attached media: $it" }
+                        ?: "Add media from your materials library before hosting"
+                    Text(mediaLabel, style = MaterialTheme.typography.bodySmall)
                 }
             }
         }

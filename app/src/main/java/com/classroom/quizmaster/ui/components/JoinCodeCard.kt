@@ -141,14 +141,14 @@ private fun QrCodeImage(
                     contentScale = ContentScale.FillBounds
                 )
             } else {
-                QrPlaceholderContents()
+                QrUnavailableContents()
             }
         }
     }
 }
 
 @Composable
-private fun QrPlaceholderContents() {
+private fun QrUnavailableContents() {
     val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
     val dashedBorderColor = onSurfaceVariantColor.copy(alpha = 0.2f)
     Box(
@@ -157,7 +157,7 @@ private fun QrPlaceholderContents() {
     ) {
         Icon(
             imageVector = Icons.Default.QrCode2,
-            contentDescription = "QR code placeholder",
+            contentDescription = "QR code not available",
             modifier = Modifier.size(48.dp),
             tint = onSurfaceVariantColor
         )
