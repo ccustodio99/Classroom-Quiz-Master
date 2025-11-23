@@ -17,7 +17,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.Clock
 
-internal data class TopicUi(
+data class TopicUi(
     val id: String,
     val name: String,
     val description: String
