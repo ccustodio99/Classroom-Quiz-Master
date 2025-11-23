@@ -23,6 +23,9 @@ interface AssignmentDao {
     @Query("SELECT * FROM submissions WHERE assignmentId = :assignmentId")
     fun observeSubmissions(assignmentId: String): Flow<List<SubmissionLocalEntity>>
 
+    @Query("SELECT * FROM submissions WHERE uid = :uid")
+    fun observeSubmissionsForUser(uid: String): Flow<List<SubmissionLocalEntity>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertSubmission(submission: SubmissionLocalEntity)
 

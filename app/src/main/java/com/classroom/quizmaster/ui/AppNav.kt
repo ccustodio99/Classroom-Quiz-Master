@@ -4,8 +4,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.automirrored.outlined.Assignment
 import androidx.compose.material.icons.outlined.AccountCircle
-import androidx.compose.material.icons.outlined.Assignment
 import androidx.compose.material.icons.outlined.GroupAdd
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
@@ -32,6 +32,7 @@ import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
 import com.classroom.quizmaster.ui.student.assignments.StudentAssignmentsRoute
+import com.classroom.quizmaster.ui.student.assignments.StudentAssignmentPlayRoute
 import com.classroom.quizmaster.ui.student.classrooms.StudentClassroomDetailRoute
 import com.classroom.quizmaster.ui.student.classrooms.StudentClassroomRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
@@ -53,6 +54,11 @@ import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomRoute
 import com.classroom.quizmaster.ui.teacher.requests.JoinRequestsRoute
 import com.classroom.quizmaster.ui.student.search.TeacherSearchRoute
 import com.classroom.quizmaster.ui.student.profile.StudentProfileRoute
+import com.classroom.quizmaster.ui.student.join.StudentJoinRoute
+import com.classroom.quizmaster.ui.student.join.JoinLanRoute
+import com.classroom.quizmaster.ui.student.assignments.StudentAssignmentDetailRoute
+import com.classroom.quizmaster.ui.materials.editor.MaterialEditorRoute
+import com.classroom.quizmaster.ui.materials.detail.MaterialDetailRoute
 
 sealed class AppRoute(val route: String) {
     data object Welcome : AppRoute("neutral/welcome")
@@ -121,6 +127,12 @@ sealed class AppRoute(val route: String) {
     data object StudentJoinCode : AppRoute("student/joinCode")
     data object StudentJoin : AppRoute("student/join")
     data object StudentAssignments : AppRoute("student/assignments")
+    data object StudentAssignmentDetail : AppRoute("student/assignments/{assignmentId}") {
+        fun build(assignmentId: String) = "student/assignments/$assignmentId"
+    }
+    data object StudentAssignmentPlay : AppRoute("student/assignments/{assignmentId}/play") {
+        fun build(assignmentId: String) = "student/assignments/$assignmentId/play"
+    }
     data object StudentProfile : AppRoute("student/profile")
     data object StudentLobby : AppRoute("student/lobby")
     data object StudentPlay : AppRoute("student/play")
@@ -128,6 +140,9 @@ sealed class AppRoute(val route: String) {
     data object StudentClassrooms : AppRoute("student/classrooms")
     data object StudentClassroomDetail : AppRoute("student/classrooms/{classroomId}") {
         fun build(classroomId: String) = "student/classrooms/$classroomId"
+    }
+    data object StudentMaterialDetail : AppRoute("student/materials/{materialId}") {
+        fun build(materialId: String) = "student/materials/$materialId"
     }
     data object StudentJoinClassroom : AppRoute("student/classrooms/join")
     data object StudentTeacherSearch : AppRoute("student/search")
@@ -144,7 +159,7 @@ fun AppNav(
         listOf(
             BottomNavItem(AppRoute.StudentClassrooms.route, Icons.AutoMirrored.Outlined.LibraryBooks, "Classrooms"),
             BottomNavItem(AppRoute.StudentJoin.route, Icons.Outlined.GroupAdd, "Join"),
-            BottomNavItem(AppRoute.StudentAssignments.route, Icons.Outlined.Assignment, "Assignments"),
+            BottomNavItem(AppRoute.StudentAssignments.route, Icons.AutoMirrored.Outlined.Assignment, "Assignments"),
             BottomNavItem(AppRoute.StudentProfile.route, Icons.Outlined.AccountCircle, "Profile")
         )
     }
@@ -222,10 +237,19 @@ fun AppNav(
                         navController.navigate(AppRoute.TeacherQuizCreate.build(classroomId, topicId))
                     },
                     onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
+                    onLiveSessions = { classId ->
+                        navController.navigate(AppRoute.TeacherLaunch.build(classId))
+                    },
                     onReports = { navController.navigate(AppRoute.TeacherReports.route) },
                     onClassrooms = { navController.navigate(AppRoute.TeacherClassrooms.route) },
                     onJoinRequests = { navController.navigate(AppRoute.TeacherJoinRequests.route) },
                     onProfile = { navController.navigate(AppRoute.TeacherHome.route) },
+                    onLogout = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            popUpTo(AppRoute.Auth.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    },
                     onViewArchived = { navController.navigate(AppRoute.TeacherArchived.route) },
                     onClassroomSelected = { classroomId ->
                         navController.navigate(AppRoute.TeacherClassroomDetail.build(classroomId))
@@ -295,7 +319,12 @@ fun AppNav(
                         },
                         onOpenMaterial = { materialId ->
                             navController.navigate(AppRoute.TeacherMaterialEdit.build(materialId))
-                        }
+                        },
+                        onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
+                        onLaunchLive = { classId ->
+                            navController.navigate(AppRoute.TeacherLaunch.build(classId))
+                        },
+                        onReports = { navController.navigate(AppRoute.TeacherReports.route) }
                     )
                 }
             }
@@ -486,15 +515,40 @@ fun AppNav(
             composable(AppRoute.TeacherArchived.route) {
                 ArchivedClassroomsRoute(onBack = { navController.popBackStack() })
             }
+            composable(
+                route = AppRoute.TeacherMaterialCreate.route,
+                arguments = listOf(navArgument("classroomId") { type = NavType.StringType })
+            ) { entry ->
+                val classroomId = entry.arguments?.getString("classroomId").orEmpty()
+                if (classroomId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    MaterialEditorRoute(
+                        onBack = { navController.popBackStack() },
+                        onSaved = { navController.popBackStack() }
+                    )
+                }
+            }
+            composable(
+                route = AppRoute.TeacherMaterialEdit.route,
+                arguments = listOf(navArgument("materialId") { type = NavType.StringType })
+            ) { entry ->
+                val materialId = entry.arguments?.getString("materialId").orEmpty()
+                if (materialId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    MaterialEditorRoute(
+                        onBack = { navController.popBackStack() },
+                        onSaved = { navController.popBackStack() }
+                    )
+                }
+            }
             composable(AppRoute.StudentJoin.route) {
-                StudentEntryRoute(
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
-                    onTeacherSignIn = {
-                        navController.navigate(AppRoute.Auth.route) {
-                            launchSingleTop = true
-                        }
-                    },
-                    onFindTeacher = { navController.navigate(AppRoute.StudentTeacherSearch.route) }
+                StudentJoinRoute(
+                    onFindTeacher = { navController.navigate(AppRoute.StudentTeacherSearch.route) },
+                    onOpenJoinLan = { navController.navigate(AppRoute.StudentJoinLan.route) },
+                    onSessionJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onCurrentSession = { navController.navigate(AppRoute.StudentLobby.route) }
                 )
             }
             composable(AppRoute.StudentEntry.route) {
@@ -509,15 +563,8 @@ fun AppNav(
                 )
             }
             composable(AppRoute.StudentJoinLan.route) {
-                StudentEntryRoute(
-                    initialTab = EntryTab.Lan,
-                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
-                    onTeacherSignIn = {
-                        navController.navigate(AppRoute.Auth.route) {
-                            launchSingleTop = true
-                        }
-                    },
-                    onFindTeacher = { navController.navigate(AppRoute.StudentTeacherSearch.route) }
+                JoinLanRoute(
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) }
                 )
             }
             composable(AppRoute.StudentJoinCode.route) {
@@ -567,12 +614,36 @@ fun AppNav(
                     navController.popBackStack()
                 } else {
                     StudentClassroomDetailRoute(
-                        onBack = { navController.popBackStack() }
+                        onBack = { navController.popBackStack() },
+                        onOpenMaterial = { materialId ->
+                            navController.navigate(AppRoute.StudentMaterialDetail.build(materialId))
+                        }
+                    )
+                }
+            }
+            composable(
+                route = AppRoute.StudentMaterialDetail.route,
+                arguments = listOf(navArgument("materialId") { type = NavType.StringType })
+            ) { entry ->
+                val materialId = entry.arguments?.getString("materialId").orEmpty()
+                if (materialId.isBlank()) {
+                    navController.popBackStack()
+                } else {
+                    MaterialDetailRoute(
+                        allowEditing = false,
+                        allowShare = false,
+                        onBack = { navController.popBackStack() },
+                        onEdit = {},
+                        onArchived = { navController.popBackStack() }
                     )
                 }
             }
             composable(AppRoute.StudentAssignments.route) {
-                StudentAssignmentsRoute()
+                StudentAssignmentsRoute(
+                    onAssignmentSelected = { id ->
+                        navController.navigate(AppRoute.StudentAssignmentDetail.build(id))
+                    }
+                )
             }
             composable(AppRoute.StudentProfile.route) {
                 StudentProfileRoute(onLoggedOut = {
@@ -581,6 +652,26 @@ fun AppNav(
                         launchSingleTop = true
                     }
                 })
+            }
+            composable(
+                route = AppRoute.StudentAssignmentDetail.route,
+                arguments = listOf(navArgument("assignmentId") { type = NavType.StringType })
+            ) {
+                StudentAssignmentDetailRoute(
+                    onBack = { navController.popBackStack() },
+                    onStart = { assignmentId ->
+                        navController.navigate(AppRoute.StudentAssignmentPlay.build(assignmentId))
+                    }
+                )
+            }
+            composable(
+                route = AppRoute.StudentAssignmentPlay.route,
+                arguments = listOf(navArgument("assignmentId") { type = NavType.StringType })
+            ) {
+                StudentAssignmentPlayRoute(
+                    onBack = { navController.popBackStack() },
+                    onFinished = { navController.popBackStack() }
+                )
             }
             composable(AppRoute.StudentJoinClassroom.route) {
                 JoinClassroomRoute(

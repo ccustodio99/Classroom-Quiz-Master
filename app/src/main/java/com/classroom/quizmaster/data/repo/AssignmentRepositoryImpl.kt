@@ -43,15 +43,15 @@ class AssignmentRepositoryImpl @Inject constructor(
     override val assignments: Flow<List<Assignment>> =
         authRepository.authState
             .switchMapLatest { auth ->
-                val teacherId = auth.userId
-                if (teacherId.isNullOrBlank()) {
+                val userId = auth.userId
+                if (userId.isNullOrBlank()) {
                     flowOf(emptyList())
-                } else {
+                } else if (auth.isTeacher) {
                     combine(
                         assignmentDao.observeAssignments(),
-                        classroomDao.observeForTeacher(teacherId),
-                        topicDao.observeForTeacher(teacherId),
-                        quizDao.observeActiveForTeacher(teacherId)
+                        classroomDao.observeForTeacher(userId),
+                        topicDao.observeForTeacher(userId),
+                        quizDao.observeActiveForTeacher(userId)
                     ) { assignments, classrooms, topics, quizzes ->
                         val activeClassrooms = classrooms.map { it.id }.toSet()
                         val activeTopics = topics.map { it.id }.toSet()
@@ -64,12 +64,32 @@ class AssignmentRepositoryImpl @Inject constructor(
                             }
                             .map { it.toDomain() }
                     }
+                } else {
+                    combine(
+                        assignmentDao.observeAssignments(),
+                        classroomDao.observeForStudent(userId)
+                    ) { assignments, classrooms ->
+                        val allowedClassrooms = classrooms
+                            .filterNot { it.isArchived }
+                            .map { it.id }
+                            .toSet()
+                        assignments
+                            .filter { assignment ->
+                                assignment.classroomId in allowedClassrooms && !assignment.isArchived
+                            }
+                            .map { it.toDomain() }
+                    }
                 }
             }
             .distinctUntilChanged()
 
     override fun submissions(assignmentId: String): Flow<List<Submission>> =
         assignmentDao.observeSubmissions(assignmentId)
+            .map { entities -> entities.map { it.toDomain() } }
+            .distinctUntilChanged()
+
+    override fun submissionsForUser(userId: String): Flow<List<Submission>> =
+        assignmentDao.observeSubmissionsForUser(userId)
             .map { entities -> entities.map { it.toDomain() } }
             .distinctUntilChanged()
 

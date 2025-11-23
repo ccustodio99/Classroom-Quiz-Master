@@ -4,6 +4,7 @@ import android.widget.Toast
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
@@ -35,6 +36,8 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import android.content.Intent
+import android.net.Uri
 import com.classroom.quizmaster.domain.model.MaterialAttachment
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
 import com.classroom.quizmaster.ui.components.PrimaryButton
@@ -211,11 +214,47 @@ fun MaterialDetailScreen(
 private fun AttachmentCard(attachment: MaterialAttachment) {
     val clipboard = LocalClipboardManager.current
     val context = LocalContext.current
+    val canOpen = attachment.type != MaterialAttachmentType.TEXT && attachment.uri.isNotBlank()
+    val openAttachment: () -> Unit = {
+        if (canOpen) {
+            val parsed = runCatching { Uri.parse(attachment.uri) }.getOrNull()
+            if (parsed != null) {
+                val resolvedType = attachment.mimeType
+                    ?.takeIf { it.isNotBlank() }
+                    ?: runCatching { context.contentResolver.getType(parsed) }.getOrNull()
+
+                fun launch(intent: Intent): Boolean =
+                    runCatching { context.startActivity(intent) }.isSuccess
+
+                val primary = Intent(Intent.ACTION_VIEW).apply {
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                    if (!resolvedType.isNullOrBlank()) {
+                        setDataAndType(parsed, resolvedType)
+                    } else {
+                        data = parsed
+                    }
+                }
+                val fallback = Intent(Intent.ACTION_VIEW).apply {
+                    data = parsed
+                    addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                }
+
+                val launched = launch(primary) || launch(fallback)
+                if (!launched) {
+                    Toast.makeText(context, "No app found to open this attachment", Toast.LENGTH_SHORT).show()
+                }
+            }
+        }
+    }
     Card(
         modifier = Modifier.fillMaxWidth(),
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
-        Column(modifier = Modifier.padding(16.dp)) {
+        Column(
+            modifier = Modifier
+                .padding(16.dp)
+                .let { base -> if (canOpen) base.clickable(onClick = openAttachment) else base },
+        ) {
             Box(modifier = Modifier.fillMaxWidth()) {
                 Column(modifier = Modifier.align(Alignment.CenterStart)) {
                     Text(
@@ -251,17 +290,32 @@ private fun AttachmentCard(attachment: MaterialAttachment) {
                     )
                 }
                 MaterialAttachmentType.LINK, MaterialAttachmentType.VIDEO -> {
-                    Text(
-                        text = attachment.uri.ifBlank { "No link provided" },
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.primary,
-                        fontWeight = FontWeight.Medium
-                    )
+                    if (attachment.uri.isBlank()) {
+                        Text(
+                            text = "No link provided",
+                            style = MaterialTheme.typography.bodyMedium
+                        )
+                    } else {
+                        Text(
+                            text = "Tap to open",
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.primary,
+                            fontWeight = FontWeight.Medium
+                        )
+                        Text(
+                            text = attachment.uri,
+                            style = MaterialTheme.typography.bodySmall,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
                 }
                 MaterialAttachmentType.FILE -> {
                     Text(
-                        text = attachment.uri.ifBlank { "File path not set" },
-                        style = MaterialTheme.typography.bodyMedium
+                        text = if (attachment.uri.isNotBlank()) "Tap to open file" else "File path not set",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = if (attachment.uri.isNotBlank()) MaterialTheme.colorScheme.primary else MaterialTheme.colorScheme.onSurface
                     )
                     if (!attachment.mimeType.isNullOrBlank()) {
                         Text(

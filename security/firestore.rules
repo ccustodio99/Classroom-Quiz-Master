@@ -23,14 +23,14 @@ service cloud.firestore {
     }
 
     function sessionJoinable(path) {
-      if (!exists(path)) {
-        return false;
-      }
-      let session = get(path).data;
-      let status = session.status;
-      let currentIndex = session.currentIndex == null ? 0 : session.currentIndex;
-      let lockAfterQ1 = session.lockAfterQ1 == true;
-      return (status == 'lobby' || status == 'active') && !(lockAfterQ1 && currentIndex >= 1);
+      return exists(path) &&
+        (
+          (get(path).data.status == 'lobby' || get(path).data.status == 'active') &&
+          !(
+            (get(path).data.lockAfterQ1 == true) &&
+            ((get(path).data.currentIndex == null ? 0 : get(path).data.currentIndex) >= 1)
+          )
+        );
     }
 
     function cleanAttemptPayload() {
@@ -58,12 +58,23 @@ service cloud.firestore {
     }
 
     match /teachers/{teacherId} {
-      allow read, write: if isTeacher() && request.auth.uid == teacherId;
+      allow read: if isAuthenticated();
+      allow create, update: if isTeacher() && request.auth.uid == teacherId;
+      allow delete: if false;
+    }
+
+    // Student profiles: any authenticated user can manage their own profile; teachers may read for roster/join requests.
+    match /students/{studentId} {
+      allow read: if (request.auth != null && request.auth.uid == studentId) || isTeacher();
+      allow create, update: if isAuthenticated() && request.auth.uid == studentId;
+      allow delete: if false;
     }
 
     match /classrooms/{classroomId} {
       allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      allow read, update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+      // Teachers manage their own classrooms; any authenticated user can read classrooms (client filters archived).
+      allow read: if isAuthenticated();
+      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
 
     match /quizzes/{quizId} {
@@ -115,6 +126,16 @@ service cloud.firestore {
           (request.auth != null && request.auth.uid == uid);
         allow write: if false;
       }
+    }
+
+    // Join requests: students create their own requests; teachers read/resolve requests for their classrooms.
+    match /joinRequests/{requestId} {
+      allow create: if isAuthenticated() &&
+        request.resource.data.studentId == request.auth.uid;
+      allow read: if isTeacher() ||
+        (request.auth != null && request.auth.uid == resource.data.studentId);
+      allow update: if isTeacher() && resource.data.teacherId == request.auth.uid;
+      allow delete: if false;
     }
 
     match /lanMeta/{sessionId} {

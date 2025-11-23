@@ -47,7 +47,6 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.R
 import com.classroom.quizmaster.ui.components.AvatarPicker
-import com.classroom.quizmaster.ui.components.NickNameField
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.QuizSnackbar
 import com.classroom.quizmaster.ui.components.SegmentOption
@@ -93,12 +92,12 @@ fun AuthRoute(
         onProfileRoleSelected = viewModel::updateProfileRole,
         onProfileSchoolChange = viewModel::updateProfileSchool,
         onProfileSubjectChange = viewModel::updateProfileSubject,
-        onProfileNicknameChange = viewModel::updateProfileNickname,
         onAvatarSelected = viewModel::onAvatarSelected,
         onSignupBack = viewModel::backToSignupCredentials,
         onLogin = viewModel::signIn,
         onSignup = viewModel::signUp,
-        onDemo = viewModel::continueOfflineDemo
+        onDemo = viewModel::continueOfflineDemo,
+        onForgotPassword = viewModel::forgotPassword
     )
 }
 
@@ -116,12 +115,12 @@ fun AuthScreen(
     onProfileRoleSelected: (SignupRole) -> Unit,
     onProfileSchoolChange: (String) -> Unit,
     onProfileSubjectChange: (String) -> Unit,
-    onProfileNicknameChange: (String) -> Unit,
     onAvatarSelected: (String) -> Unit,
     onSignupBack: () -> Unit,
     onLogin: () -> Unit,
     onSignup: () -> Unit,
-    onDemo: () -> Unit
+    onDemo: () -> Unit,
+    onForgotPassword: () -> Unit
 ) {
     var teacherTab by rememberSaveable { mutableStateOf(TeacherAuthTab.SignIn) }
 
@@ -156,20 +155,20 @@ fun AuthScreen(
             onLoginPassword = onLoginPassword,
             onLogin = onLogin,
             onDemo = onDemo,
-            onSignupEmail = onSignupEmail,
-            onSignupPassword = onSignupPassword,
-            onSignupConfirm = onSignupConfirm,
-            onTermsToggle = onTermsToggle,
-            onSignup = onSignup,
-            onProfileNameChange = onProfileNameChange,
-            onProfileRoleSelected = onProfileRoleSelected,
-            onProfileSchoolChange = onProfileSchoolChange,
-            onProfileSubjectChange = onProfileSubjectChange,
-            onProfileNicknameChange = onProfileNicknameChange,
-            onAvatarSelected = onAvatarSelected,
-            onSignupBack = onSignupBack
-        )
-    }
+            onForgotPassword = onForgotPassword,
+        onSignupEmail = onSignupEmail,
+        onSignupPassword = onSignupPassword,
+        onSignupConfirm = onSignupConfirm,
+        onTermsToggle = onTermsToggle,
+        onSignup = onSignup,
+        onProfileNameChange = onProfileNameChange,
+        onProfileRoleSelected = onProfileRoleSelected,
+        onProfileSchoolChange = onProfileSchoolChange,
+        onProfileSubjectChange = onProfileSubjectChange,
+        onAvatarSelected = onAvatarSelected,
+        onSignupBack = onSignupBack
+    )
+}
 }
 
 @Composable
@@ -196,6 +195,7 @@ private fun TeacherAuthCard(
     onLoginPassword: (String) -> Unit,
     onLogin: () -> Unit,
     onDemo: () -> Unit,
+    onForgotPassword: () -> Unit,
     onSignupEmail: (String) -> Unit,
     onSignupPassword: (String) -> Unit,
     onSignupConfirm: (String) -> Unit,
@@ -205,7 +205,6 @@ private fun TeacherAuthCard(
     onProfileRoleSelected: (SignupRole) -> Unit,
     onProfileSchoolChange: (String) -> Unit,
     onProfileSubjectChange: (String) -> Unit,
-    onProfileNicknameChange: (String) -> Unit,
     onAvatarSelected: (String) -> Unit,
     onSignupBack: () -> Unit
 ) {
@@ -254,7 +253,8 @@ private fun TeacherAuthCard(
                     onLoginEmail = onLoginEmail,
                     onLoginPassword = onLoginPassword,
                     onLogin = onLogin,
-                    onDemo = onDemo
+                    onDemo = onDemo,
+                    onForgotPassword = onForgotPassword
                 )
 
                 TeacherAuthTab.CreateAccount -> when (state.signupStep) {
@@ -273,7 +273,6 @@ private fun TeacherAuthCard(
                         onProfileRoleSelected = onProfileRoleSelected,
                         onProfileSchoolChange = onProfileSchoolChange,
                         onProfileSubjectChange = onProfileSubjectChange,
-                        onProfileNicknameChange = onProfileNicknameChange,
                         onAvatarSelected = onAvatarSelected,
                         onBack = onSignupBack,
                         onComplete = onSignup
@@ -321,16 +320,17 @@ private fun TeacherSignInForm(
     onLoginEmail: (String) -> Unit,
     onLoginPassword: (String) -> Unit,
     onLogin: () -> Unit,
-    onDemo: () -> Unit
+    onDemo: () -> Unit,
+    onForgotPassword: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
-    val emailError = state.login.email.isNotBlank() && !state.login.email.contains("@")
+    val emailError = false
     val passwordError = state.login.password.isNotEmpty() && state.login.password.length < 6
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         AuthTextField(
             value = state.login.email,
-            label = stringResource(R.string.auth_email),
+            label = "Email or username",
             onValueChange = onLoginEmail,
             supportingText = stringResource(id = R.string.auth_email_helper),
             isError = emailError,
@@ -367,6 +367,9 @@ private fun TeacherSignInForm(
         )
         TextButton(onClick = onDemo) {
             Text(text = stringResource(R.string.auth_demo))
+        }
+        TextButton(onClick = onForgotPassword) {
+            Text(text = "Forgot password?")
         }
     }
 }
@@ -474,17 +477,16 @@ private fun SignupProfileForm(
     onProfileRoleSelected: (SignupRole) -> Unit,
     onProfileSchoolChange: (String) -> Unit,
     onProfileSubjectChange: (String) -> Unit,
-    onProfileNicknameChange: (String) -> Unit,
     onAvatarSelected: (String) -> Unit,
     onBack: () -> Unit,
     onComplete: () -> Unit
 ) {
     val focusManager = LocalFocusManager.current
-    val canComplete = when (state.profile.role) {
-        SignupRole.Teacher -> state.profile.fullName.isNotBlank() && state.profile.school.isNotBlank()
-        SignupRole.Student -> state.profile.nickname.isNotBlank() && state.profile.avatarId != null
-        SignupRole.None -> false
-    }
+        val canComplete = when (state.profile.role) {
+            SignupRole.Teacher -> state.profile.fullName.isNotBlank()
+            SignupRole.Student -> state.profile.fullName.isNotBlank()
+            SignupRole.None -> false
+        }
 
     Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
         Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -535,10 +537,13 @@ private fun SignupProfileForm(
             )
 
             SignupRole.Student -> {
-                NickNameField(
-                    value = state.profile.nickname,
-                    onValueChange = onProfileNicknameChange,
-                    errorText = null
+                AuthTextField(
+                    value = state.profile.fullName,
+                    label = "Full name",
+                    onValueChange = onProfileNameChange,
+                    supportingText = "This name is shown to teachers and classmates.",
+                    imeAction = ImeAction.Done,
+                    onImeAction = { focusManager.clearFocus() }
                 )
                 AvatarPicker(
                     avatars = state.avatarOptions,
@@ -716,12 +721,12 @@ private fun AuthScreenPreview() {
             onProfileRoleSelected = {},
             onProfileSchoolChange = {},
             onProfileSubjectChange = {},
-            onProfileNicknameChange = {},
             onAvatarSelected = {},
             onSignupBack = {},
             onLogin = {},
             onSignup = {},
-            onDemo = {}
+            onDemo = {},
+            onForgotPassword = {}
         )
     }
 }

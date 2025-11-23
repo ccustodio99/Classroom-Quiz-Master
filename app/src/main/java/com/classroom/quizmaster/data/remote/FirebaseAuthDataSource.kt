@@ -74,6 +74,18 @@ class FirebaseAuthDataSource @Inject constructor(
         auth().signOut()
     }
 
+    suspend fun sendPasswordReset(email: String) = withContext(ioDispatcher) {
+        auth().sendPasswordResetEmail(email.trim()).await()
+    }
+
+    suspend fun updateDisplayName(displayName: String) = withContext(ioDispatcher) {
+        auth().currentUser?.updateProfile(
+            userProfileChangeRequest { this.displayName = displayName }
+        )?.await()
+    }
+
+    suspend fun currentUserEmail(): String? = auth().currentUser?.email
+
     suspend fun currentUserId(): String? = auth().currentUser?.uid
 
     suspend fun isCurrentUserAnonymous(): Boolean = auth().currentUser?.isAnonymous == true

@@ -91,7 +91,7 @@ fun StudentMaterialsScreen(
 }
 
 @Composable
-private fun StudentMaterialCard(summary: MaterialSummaryUi, onClick: () -> Unit) {
+fun StudentMaterialCard(summary: MaterialSummaryUi, onClick: () -> Unit) {
     Card(
         modifier = Modifier
             .fillMaxWidth()

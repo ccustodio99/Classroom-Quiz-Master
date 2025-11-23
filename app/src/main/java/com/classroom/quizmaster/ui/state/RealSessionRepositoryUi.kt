@@ -36,12 +36,15 @@ import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.combine
+import kotlinx.coroutines.flow.filterIsInstance
+import kotlinx.coroutines.flow.firstOrNull
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.launchIn
 import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
+import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Clock
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -339,7 +342,17 @@ class RealSessionRepositoryUi @Inject constructor(
     }
 
     override suspend fun joinWithCode(joinCode: String, nickname: String, avatarId: String?): Result<Unit> = runCatching {
-        classroomRepository.createJoinRequest(joinCode)
+        val sanitized = NicknamePolicy.sanitize(
+            nickname.ifBlank { authState.value.displayName ?: "Student" },
+            joinCode
+        )
+        val descriptor = withTimeoutOrNull(5_000) {
+            sessionRepository.discoverHosts()
+                .filterIsInstance<com.classroom.quizmaster.data.lan.LanDiscoveryEvent.ServiceFound>()
+                .firstOrNull { it.descriptor.joinCode.equals(joinCode, ignoreCase = true) }
+                ?.descriptor
+        } ?: error("Session not found on this network")
+        sessionRepository.joinLanHost(descriptor, sanitized).getOrThrow()
     }
 
     override suspend fun updateStudentProfile(nickname: String, avatarId: String?) {

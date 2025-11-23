@@ -9,6 +9,7 @@ import com.classroom.quizmaster.data.network.ConnectivityMonitor
 import com.classroom.quizmaster.data.network.ConnectivityStatus
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.model.UserRole
+import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.state.SessionRepositoryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
@@ -25,6 +26,7 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import kotlinx.datetime.Clock
 import com.google.firebase.FirebaseNetworkException
 import com.google.firebase.FirebaseTooManyRequestsException
 import com.google.firebase.auth.FirebaseAuthInvalidCredentialsException
@@ -48,7 +50,6 @@ data class ProfileFormState(
     val role: SignupRole = SignupRole.None,
     val school: String = "",
     val subject: String = "",
-    val nickname: String = "",
     val avatarId: String? = null
 )
 
@@ -184,7 +185,7 @@ class AuthViewModel @Inject constructor(
 
     fun updateProfileNickname(value: String) {
         _uiState.value = _uiState.value.copy(
-            profile = _uiState.value.profile.copy(nickname = value),
+            profile = _uiState.value.profile.copy(fullName = value),
             errorMessage = null
         )
     }
@@ -199,11 +200,20 @@ class AuthViewModel @Inject constructor(
 
     fun signIn() = launchWithProgress {
         val login = _uiState.value.login
-        if (!login.email.contains("@") || login.password.length < 6) {
-            emitError("Enter a valid email and 6+ char password.")
+        if (login.email.isBlank() || login.password.length < 6) {
+            emitError("Enter your email/username and a 6+ character password.")
             return@launchWithProgress
         }
-        val email = login.email.trim()
+        val identifier = login.email.trim()
+        val email = if (identifier.contains("@")) {
+            identifier
+        } else {
+            authRepository.lookupEmailForUsername(identifier)
+                ?: run {
+                    emitError("No account found for that email/username")
+                    return@launchWithProgress
+                }
+        }
         val password = login.password
 
         if (latestConnectivity.isOffline) {
@@ -235,6 +245,19 @@ class AuthViewModel @Inject constructor(
             SignupStep.Credentials -> handleCredentialsStep()
             SignupStep.Profile -> handleProfileStep()
         }
+    }
+
+    fun forgotPassword() = launchWithProgress {
+        val email = _uiState.value.login.email.trim()
+        if (!email.contains("@")) {
+            emitError("Enter your email to reset your password.")
+            return@launchWithProgress
+        }
+        runCatching { authRepository.sendPasswordReset(email) }
+            .onSuccess {
+                _uiState.update { it.copy(bannerMessage = "Password reset email sent to $email") }
+            }
+            .onFailure { emitError(mapAuthError(it)) }
     }
 
     fun continueOfflineDemo() = launchWithProgress {
@@ -296,9 +319,7 @@ class AuthViewModel @Inject constructor(
         val profile = _uiState.value.profile
         when {
             profile.role == SignupRole.None -> emitError("Select whether you're a teacher or student.")
-            profile.role == SignupRole.Teacher && profile.fullName.isBlank() -> emitError("Enter your name to continue.")
-            profile.role == SignupRole.Teacher && profile.school.isBlank() -> emitError("Tell us your school or class.")
-            profile.role == SignupRole.Student && profile.nickname.isBlank() -> emitError("Add a nickname so your teacher recognizes you.")
+            profile.fullName.isBlank() -> emitError("Enter your full name to continue.")
             else -> {
                 if (latestConnectivity.isOffline) {
                     emitError("Connect to the internet to finish creating your account.")
@@ -313,8 +334,38 @@ class AuthViewModel @Inject constructor(
                     authRepository.signUpWithEmail(email, password, displayName)
                 }.onSuccess {
                     val authState = authRepository.authState.first { it.isAuthenticated && !it.userId.isNullOrBlank() }
-                    if (profile.role == SignupRole.Teacher) {
-                        localAuthManager.cacheCredentials(email, password, displayName)
+                    when (profile.role) {
+                        SignupRole.Teacher -> {
+                            localAuthManager.cacheCredentials(email, password, displayName)
+                            val teacherId = authState.userId ?: ""
+                            if (teacherId.isNotBlank()) {
+                                authRepository.upsertTeacherProfile(
+                                    com.classroom.quizmaster.domain.model.Teacher(
+                                        id = teacherId,
+                                        displayName = displayName,
+                                        email = email,
+                                        createdAt = Clock.System.now()
+                                    )
+                                )
+                            }
+                        }
+
+                        SignupRole.Student -> {
+                            val studentId = authState.userId.orEmpty()
+                            if (studentId.isNotBlank()) {
+                                authRepository.upsertStudentProfile(
+                                    Student(
+                                        id = studentId,
+                                        displayName = displayName,
+                                        email = email,
+                                        createdAt = Clock.System.now()
+                                    )
+                                )
+                                sessionRepositoryUi.updateStudentProfile(displayName, profile.avatarId)
+                            }
+                        }
+
+                        SignupRole.None -> Unit
                     }
                     rememberUserRole(authState.userId, profile.role)
                     _uiState.value = _uiState.value.copy(
@@ -359,7 +410,7 @@ class AuthViewModel @Inject constructor(
             preferences.setUserRole(userId, resolvedRole)
             if (resolvedRole == UserRole.STUDENT) {
                 val profile = _uiState.value.profile
-                sessionRepositoryUi.updateStudentProfile(profile.nickname, profile.avatarId)
+                sessionRepositoryUi.updateStudentProfile(profile.fullName.ifBlank { "Student" }, profile.avatarId)
             }
         }
     }

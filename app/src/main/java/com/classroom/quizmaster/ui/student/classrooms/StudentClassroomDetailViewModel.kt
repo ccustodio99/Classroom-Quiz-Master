@@ -7,6 +7,9 @@ import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
+import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
+import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
+import com.classroom.quizmaster.ui.materials.toSummaryUi
 import com.classroom.quizmaster.ui.model.AssignmentCardUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -20,7 +23,8 @@ import kotlinx.datetime.Clock
 data class TopicUi(
     val id: String,
     val name: String,
-    val description: String
+    val description: String,
+    val quizCount: Int = 0
 )
 
 data class StudentClassroomDetailUiState(
@@ -31,6 +35,8 @@ data class StudentClassroomDetailUiState(
     val joinCode: String = "",
     val topics: List<TopicUi> = emptyList(),
     val assignments: List<AssignmentCardUi> = emptyList(),
+    val materials: List<MaterialSummaryUi> = emptyList(),
+    val materialsCount: Int = 0,
     val isLoading: Boolean = true
 )
 
@@ -40,7 +46,8 @@ class StudentClassroomDetailViewModel @Inject constructor(
     classroomRepository: ClassroomRepository,
     assignmentRepository: AssignmentRepository,
     quizRepository: QuizRepository,
-    private val authRepository: AuthRepository
+    private val authRepository: AuthRepository,
+    learningMaterialRepository: LearningMaterialRepository
 ) : ViewModel() {
 
     private val classroomId: String = savedStateHandle.get<String>("classroomId").orEmpty()
@@ -49,16 +56,18 @@ class StudentClassroomDetailViewModel @Inject constructor(
         classroomRepository.classrooms,
         classroomRepository.topics,
         assignmentRepository.assignments,
-        quizRepository.quizzes
-    ) { classrooms, topics, assignments, quizzes ->
+        quizRepository.quizzes,
+        learningMaterialRepository.observeStudentMaterials(classroomId = classroomId)
+    ) { classrooms, topics, assignments, quizzes, materials ->
         val classroom = classrooms.firstOrNull { it.id == classroomId }
         val teacherName = classroom?.let {
             runCatching { authRepository.getTeacher(it.teacherId).first()?.displayName }.getOrNull()
                 .orEmpty()
         }.orEmpty()
+        val quizCountByTopic = quizzes.groupBy { it.topicId }.mapValues { it.value.size }
         val topicUi = topics
             .filter { it.classroomId == classroomId && !it.isArchived }
-            .map { TopicUi(it.id, it.name, it.description) }
+            .map { TopicUi(it.id, it.name, it.description, quizCountByTopic[it.id] ?: 0) }
         val quizLookup = quizzes.associateBy { it.id }
         val now = Clock.System.now()
         val assignmentCards = assignments
@@ -81,6 +90,9 @@ class StudentClassroomDetailViewModel @Inject constructor(
                     statusLabel = statusLabel
                 )
             }
+        val materialSummaries = materials
+            .filter { it.classroomId == classroomId }
+            .map { it.toSummaryUi() }
         StudentClassroomDetailUiState(
             classroomName = classroom?.name.orEmpty(),
             teacherName = teacherName.ifBlank { "Teacher" },
@@ -89,6 +101,8 @@ class StudentClassroomDetailViewModel @Inject constructor(
             joinCode = classroom?.joinCode.orEmpty(),
             topics = topicUi,
             assignments = assignmentCards,
+            materials = materialSummaries,
+            materialsCount = materialSummaries.count(),
             isLoading = classroom == null
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudentClassroomDetailUiState())

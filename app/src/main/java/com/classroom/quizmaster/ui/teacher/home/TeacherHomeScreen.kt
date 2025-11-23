@@ -14,6 +14,8 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
+import androidx.compose.material.icons.outlined.GroupAdd
+import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
@@ -27,6 +29,11 @@ import androidx.compose.material3.Text
 import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -53,10 +60,12 @@ fun TeacherHomeRoute(
     onCreateClassroom: () -> Unit,
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
+    onLiveSessions: (String) -> Unit,
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit,
     onProfile: () -> Unit,
+    onLogout: () -> Unit,
     onViewArchived: () -> Unit,
     onClassroomSelected: (String) -> Unit,
     viewModel: TeacherHomeViewModel = hiltViewModel()
@@ -74,10 +83,15 @@ fun TeacherHomeRoute(
         onCreateClassroom = onCreateClassroom,
         onCreateQuiz = onCreateQuiz,
         onAssignments = onAssignments,
+        onLiveSessions = onLiveSessions,
         onReports = onReports,
         onClassrooms = onClassrooms,
         onJoinRequests = onJoinRequests,
         onProfile = onProfile,
+        onLogout = {
+            viewModel.logout()
+            onLogout()
+        },
         onViewArchived = onViewArchived,
         onSeedSampleData = viewModel::seedSampleData,
         onClearSampleData = viewModel::clearSampleData,
@@ -92,10 +106,12 @@ fun TeacherHomeScreen(
     onCreateClassroom: () -> Unit,
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
+    onLiveSessions: (String) -> Unit,
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit,
     onProfile: () -> Unit,
+    onLogout: () -> Unit,
     onViewArchived: () -> Unit,
     onSeedSampleData: () -> Unit,
     onClearSampleData: () -> Unit,
@@ -108,18 +124,43 @@ fun TeacherHomeScreen(
     val createQuizAction = {
         if (canCreateQuiz) {
             onCreateQuiz(defaultClassroomId!!, defaultTopicId!!)
+        } else {
+            onClassrooms()
         }
+    }
+    val liveSessionAction = {
+        defaultClassroomId?.let(onLiveSessions) ?: onClassrooms()
     }
 
     Scaffold(
         topBar = {
+            var menuExpanded by remember { mutableStateOf(false) }
             TopAppBar(
                 title = { Text(text = "Home") },
                 actions = {
-                    IconButton(onClick = onProfile) {
+                    IconButton(onClick = { menuExpanded = true }) {
                         Icon(
                             imageVector = Icons.Outlined.Settings,
                             contentDescription = "Profile and settings"
+                        )
+                    }
+                    DropdownMenu(
+                        expanded = menuExpanded,
+                        onDismissRequest = { menuExpanded = false }
+                    ) {
+                        DropdownMenuItem(
+                            text = { Text("Profile") },
+                            onClick = {
+                                menuExpanded = false
+                                onProfile()
+                            }
+                        )
+                        DropdownMenuItem(
+                            text = { Text("Sign out") },
+                            onClick = {
+                                menuExpanded = false
+                                onLogout()
+                            }
                         )
                     }
                 }
@@ -165,12 +206,12 @@ fun TeacherHomeScreen(
             )
             ActionCards(
                 actionCards = state.actionCards,
-                hasTopics = hasTopics,
-                canCreateQuiz = canCreateQuiz,
                 onCreateQuiz = createQuizAction,
                 onAssignments = onAssignments,
+                onLiveSessions = liveSessionAction,
                 onReports = onReports,
-                onClassrooms = onClassrooms
+                onClassrooms = onClassrooms,
+                onJoinRequests = onJoinRequests
             )
             RecentQuizzesSection(
                 quizzes = state.recentQuizzes,
@@ -333,12 +374,12 @@ private fun SampleDataCard(
 @Composable
 private fun ActionCards(
     actionCards: List<HomeActionCard>,
-    hasTopics: Boolean,
-    canCreateQuiz: Boolean,
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
+    onLiveSessions: () -> Unit,
     onReports: () -> Unit,
-    onClassrooms: () -> Unit
+    onClassrooms: () -> Unit,
+    onJoinRequests: () -> Unit
 ) {
     Text(text = "Actions", style = MaterialTheme.typography.titleLarge)
     val cards = (if (actionCards.isEmpty()) defaultActionCards else actionCards)
@@ -348,18 +389,13 @@ private fun ActionCards(
                 card = it,
                 onCreateQuiz = onCreateQuiz,
                 onAssignments = onAssignments,
+                onLiveSessions = onLiveSessions,
                 onReports = onReports,
-                onClassrooms = onClassrooms
+                onClassrooms = onClassrooms,
+                onJoinRequests = onJoinRequests
             )
 
-            val allowed = when (it.id) {
-                ACTION_CREATE_QUIZ -> hasTopics && canCreateQuiz
-                ACTION_ASSIGNMENTS -> hasTopics
-                ACTION_REPORTS -> true
-                else -> true
-            }
-
-            val enabled = baseAction != null && allowed
+            val enabled = baseAction != null
             ActionCard(
                 card = it,
                 onClick = {
@@ -377,14 +413,18 @@ private fun resolveAction(
     card: HomeActionCard,
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
+    onLiveSessions: () -> Unit,
     onReports: () -> Unit,
-    onClassrooms: () -> Unit
+    onClassrooms: () -> Unit,
+    onJoinRequests: () -> Unit
 ): (() -> Unit)? {
     val primary = when (card.id) {
         ACTION_CREATE_QUIZ -> onCreateQuiz
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
         ACTION_CLASSROOMS -> onClassrooms
+        ACTION_LIVE -> onLiveSessions
+        ACTION_JOIN_REQUESTS -> onJoinRequests
         else -> null
     }
     if (primary != null) return primary
@@ -393,6 +433,8 @@ private fun resolveAction(
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
         ACTION_CLASSROOMS -> onClassrooms
+        ACTION_LIVE -> onLiveSessions
+        ACTION_JOIN_REQUESTS -> onJoinRequests
         else -> null
     }
 }
@@ -523,6 +565,8 @@ private fun ActionCard(
 private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
+    ACTION_LIVE -> Icons.Outlined.PlayArrow
+    ACTION_JOIN_REQUESTS -> Icons.Outlined.GroupAdd
     ACTION_REPORTS -> Icons.Outlined.Timeline
     ACTION_CLASSROOMS -> Icons.AutoMirrored.Outlined.LibraryBooks
     else -> Icons.AutoMirrored.Outlined.ArrowForward
@@ -532,36 +576,52 @@ const val ACTION_CREATE_QUIZ = "teacher_home:create_quiz"
 const val ACTION_ASSIGNMENTS = "teacher_home:assignments"
 const val ACTION_REPORTS = "teacher_home:reports"
 const val ACTION_CLASSROOMS = "teacher_home:classrooms"
+const val ACTION_LIVE = "teacher_home:live"
+const val ACTION_JOIN_REQUESTS = "teacher_home:join_requests"
 
 private val defaultActionCards = listOf(
     HomeActionCard(
+        id = ACTION_CLASSROOMS,
+        title = "Classrooms",
+        description = "Manage classes, roster, and join codes.",
+        route = ACTION_CLASSROOMS,
+        ctaLabel = "Open classrooms"
+    ),
+    HomeActionCard(
         id = ACTION_CREATE_QUIZ,
-        title = "Create a quiz",
-        description = "Build standards-aligned quizzes with question templates.",
+        title = "Content",
+        description = "Create and edit topics and quizzes.",
         route = ACTION_CREATE_QUIZ,
-        ctaLabel = "Create quiz",
+        ctaLabel = "Open content",
         primary = true
     ),
     HomeActionCard(
         id = ACTION_ASSIGNMENTS,
-        title = "Manage assignments",
-        description = "Schedule asynchronous practice with automatic grading.",
+        title = "Assignments",
+        description = "Give homework and scheduled quizzes.",
         route = ACTION_ASSIGNMENTS,
         ctaLabel = "Open assignments"
     ),
     HomeActionCard(
-        id = ACTION_REPORTS,
-        title = "Review reports",
-        description = "Track mastery by standard and monitor growth over time.",
-        route = ACTION_REPORTS,
-        ctaLabel = "View reports"
+        id = ACTION_LIVE,
+        title = "Live sessions",
+        description = "Host LAN-first quiz sessions.",
+        route = ACTION_LIVE,
+        ctaLabel = "Launch live session"
     ),
     HomeActionCard(
-        id = ACTION_CLASSROOMS,
-        title = "Manage classrooms",
-        description = "Create, edit, and archive your classrooms.",
-        route = ACTION_CLASSROOMS,
-        ctaLabel = "View classrooms"
+        id = ACTION_JOIN_REQUESTS,
+        title = "Join requests",
+        description = "Approve or decline student requests.",
+        route = ACTION_JOIN_REQUESTS,
+        ctaLabel = "Review requests"
+    ),
+    HomeActionCard(
+        id = ACTION_REPORTS,
+        title = "Reports",
+        description = "View performance and export results.",
+        route = ACTION_REPORTS,
+        ctaLabel = "Open reports"
     )
 )
 
@@ -631,10 +691,12 @@ private fun TeacherHomePreview() {
             onCreateClassroom = {},
             onCreateQuiz = { _: String, _: String -> },
             onAssignments = {},
+            onLiveSessions = {},
             onReports = {},
             onClassrooms = {},
             onJoinRequests = {},
             onProfile = {},
+            onLogout = {},
             onViewArchived = {},
             onSeedSampleData = {},
             onClearSampleData = {},

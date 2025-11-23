@@ -11,6 +11,7 @@ import androidx.compose.material3.Divider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Modifier
@@ -27,6 +28,9 @@ fun StudentProfileRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     StudentProfileScreen(
         state = state,
+        onNameChanged = viewModel::updateNameInput,
+        onSaveName = viewModel::saveName,
+        onResetPassword = viewModel::sendPasswordReset,
         onLogout = {
             viewModel.logout()
             onLoggedOut()
@@ -37,6 +41,9 @@ fun StudentProfileRoute(
 @Composable
 fun StudentProfileScreen(
     state: StudentProfileUiState,
+    onNameChanged: (String) -> Unit,
+    onSaveName: () -> Unit,
+    onResetPassword: () -> Unit,
     onLogout: () -> Unit
 ) {
     Column(
@@ -51,9 +58,34 @@ fun StudentProfileScreen(
             shape = MaterialTheme.shapes.large,
             tonalElevation = 1.dp
         ) {
-            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                Text(text = state.fullName, style = MaterialTheme.typography.titleMedium)
+            Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Text(text = "Identity", style = MaterialTheme.typography.titleMedium)
+                androidx.compose.material3.OutlinedTextField(
+                    value = state.nameInput,
+                    onValueChange = onNameChanged,
+                    label = { Text("Full name") },
+                    singleLine = true,
+                    isError = state.errorMessage != null
+                )
                 Text(text = state.email.orEmpty(), style = MaterialTheme.typography.bodyMedium)
+                if (state.errorMessage != null) {
+                    Text(text = state.errorMessage ?: "", color = MaterialTheme.colorScheme.error)
+                }
+                if (state.statusMessage != null) {
+                    Text(text = state.statusMessage ?: "", color = MaterialTheme.colorScheme.primary)
+                }
+                PrimaryButton(
+                    text = if (state.saving) "Saving..." else "Save name",
+                    onClick = onSaveName,
+                    enabled = !state.saving,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                PrimaryButton(
+                    text = "Reset password",
+                    onClick = onResetPassword,
+                    enabled = !state.email.isNullOrBlank(),
+                    modifier = Modifier.fillMaxWidth()
+                )
             }
         }
         Surface(

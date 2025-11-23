@@ -15,6 +15,7 @@ interface ClassroomRepository {
     val archivedClassrooms: Flow<List<Classroom>>
     val archivedTopics: Flow<List<Topic>>
     val joinRequests: Flow<List<JoinRequest>>
+    val students: Flow<List<Student>>
 
     suspend fun refresh()
     suspend fun upsertClassroom(classroom: Classroom): String
@@ -25,6 +26,8 @@ interface ClassroomRepository {
     suspend fun createJoinRequest(classroomId: String, teacherId: String)
     suspend fun approveJoinRequest(requestId: String)
     suspend fun denyJoinRequest(requestId: String)
+    suspend fun addStudentByEmailOrUsername(classroomId: String, identifier: String)
+    suspend fun removeStudentFromClassroom(classroomId: String, studentId: String)
     suspend fun getStudent(id: String): Student?
     suspend fun searchTeachers(query: String): List<Teacher>
     suspend fun getClassroomsForTeacher(teacherId: String): List<Classroom>

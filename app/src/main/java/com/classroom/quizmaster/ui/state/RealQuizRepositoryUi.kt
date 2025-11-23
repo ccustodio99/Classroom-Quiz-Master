@@ -22,6 +22,8 @@ import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CLASSROOMS
+import com.classroom.quizmaster.ui.teacher.home.ACTION_LIVE
+import com.classroom.quizmaster.ui.teacher.home.ACTION_JOIN_REQUESTS
 import com.classroom.quizmaster.ui.teacher.home.ClassroomOverviewUi
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
 import com.classroom.quizmaster.ui.teacher.home.TeacherHomeUiState
@@ -391,19 +393,19 @@ class RealQuizRepositoryUi @Inject constructor(
 
     private val defaultActionCards: List<HomeActionCard> = listOf(
         HomeActionCard(
-            id = ACTION_CREATE_QUIZ,
-            title = "Create a quiz",
-            description = "Build standards-aligned quizzes with templates.",
-            route = ACTION_CREATE_QUIZ,
-            ctaLabel = "Create quiz",
-            primary = true
+            id = ACTION_CLASSROOMS,
+            title = "Classrooms",
+            description = "Manage classes, rosters, and join codes.",
+            route = ACTION_CLASSROOMS,
+            ctaLabel = "Open classrooms"
         ),
         HomeActionCard(
-            id = ACTION_CLASSROOMS,
-            title = "Manage classrooms",
-            description = "Create, edit, and archive your classrooms.",
-            route = ACTION_CLASSROOMS,
-            ctaLabel = "Manage"
+            id = ACTION_CREATE_QUIZ,
+            title = "Content",
+            description = "Create and edit topics and quizzes.",
+            route = ACTION_CREATE_QUIZ,
+            ctaLabel = "Open content",
+            primary = true
         ),
         HomeActionCard(
             id = ACTION_ASSIGNMENTS,
@@ -411,6 +413,20 @@ class RealQuizRepositoryUi @Inject constructor(
             description = "Schedule asynchronous practice.",
             route = ACTION_ASSIGNMENTS,
             ctaLabel = "Manage"
+        ),
+        HomeActionCard(
+            id = ACTION_LIVE,
+            title = "Live sessions",
+            description = "Host LAN-first quiz sessions.",
+            route = ACTION_LIVE,
+            ctaLabel = "Launch"
+        ),
+        HomeActionCard(
+            id = ACTION_JOIN_REQUESTS,
+            title = "Join requests",
+            description = "Approve or decline student requests.",
+            route = ACTION_JOIN_REQUESTS,
+            ctaLabel = "Review"
         ),
         HomeActionCard(
             id = ACTION_REPORTS,

@@ -93,18 +93,27 @@ class ClassroomRepositoryImpl @Inject constructor(
                 if (userId.isNullOrBlank()) {
                     flowOf(emptyList())
                 } else {
-                    combine(
-                        if (auth.isTeacher) {
-                            classroomDao.observeForTeacher(userId)
-                        } else {
-                            classroomDao.observeForStudent(userId)
-                        },
-                        topicDao.observeForTeacher(userId)
-                    ) { classrooms, topics ->
-                        val activeClassroomIds = classrooms.filterNot { it.isArchived }.map { it.id }.toSet()
-                        topics
-                            .filter { topic -> !topic.isArchived && topic.classroomId in activeClassroomIds }
-                            .map { it.toDomain() }
+                    if (auth.isTeacher) {
+                        combine(
+                            classroomDao.observeForTeacher(userId),
+                            topicDao.observeForTeacher(userId)
+                        ) { classrooms, topics ->
+                            val activeClassroomIds = classrooms.filterNot { it.isArchived }.map { it.id }.toSet()
+                            topics
+                                .filter { topic -> !topic.isArchived && topic.classroomId in activeClassroomIds }
+                                .map { it.toDomain() }
+                        }
+                    } else {
+                        classroomDao.observeForStudent(userId)
+                            .switchMapLatest { classrooms ->
+                                val activeClassroomIds = classrooms.filterNot { it.isArchived }.map { it.id }
+                                if (activeClassroomIds.isEmpty()) {
+                                    flowOf(emptyList())
+                                } else {
+                                    topicDao.observeActiveForClassrooms(activeClassroomIds)
+                                }
+                            }
+                            .map { topics -> topics.map { it.toDomain() } }
                     }
                 }
             }
@@ -141,6 +150,11 @@ class ClassroomRepositoryImpl @Inject constructor(
                         }
                 }
             }
+            .distinctUntilChanged()
+
+    override val students: Flow<List<Student>> =
+        studentDao.observeAll()
+            .map { entities -> entities.map { it.toDomain() } }
             .distinctUntilChanged()
 
 
@@ -261,6 +275,9 @@ class ClassroomRepositoryImpl @Inject constructor(
             val updatedStudents = (classroom.students + request.studentId).distinct()
             classroomDao.upsert(classroom.copy(students = updatedStudents))
         }
+        classroomRemote.fetchStudentProfile(request.studentId)
+            .getOrNull()
+            ?.let { studentDao.upsert(it.toEntity()) }
         joinRequestDao.upsert(updatedRequest)
     }
 
@@ -276,6 +293,45 @@ class ClassroomRepositoryImpl @Inject constructor(
             resolvedAt = Clock.System.now().toEpochMilliseconds()
         )
         joinRequestDao.upsert(updatedRequest)
+    }
+
+    override suspend fun addStudentByEmailOrUsername(classroomId: String, identifier: String) = withContext(ioDispatcher) {
+        val teacherId = requireTeacherId()
+        val classroom = classroomDao.get(classroomId)
+            ?: error("Classroom not found")
+        check(classroom.teacherId == teacherId) { "Cannot modify another teacher's classroom" }
+        check(!classroom.isArchived) { "Cannot add students to an archived classroom" }
+
+        val trimmed = identifier.trim()
+        val student = classroomRemote.findStudentByIdentifier(trimmed).getOrNull()
+            ?: error("No account found for that email/username")
+        classroomRemote.addStudentToClassroom(classroomId, student.id).getOrThrow()
+        val updated = classroom.copy(
+            students = (classroom.students + student.id).distinct(),
+            updatedAt = Clock.System.now().toEpochMilliseconds()
+        )
+        database.withTransaction {
+            classroomDao.upsert(updated)
+            studentDao.upsert(student.toEntity())
+        }
+    }
+
+    override suspend fun removeStudentFromClassroom(classroomId: String, studentId: String) = withContext(ioDispatcher) {
+        val teacherId = requireTeacherId()
+        val classroom = classroomDao.get(classroomId) ?: return@withContext
+        check(classroom.teacherId == teacherId) { "Cannot modify another teacher's classroom" }
+        val updatedStudents = classroom.students.filterNot { it == studentId }
+        classroomRemote.removeStudentFromClassroom(classroomId, studentId)
+            .onFailure { error ->
+                if (!shouldIgnorePermissionDenied(error) && !isTransient(error)) throw error else Timber.w(error, "Skipping remote removal for $classroomId/$studentId")
+            }
+            .getOrElse { }
+        classroomDao.upsert(
+            classroom.copy(
+                students = updatedStudents,
+                updatedAt = Clock.System.now().toEpochMilliseconds()
+            )
+        )
     }
 
 

@@ -25,7 +25,8 @@ data class ClassroomSummaryUi(
     val joinCode: String,
     val subject: String,
     val grade: String,
-    val activeAssignments: Int
+    val activeAssignments: Int,
+    val studentCount: Int = 0
 )
 
 @HiltViewModel
@@ -70,7 +71,8 @@ class StudentClassroomViewModel @Inject constructor(
                         joinCode = classroom.joinCode,
                         subject = classroom.subject,
                         grade = classroom.grade,
-                        activeAssignments = activeAssignmentsByClassroom[classroom.id] ?: 0
+                        activeAssignments = activeAssignmentsByClassroom[classroom.id] ?: 0,
+                        studentCount = classroom.students.size
                     )
                 }
             )

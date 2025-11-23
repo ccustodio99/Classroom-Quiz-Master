@@ -24,6 +24,7 @@ class FirebaseClassroomDataSource @Inject constructor(
     private fun studentsCollection() = firestore.collection("students")
     private fun classroomsCollection() = firestore.collection("classrooms")
     private fun joinRequestsCollection() = firestore.collection("joinRequests")
+    private fun usersCollection() = firestore.collection("users")
 
     suspend fun fetchTeacherProfile(): Result<Teacher?> = try {
         val uid = authDataSource.currentUserId() ?: return Result.success(null)
@@ -50,30 +51,46 @@ class FirebaseClassroomDataSource @Inject constructor(
     }
 
     suspend fun getClassroomsForTeacher(teacherId: String): Result<List<Classroom>> = try {
-        val snapshot = classroomsCollection()
-            .whereEqualTo("teacherId", teacherId)
-            .whereEqualTo("isArchived", false)
-            .get()
-            .await()
-
-        val classrooms = snapshot.documents.mapNotNull { doc ->
-            doc.toObject(FirestoreClassroom::class.java)?.toDomain(doc.id)
-        }
+        // Support both legacy "archived" and current "isArchived" flags.
+        val snapshots = listOf(
+            classroomsCollection()
+                .whereEqualTo("teacherId", teacherId)
+                .whereEqualTo("isArchived", false)
+                .get()
+                .await(),
+            classroomsCollection()
+                .whereEqualTo("teacherId", teacherId)
+                .whereEqualTo("archived", false)
+                .get()
+                .await()
+        )
+        val classrooms = snapshots
+            .flatMap { it.documents }
+            .mapNotNull { doc -> doc.toObject(FirestoreClassroom::class.java)?.toDomain(doc.id) }
+            .distinctBy { it.id }
         Result.success(classrooms)
     } catch (error: Exception) {
         Result.failure(error)
     }
 
     suspend fun getClassroomsForStudent(studentId: String): Result<List<Classroom>> = try {
-        val snapshot = classroomsCollection()
-            .whereArrayContains("students", studentId)
-            .whereEqualTo("isArchived", false)
-            .get()
-            .await()
-
-        val classrooms = snapshot.documents.mapNotNull { doc ->
-            doc.toObject(FirestoreClassroom::class.java)?.toDomain(doc.id)
-        }
+        // Support both legacy "archived" and current "isArchived" flags.
+        val snapshots = listOf(
+            classroomsCollection()
+                .whereArrayContains("students", studentId)
+                .whereEqualTo("isArchived", false)
+                .get()
+                .await(),
+            classroomsCollection()
+                .whereArrayContains("students", studentId)
+                .whereEqualTo("archived", false)
+                .get()
+                .await()
+        )
+        val classrooms = snapshots
+            .flatMap { it.documents }
+            .mapNotNull { doc -> doc.toObject(FirestoreClassroom::class.java)?.toDomain(doc.id) }
+            .distinctBy { it.id }
         Result.success(classrooms)
     } catch (error: Exception) {
         Result.failure(error)
@@ -95,6 +112,67 @@ class FirebaseClassroomDataSource @Inject constructor(
         Result.success(Unit)
     } catch (error: Exception) {
         Timber.e(error, "Failed to upsert teacher profile")
+        Result.failure(error)
+    }
+
+    suspend fun upsertStudentProfile(student: Student): Result<Unit> = try {
+        studentsCollection()
+            .document(student.id)
+            .set(FirestoreStudent.fromDomain(student))
+            .await()
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Timber.e(error, "Failed to upsert student profile")
+        Result.failure(error)
+    }
+
+    suspend fun findTeacherEmailByUsername(username: String): Result<String?> = try {
+        val snapshot = teachersCollection()
+            .whereEqualTo("displayName", username)
+            .limit(1)
+            .get()
+            .await()
+        val email = snapshot.documents.firstOrNull()
+            ?.toObject(FirestoreTeacher::class.java)
+            ?.email
+        Result.success(email)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun findStudentByIdentifier(identifier: String): Result<Student?> = try {
+        val query = if (identifier.contains("@")) {
+            studentsCollection().whereEqualTo("email", identifier.trim())
+        } else {
+            studentsCollection().whereEqualTo("displayName", identifier.trim())
+        }
+        val snapshot = query.limit(1).get().await()
+        val first = snapshot.documents.firstOrNull()
+        val student = first
+            ?.toObject(FirestoreStudent::class.java)
+            ?.toDomain(first.id)
+        Result.success(student)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun addStudentToClassroom(classroomId: String, studentId: String): Result<Unit> = try {
+        val classroomRef = classroomsCollection().document(classroomId)
+        firestore.runTransaction { tx ->
+            tx.update(classroomRef, "students", FieldValue.arrayUnion(studentId))
+        }.await()
+        Result.success(Unit)
+    } catch (error: Exception) {
+        Result.failure(error)
+    }
+
+    suspend fun removeStudentFromClassroom(classroomId: String, studentId: String): Result<Unit> = try {
+        val classroomRef = classroomsCollection().document(classroomId)
+        firestore.runTransaction { tx ->
+            tx.update(classroomRef, "students", FieldValue.arrayRemove(studentId))
+        }.await()
+        Result.success(Unit)
+    } catch (error: Exception) {
         Result.failure(error)
     }
 

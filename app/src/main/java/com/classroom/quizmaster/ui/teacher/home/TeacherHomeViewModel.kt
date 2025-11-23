@@ -184,6 +184,12 @@ class TeacherHomeViewModel @Inject constructor(
         }
     }
 
+    fun logout() {
+        viewModelScope.launch {
+            authRepository.logout()
+        }
+    }
+
     private data class SeedUi(
         val isSeeding: Boolean = false,
         val isClearing: Boolean = false,

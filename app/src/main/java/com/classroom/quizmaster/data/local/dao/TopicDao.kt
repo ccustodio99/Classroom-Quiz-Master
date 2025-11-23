@@ -26,6 +26,9 @@ interface TopicDao {
     @Query("SELECT * FROM topics WHERE classroomId = :classroomId AND isArchived = 0 ORDER BY createdAt DESC")
     fun observeActiveForClassroom(classroomId: String): Flow<List<TopicEntity>>
 
+    @Query("SELECT * FROM topics WHERE classroomId IN (:classroomIds) AND isArchived = 0 ORDER BY createdAt DESC")
+    fun observeActiveForClassrooms(classroomIds: List<String>): Flow<List<TopicEntity>>
+
     @Query("SELECT * FROM topics WHERE id = :id LIMIT 1")
     suspend fun get(id: String): TopicEntity?
 }

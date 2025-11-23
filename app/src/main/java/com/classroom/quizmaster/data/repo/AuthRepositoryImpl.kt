@@ -2,7 +2,9 @@ package com.classroom.quizmaster.data.repo
 
 import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.data.local.dao.TeacherDao
+import com.classroom.quizmaster.data.local.dao.StudentDao
 import com.classroom.quizmaster.data.local.entity.TeacherEntity
+import com.classroom.quizmaster.data.local.entity.StudentEntity
 import com.classroom.quizmaster.data.auth.LocalAuthManager
 import com.classroom.quizmaster.data.remote.FirebaseAuthDataSource
 import com.classroom.quizmaster.data.remote.FirebaseClassroomDataSource
@@ -10,6 +12,7 @@ import com.classroom.quizmaster.domain.model.AuthState
 import com.classroom.quizmaster.domain.model.DemoMode
 import com.classroom.quizmaster.domain.model.UserRole
 import com.classroom.quizmaster.domain.model.Teacher
+import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -18,6 +21,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
+import kotlinx.coroutines.flow.first
 import kotlinx.datetime.Clock
 import com.classroom.quizmaster.util.switchMapLatest
 
@@ -26,7 +30,8 @@ class AuthRepositoryImpl @Inject constructor(
     private val authDataSource: FirebaseAuthDataSource,
     private val classroomDataSource: FirebaseClassroomDataSource,
     private val preferences: AppPreferencesDataSource,
-    private val teacherDao: TeacherDao
+    private val teacherDao: TeacherDao,
+    private val studentDao: StudentDao
 ) : AuthRepository {
 
     override val authState: Flow<AuthState> = combine(
@@ -90,6 +95,55 @@ class AuthRepositoryImpl @Inject constructor(
         authDataSource.signOut()
     }
 
+    override suspend fun sendPasswordReset(email: String) {
+        authDataSource.sendPasswordReset(email)
+    }
+
+    override suspend fun lookupEmailForUsername(username: String): String? {
+        return classroomDataSource.findTeacherEmailByUsername(username).getOrNull()
+    }
+
+    override suspend fun updateDisplayName(displayName: String) {
+        authDataSource.updateDisplayName(displayName)
+        val state = authState.first()
+        val userId = state.userId ?: return
+        val email = state.email ?: authDataSource.currentUserEmail().orEmpty()
+        when (state.role) {
+            UserRole.TEACHER -> {
+                val teacherProfile = state.teacherProfile
+                    ?: Teacher(
+                        id = userId,
+                        displayName = displayName,
+                        email = email,
+                        createdAt = Clock.System.now()
+                    )
+                upsertTeacherProfile(teacherProfile.copy(displayName = displayName))
+            }
+            UserRole.STUDENT -> {
+                upsertStudentProfile(
+                    Student(
+                        id = userId,
+                        displayName = displayName,
+                        email = email,
+                        createdAt = Clock.System.now()
+                    )
+                )
+            }
+        }
+    }
+
+    override suspend fun upsertTeacherProfile(teacher: Teacher) {
+        classroomDataSource.upsertTeacherProfile(teacher)
+            .onSuccess { teacherDao.upsert(teacher.toEntity()) }
+            .getOrThrow()
+    }
+
+    override suspend fun upsertStudentProfile(student: Student) {
+        classroomDataSource.upsertStudentProfile(student)
+            .onSuccess { studentDao.upsert(student.toEntity()) }
+            .getOrThrow()
+    }
+
     override suspend fun getTeacher(teacherId: String): Flow<Teacher?> = flow {
         val teacher = teacherDao.get(teacherId)?.toDomain()
         emit(teacher)
@@ -103,6 +157,27 @@ private fun TeacherEntity.toDomain(): Teacher = Teacher(
     createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt)
 )
 
+private fun Teacher.toEntity(): TeacherEntity = TeacherEntity(
+    id = id,
+    displayName = displayName,
+    email = email,
+    createdAt = createdAt.toEpochMilliseconds()
+)
+
+private fun StudentEntity.toDomain(): Student = Student(
+    id = id,
+    displayName = displayName,
+    email = email,
+    createdAt = kotlinx.datetime.Instant.fromEpochMilliseconds(createdAt)
+)
+
+private fun Student.toEntity(): StudentEntity = StudentEntity(
+    id = id,
+    displayName = displayName,
+    email = email,
+    createdAt = createdAt.toEpochMilliseconds()
+)
+
 private data class AuthStateBundle(
     val state: AuthState,
     val flags: Set<String>,
@@ -112,5 +187,10 @@ private data class AuthStateBundle(
 
 private fun AuthState.overrideRole(roleMap: Map<String, UserRole>): AuthState {
     val override = userId?.let { roleMap[it] }
-    return if (override != null && override != role) copy(role = override, isTeacher = override == UserRole.TEACHER) else this
+    return when {
+        override == UserRole.TEACHER -> copy(role = UserRole.TEACHER, isTeacher = true)
+        override == UserRole.STUDENT -> copy(role = UserRole.STUDENT, isTeacher = false)
+        isTeacher -> copy(role = UserRole.TEACHER, isTeacher = true)
+        else -> this
+    }
 }

@@ -10,6 +10,8 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.material.Tab
+import androidx.compose.material.TabRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Add
@@ -27,7 +29,9 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.style.TextOverflow
@@ -36,9 +40,8 @@ import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.SimpleTopBar
+import com.classroom.quizmaster.ui.components.TagChip
 import com.classroom.quizmaster.ui.student.classrooms.ClassroomSummaryUi
-import com.classroom.quizmaster.ui.student.classrooms.TeacherClassroomUiState
-import com.classroom.quizmaster.ui.student.classrooms.TeacherClassroomsViewModel
 
 @Composable
 fun TeacherClassroomsRoute(
@@ -68,6 +71,12 @@ fun TeacherClassroomsScreen(
     onEditClassroom: (String) -> Unit,
     onArchiveClassroom: (String) -> Unit
 ) {
+    var selectedTab by rememberSaveable { mutableStateOf(TeacherClassroomsTab.Active) }
+    val classrooms = when (selectedTab) {
+        TeacherClassroomsTab.Active -> state.activeClassrooms
+        TeacherClassroomsTab.Archived -> state.archivedClassrooms
+    }
+
     Scaffold(
         topBar = {
             SimpleTopBar(
@@ -85,34 +94,46 @@ fun TeacherClassroomsScreen(
             }
         }
     ) { padding ->
-        if (state.classrooms.isEmpty()) {
-            Column(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(24.dp)
-            ) {
+        Column(
+            modifier = Modifier
+                .fillMaxSize()
+                .padding(padding)
+                .padding(horizontal = 16.dp, vertical = 12.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            TabRow(selectedTabIndex = selectedTab.ordinal) {
+                TeacherClassroomsTab.values().forEach { tab ->
+                    Tab(
+                        selected = tab == selectedTab,
+                        onClick = { selectedTab = tab },
+                        text = { Text(tab.label) }
+                    )
+                }
+            }
+            if (classrooms.isEmpty()) {
                 EmptyState(
                     title = "Nothing here",
-                    message = "Start by creating a classroom for your class."
+                    message = if (selectedTab == TeacherClassroomsTab.Active) {
+                        "Start by creating a classroom for your class."
+                    } else {
+                        "Archived classrooms will appear here."
+                    }
                 )
-            }
-        } else {
-            LazyColumn(
-                modifier = Modifier
-                    .fillMaxSize()
-                    .padding(padding)
-                    .padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(12.dp),
-                contentPadding = PaddingValues(bottom = 88.dp)
-            ) {
-                items(state.classrooms, key = { it.id }) { classroom ->
-                    ClassroomRow(
-                        summary = classroom,
-                        onClick = { onClassroomSelected(classroom.id) },
-                        onEdit = { onEditClassroom(classroom.id) },
-                        onArchive = { onArchiveClassroom(classroom.id) }
-                    )
+            } else {
+                LazyColumn(
+                    modifier = Modifier.fillMaxSize(),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    contentPadding = PaddingValues(bottom = 88.dp)
+                ) {
+                    items(classrooms, key = { it.id }) { classroom ->
+                        ClassroomRow(
+                            summary = classroom,
+                            onClick = { onClassroomSelected(classroom.id) },
+                            onEdit = { onEditClassroom(classroom.id) },
+                            onArchive = { onArchiveClassroom(classroom.id) },
+                            isArchived = selectedTab == TeacherClassroomsTab.Archived
+                        )
+                    }
                 }
             }
         }
@@ -124,7 +145,8 @@ private fun ClassroomRow(
     summary: ClassroomSummaryUi,
     onClick: () -> Unit,
     onEdit: () -> Unit,
-    onArchive: () -> Unit
+    onArchive: () -> Unit,
+    isArchived: Boolean
 ) {
     val menuExpanded = remember { mutableStateOf(false) }
     Card(
@@ -143,15 +165,25 @@ private fun ClassroomRow(
                 horizontalArrangement = Arrangement.SpaceBetween,
                 verticalAlignment = Alignment.CenterVertically
             ) {
-                Column(modifier = Modifier.weight(1f)) {
+                Column(modifier = Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(summary.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                    Text(
-                        text = summary.teacherName,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onSurfaceVariant,
-                        maxLines = 1,
-                        overflow = TextOverflow.Ellipsis
-                    )
+                    val meta = listOfNotNull(
+                        summary.subject.takeIf { it.isNotBlank() },
+                        summary.grade.takeIf { it.isNotBlank() }?.let { "Grade $it" }
+                    ).joinToString(" • ")
+                    if (meta.isNotBlank()) {
+                        Text(
+                            text = meta,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                            maxLines = 1,
+                            overflow = TextOverflow.Ellipsis
+                        )
+                    }
+                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                        TagChip(text = "Students: ${summary.studentCount}")
+                        TagChip(text = "Code: ${summary.joinCode}")
+                    }
                 }
                 IconButton(onClick = { menuExpanded.value = true }) {
                     Icon(imageVector = Icons.Outlined.MoreVert, contentDescription = "Classroom actions")
@@ -165,12 +197,19 @@ private fun ClassroomRow(
                         menuExpanded.value = false
                         onEdit()
                     })
-                    DropdownMenuItem(text = { Text("Archive") }, onClick = {
-                        menuExpanded.value = false
-                        onArchive()
-                    })
+                    if (!isArchived) {
+                        DropdownMenuItem(text = { Text("Archive") }, onClick = {
+                            menuExpanded.value = false
+                            onArchive()
+                        })
+                    }
                 }
             }
         }
     }
+}
+
+private enum class TeacherClassroomsTab(val label: String) {
+    Active("Active"),
+    Archived("Archived")
 }

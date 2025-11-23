@@ -7,7 +7,7 @@ import com.classroom.quizmaster.ui.student.classrooms.ClassroomSummaryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
-import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import javax.inject.Inject
@@ -18,19 +18,37 @@ class TeacherClassroomsViewModel @Inject constructor(
 ) : ViewModel() {
 
     val uiState: StateFlow<TeacherClassroomUiState> =
-        classroomRepository.classrooms
-            .map { classrooms ->
-                TeacherClassroomUiState(
-                    classrooms = classrooms.map {
-                        ClassroomSummaryUi(
-                            id = it.id,
-                            name = it.name,
-                            teacherName = "", // TODO: Get teacher name
-                            joinCode = it.joinCode
-                        )
-                    }
-                )
-            }
+        combine(
+            classroomRepository.classrooms,
+            classroomRepository.archivedClassrooms
+        ) { active, archived ->
+            TeacherClassroomUiState(
+                activeClassrooms = active.map {
+                    ClassroomSummaryUi(
+                        id = it.id,
+                        name = it.name,
+                        teacherName = "",
+                        joinCode = it.joinCode,
+                        subject = it.subject,
+                        grade = it.grade,
+                        activeAssignments = 0,
+                        studentCount = it.students.size
+                    )
+                },
+                archivedClassrooms = archived.map {
+                    ClassroomSummaryUi(
+                        id = it.id,
+                        name = it.name,
+                        teacherName = "",
+                        joinCode = it.joinCode,
+                        subject = it.subject,
+                        grade = it.grade,
+                        activeAssignments = 0,
+                        studentCount = it.students.size
+                    )
+                }
+            )
+        }
             .stateIn(
                 scope = viewModelScope,
                 started = SharingStarted.WhileSubscribed(5_000),
@@ -45,6 +63,7 @@ class TeacherClassroomsViewModel @Inject constructor(
 }
 
 data class TeacherClassroomUiState(
-    val classrooms: List<ClassroomSummaryUi> = emptyList(),
+    val activeClassrooms: List<ClassroomSummaryUi> = emptyList(),
+    val archivedClassrooms: List<ClassroomSummaryUi> = emptyList(),
     val emptyMessage: String = ""
 )

@@ -9,6 +9,7 @@ import kotlinx.datetime.Instant
 interface AssignmentRepository {
     val assignments: Flow<List<Assignment>>
     fun submissions(assignmentId: String): Flow<List<Submission>>
+    fun submissionsForUser(userId: String): Flow<List<Submission>>
     suspend fun refreshAssignments()
     suspend fun getAssignment(id: String): Assignment?
     suspend fun createAssignment(assignment: Assignment)

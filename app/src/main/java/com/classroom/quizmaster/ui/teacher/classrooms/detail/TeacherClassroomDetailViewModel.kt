@@ -92,9 +92,11 @@ class TeacherClassroomDetailViewModel @Inject constructor(
                 ClassroomDetailUiState(
                     classroomId = classroomIdArg,
                     classroomName = classroom.name,
+                    isArchived = classroom.isArchived,
                     grade = classroom.grade,
                     subject = classroom.subject,
                     joinCode = classroom.joinCode,
+                    studentCount = classroom.students.size,
                     topics = topicSummaries,
                     preTest = preTest,
                     postTest = postTest,
@@ -126,9 +128,11 @@ class TeacherClassroomDetailViewModel @Inject constructor(
 data class ClassroomDetailUiState(
     val classroomId: String = "",
     val classroomName: String = "",
+    val isArchived: Boolean = false,
     val grade: String = "",
     val subject: String = "",
     val joinCode: String = "",
+    val studentCount: Int = 0,
     val topics: List<TopicSummaryUi> = emptyList(),
     val preTest: ClassroomTestUi? = null,
     val postTest: ClassroomTestUi? = null,
