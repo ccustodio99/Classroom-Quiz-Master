@@ -11,6 +11,8 @@ import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.domain.repository.SessionRepository
 import com.classroom.quizmaster.domain.usecase.StartSessionUseCase
 import com.classroom.quizmaster.domain.usecase.SubmitAnswerUseCase
+import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
+import com.classroom.quizmaster.data.lan.LanServiceDescriptor
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.model.LeaderboardRowUi
@@ -23,6 +25,7 @@ import com.classroom.quizmaster.ui.student.end.StudentEndUiState
 import com.classroom.quizmaster.ui.student.entry.StudentEntryUiState
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyUiState
 import com.classroom.quizmaster.ui.student.play.StudentPlayUiState
+import com.classroom.quizmaster.ui.student.play.SubmissionStatus
 import com.classroom.quizmaster.ui.teacher.host.HostLiveUiState
 import com.classroom.quizmaster.ui.teacher.launch.LaunchLobbyUiState
 import com.classroom.quizmaster.util.NicknamePolicy
@@ -68,6 +71,9 @@ class RealSessionRepositoryUi @Inject constructor(
     private val hostContext = MutableStateFlow<HostContext?>(null)
     private val muteSfx = MutableStateFlow(false)
     private val studentReady = MutableStateFlow(false)
+    private val discoveredHosts = MutableStateFlow<Map<String, LanServiceDescriptor>>(emptyMap())
+    private val teacherName = MutableStateFlow("Host")
+    private var discoveryJob: Job? = null
     private val entryState = MutableStateFlow(
         StudentEntryUiState(
             statusMessage = DEFAULT_STATUS_MESSAGE,
@@ -96,6 +102,20 @@ class RealSessionRepositoryUi @Inject constructor(
 
         preferredNickname
             .onEach { saved -> applyPreferredNickname(saved) }
+            .launchIn(scope)
+
+        sessionState
+            .onEach { session ->
+                session?.teacherId
+                    ?.takeIf { it.isNotBlank() }
+                    ?.let { id ->
+                        scope.launch {
+                            authRepository.getTeacher(id).firstOrNull()?.let { teacher ->
+                                teacherName.value = teacher.displayName
+                            }
+                        }
+                    }
+            }
             .launchIn(scope)
     }
 
@@ -148,11 +168,87 @@ class RealSessionRepositoryUi @Inject constructor(
 
     override val studentEntry: Flow<StudentEntryUiState> = entryState.asStateFlow()
 
-    override val studentLobby: Flow<StudentLobbyUiState>
-        get() = flowOf(StudentLobbyUiState())
+    override val studentLobby: Flow<StudentLobbyUiState> =
+        combine(sessionState, participantsState, authState, studentReady) { session, participants, auth, ready ->
+            if (session == null) {
+                StudentLobbyUiState()
+            } else {
+                val youId = auth.userId
+                val sortedParticipants = participants.sortedByDescending { it.totalPoints }
+                val playerCards = sortedParticipants.mapIndexed { index, participant ->
+                    val avatar = defaultAvatarOptions.firstOrNull { it.id == participant.avatar }
+                        ?: defaultAvatarOptions.first()
+                    PlayerLobbyUi(
+                        id = participant.uid,
+                        nickname = participant.nickname,
+                        avatar = avatar,
+                        ready = participant.uid == youId && ready,
+                        tag = when {
+                            participant.uid == youId -> "You"
+                            index == 0 -> "Leader"
+                            else -> null
+                        }
+                    )
+                }
+                StudentLobbyUiState(
+                    studentId = youId.orEmpty(),
+                    hostName = teacherName.value,
+                    joinCode = session.joinCode,
+                    joinStatus = when (session.status) {
+                        SessionStatus.LOBBY -> "Waiting for host"
+                        SessionStatus.ACTIVE -> "Live"
+                        SessionStatus.ENDED -> "Finished"
+                    },
+                    players = playerCards,
+                    ready = ready,
+                    lockedMessage = if (session.lockAfterQ1) "Host will lock after question 1" else null,
+                    countdownSeconds = 0,
+                    leaderboardPreview = sortedParticipants.take(3).mapIndexed { index, participant ->
+                        participant.toLeaderboardRow(index + 1, youId)
+                    }
+                )
+            }
+        }
+            .distinctUntilChanged()
 
-    override val studentPlay: Flow<StudentPlayUiState>
-        get() = flowOf(StudentPlayUiState())
+    override val studentPlay: Flow<StudentPlayUiState> =
+        combine(sessionState, quizzesState, participantsState, authState, pendingOps) { session, quizzes, participants, auth, pending ->
+            if (session == null) {
+                StudentPlayUiState()
+            } else {
+                val quiz = quizzes.firstOrNull { it.id == session.quizId }
+                val question = quiz?.questions?.getOrNull(session.currentIndex)
+                val youId = auth.userId
+                val leaderboard = participants.sortedByDescending { it.totalPoints }
+                    .mapIndexed { index, participant -> participant.toLeaderboardRow(index + 1, youId) }
+                val player = participants.firstOrNull { it.uid == youId }
+                val requiresManualSubmit = when (question?.type) {
+                    QuestionType.FILL_IN, QuestionType.MATCHING -> true
+                    else -> false
+                }
+                StudentPlayUiState(
+                    question = question?.toDraft(),
+                    timerSeconds = question?.timeLimitSeconds ?: 30,
+                    reveal = session.reveal,
+                    progress = if (question == null) 0f else 1f,
+                    leaderboard = leaderboard,
+                    distribution = emptyList(),
+                    streak = player?.rank ?: 0,
+                    totalScore = player?.totalPoints ?: 0,
+                    latencyMs = (pending * 50).coerceAtMost(500),
+                    connectionQuality = when {
+                        pending == 0 -> com.classroom.quizmaster.ui.model.ConnectionQuality.Excellent
+                        pending < 3 -> com.classroom.quizmaster.ui.model.ConnectionQuality.Good
+                        pending < 6 -> com.classroom.quizmaster.ui.model.ConnectionQuality.Fair
+                        else -> com.classroom.quizmaster.ui.model.ConnectionQuality.Weak
+                    },
+                    submissionStatus = if (pending == 0) SubmissionStatus.Idle else SubmissionStatus.Sending,
+                    submissionMessage = if (pending == 0) "" else "Syncing...",
+                    requiresManualSubmit = requiresManualSubmit
+                )
+            }
+        }
+            .distinctUntilChanged()
 
     override val studentEnd: Flow<StudentEndUiState> =
         combine(sessionState, participantsState, authState) { session, participants, auth ->
@@ -316,12 +412,75 @@ class RealSessionRepositoryUi @Inject constructor(
     }
 
     override suspend fun refreshLanHosts() {
-        // TODO: Implement
+        discoveryJob?.cancel()
+        entryState.update {
+            it.copy(
+                isDiscovering = true,
+                statusMessage = "Scanning for nearby hosts",
+                errorMessage = null
+            )
+        }
+        discoveryJob = scope.launch {
+            sessionRepository.discoverHosts().collect { event ->
+                when (event) {
+                    is LanDiscoveryEvent.ServiceFound -> {
+                        val descriptor = event.descriptor
+                        discoveredHosts.update { hosts ->
+                            hosts + mapOf(
+                                descriptor.serviceName to descriptor,
+                                descriptor.token to descriptor,
+                                descriptor.joinCode to descriptor
+                            ).filterKeys { it.isNotBlank() }
+                        }
+                        entryState.update {
+                            it.copy(
+                                isDiscovering = false,
+                                statusMessage = "Found ${descriptor.joinCode.ifBlank { descriptor.serviceName }}",
+                                lastSeenHosts = "just now",
+                                networkAvailable = true
+                            )
+                        }
+                    }
+
+                    is LanDiscoveryEvent.Error -> entryState.update {
+                        it.copy(
+                            isDiscovering = false,
+                            errorMessage = event.message,
+                            networkAvailable = false
+                        )
+                    }
+
+                    LanDiscoveryEvent.Timeout -> entryState.update {
+                        it.copy(
+                            isDiscovering = false,
+                            statusMessage = "No hosts detected",
+                            lastSeenHosts = "just now"
+                        )
+                    }
+                }
+            }
+        }
     }
 
     override suspend fun joinLanHost(hostId: String, nickname: String, avatarId: String?): Result<Unit> {
-        // TODO: Implement
-        return Result.success(Unit)
+        val descriptor = discoveredHosts.value.entries.firstOrNull { (key, _) ->
+            key.equals(hostId, ignoreCase = true)
+        }?.value ?: return Result.failure(IllegalStateException("Host not found; refresh and try again"))
+
+        entryState.update { it.copy(isJoining = true, errorMessage = null) }
+        val sanitized = NicknamePolicy.sanitize(nickname.ifBlank { "Student" }, descriptor.joinCode)
+        val result = sessionRepository.joinLanHost(descriptor, sanitized)
+        entryState.update { state ->
+            state.copy(
+                isJoining = false,
+                statusMessage = result.fold(
+                    onSuccess = { "Joined ${descriptor.joinCode.ifBlank { "host" }}" },
+                    onFailure = { state.statusMessage }
+                ),
+                errorMessage = result.exceptionOrNull()?.message
+            )
+        }
+        return result
     }
 
     override suspend fun submitStudentAnswer(answerIds: List<String>) {
@@ -467,7 +626,7 @@ class RealSessionRepositoryUi @Inject constructor(
         QuestionTypeUi.Match -> listOf("Pair 1", "Pair 2")
     }.mapIndexed { index, label ->
         AnswerOptionUi(
-            id = "placeholder_$index",
+            id = "auto_choice_$index",
             label = ('A' + index).toString(),
             text = label,
             correct = index == 0

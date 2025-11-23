@@ -336,7 +336,7 @@ class RealQuizRepositoryUi @Inject constructor(
         QuestionType.MATCHING -> listOf("Pair 1", "Pair 2")
     }.mapIndexed { index, label ->
         AnswerOptionUi(
-            id = "placeholder_$index",
+            id = "auto_choice_$index",
             label = ('A' + index).toString(),
             text = label,
             correct = index == 0

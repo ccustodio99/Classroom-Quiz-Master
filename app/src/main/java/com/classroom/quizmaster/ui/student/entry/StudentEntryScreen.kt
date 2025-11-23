@@ -154,8 +154,29 @@ class StudentEntryViewModel @Inject constructor(
         val teacherId = state.selectedTeacherId ?: return
         viewModelScope.launch {
             _uiState.update { it.copy(isJoining = true, errorMessage = null) }
-            // TODO: Implement join teacher functionality
-            onJoined()
+            runCatching {
+                val classrooms = classroomRepository.getClassroomsForTeacher(teacherId)
+                val targetClassroom = classrooms
+                    .filterNot { it.isArchived }
+                    .maxByOrNull { it.updatedAt } ?: classrooms.firstOrNull()
+                    ?: error("This teacher has no open classrooms yet")
+                classroomRepository.createJoinRequest(targetClassroom.id, teacherId)
+            }.onSuccess {
+                _uiState.update {
+                    it.copy(
+                        isJoining = false,
+                        statusMessage = "Request sent to your teacher"
+                    )
+                }
+                onJoined()
+            }.onFailure { throwable ->
+                _uiState.update {
+                    it.copy(
+                        isJoining = false,
+                        errorMessage = throwable.message ?: "Unable to reach teacher"
+                    )
+                }
+            }
         }
     }
 
