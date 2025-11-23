@@ -9,12 +9,8 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.clickable
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
-import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.Text
@@ -31,7 +27,6 @@ import com.classroom.quizmaster.ui.components.SimpleTopBar
 
 @Composable
 fun StudentClassroomRoute(
-    onBack: () -> Unit,
     onJoinClassroom: () -> Unit,
     onOpenClassroom: (String) -> Unit,
     viewModel: StudentClassroomViewModel = hiltViewModel()
@@ -39,7 +34,6 @@ fun StudentClassroomRoute(
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     StudentClassroomScreen(
         state = state,
-        onBack = onBack,
         onJoinClassroom = onJoinClassroom,
         onOpenClassroom = onOpenClassroom
     )
@@ -48,19 +42,13 @@ fun StudentClassroomRoute(
 @Composable
 fun StudentClassroomScreen(
     state: StudentClassroomUiState,
-    onBack: () -> Unit,
     onJoinClassroom: () -> Unit,
     onOpenClassroom: (String) -> Unit
 ) {
     Scaffold(
         topBar = {
             SimpleTopBar(
-                title = "Classroom",
-                navigationIcon = {
-                    IconButton(onClick = onBack) {
-                        Icon(imageVector = Icons.AutoMirrored.Outlined.ArrowBack, contentDescription = "Back")
-                    }
-                }
+                title = "My Classrooms"
             )
         }
     ) { padding ->
@@ -107,12 +95,26 @@ private fun StudentClassroomCard(summary: ClassroomSummaryUi, onClick: () -> Uni
         Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
             Text(summary.name, style = MaterialTheme.typography.titleMedium, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(
+                text = "${summary.subject} • ${summary.grade}",
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis
+            )
+            Text(
                 text = summary.teacherName,
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 maxLines = 1,
                 overflow = TextOverflow.Ellipsis
             )
+            if (summary.activeAssignments > 0) {
+                Text(
+                    text = "${summary.activeAssignments} active assignments",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.primary
+                )
+            }
         }
     }
 }
