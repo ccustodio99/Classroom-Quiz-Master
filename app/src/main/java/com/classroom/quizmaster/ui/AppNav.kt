@@ -4,6 +4,9 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.outlined.EmojiEvents
 import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
+import androidx.compose.material.icons.outlined.AccountCircle
+import androidx.compose.material.icons.outlined.Assignment
+import androidx.compose.material.icons.outlined.GroupAdd
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -28,6 +31,7 @@ import com.classroom.quizmaster.ui.student.entry.EntryTab
 import com.classroom.quizmaster.ui.student.entry.StudentEntryRoute
 import com.classroom.quizmaster.ui.student.lobby.StudentLobbyRoute
 import com.classroom.quizmaster.ui.student.play.StudentPlayRoute
+import com.classroom.quizmaster.ui.student.assignments.StudentAssignmentsRoute
 import com.classroom.quizmaster.ui.student.classrooms.StudentClassroomRoute
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsRoute
 import com.classroom.quizmaster.ui.teacher.assignments.editor.AssignmentEditorRoute
@@ -47,6 +51,7 @@ import com.classroom.quizmaster.ui.teacher.topics.edit.EditTopicRoute
 import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomRoute
 import com.classroom.quizmaster.ui.teacher.requests.JoinRequestsRoute
 import com.classroom.quizmaster.ui.student.search.TeacherSearchRoute
+import com.classroom.quizmaster.ui.student.profile.StudentProfileRoute
 
 sealed class AppRoute(val route: String) {
     data object Welcome : AppRoute("neutral/welcome")
@@ -113,6 +118,9 @@ sealed class AppRoute(val route: String) {
     data object StudentEntry : AppRoute("student/entry")
     data object StudentJoinLan : AppRoute("student/joinLan")
     data object StudentJoinCode : AppRoute("student/joinCode")
+    data object StudentJoin : AppRoute("student/join")
+    data object StudentAssignments : AppRoute("student/assignments")
+    data object StudentProfile : AppRoute("student/profile")
     data object StudentLobby : AppRoute("student/lobby")
     data object StudentPlay : AppRoute("student/play")
     data object StudentEnd : AppRoute("student/end")
@@ -130,10 +138,10 @@ fun AppNav(
 
     val studentBottomItems = remember {
         listOf(
-            BottomNavItem(AppRoute.StudentEntry.route, Icons.Outlined.Home, "Join"),
-            BottomNavItem(AppRoute.StudentLobby.route, Icons.Outlined.Groups, "Lobby"),
-            BottomNavItem(AppRoute.StudentPlay.route, Icons.Outlined.EmojiEvents, "Play"),
-            BottomNavItem(AppRoute.StudentClassrooms.route, Icons.AutoMirrored.Outlined.LibraryBooks, "Classroom")
+            BottomNavItem(AppRoute.StudentClassrooms.route, Icons.AutoMirrored.Outlined.LibraryBooks, "Classrooms"),
+            BottomNavItem(AppRoute.StudentJoin.route, Icons.Outlined.GroupAdd, "Join"),
+            BottomNavItem(AppRoute.StudentAssignments.route, Icons.Outlined.Assignment, "Assignments"),
+            BottomNavItem(AppRoute.StudentProfile.route, Icons.Outlined.AccountCircle, "Profile")
         )
     }
 
@@ -194,7 +202,7 @@ fun AppNav(
                         }
                     },
                     onStudentAuthenticated = {
-                        navController.navigate(AppRoute.StudentEntry.route) {
+                        navController.navigate(AppRoute.StudentJoin.route) {
                             popUpTo(AppRoute.Auth.route) { inclusive = true }
                             launchSingleTop = true
                         }
@@ -474,6 +482,17 @@ fun AppNav(
             composable(AppRoute.TeacherArchived.route) {
                 ArchivedClassroomsRoute(onBack = { navController.popBackStack() })
             }
+            composable(AppRoute.StudentJoin.route) {
+                StudentEntryRoute(
+                    onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
+                    onTeacherSignIn = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            launchSingleTop = true
+                        }
+                    },
+                    onFindTeacher = { navController.navigate(AppRoute.StudentTeacherSearch.route) }
+                )
+            }
             composable(AppRoute.StudentEntry.route) {
                 StudentEntryRoute(
                     onJoined = { navController.navigate(AppRoute.StudentLobby.route) },
@@ -481,7 +500,8 @@ fun AppNav(
                         navController.navigate(AppRoute.Auth.route) {
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    onFindTeacher = { navController.navigate(AppRoute.StudentTeacherSearch.route) }
                 )
             }
             composable(AppRoute.StudentJoinLan.route) {
@@ -492,7 +512,8 @@ fun AppNav(
                         navController.navigate(AppRoute.Auth.route) {
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    onFindTeacher = { navController.navigate(AppRoute.StudentTeacherSearch.route) }
                 )
             }
             composable(AppRoute.StudentJoinCode.route) {
@@ -503,7 +524,8 @@ fun AppNav(
                         navController.navigate(AppRoute.Auth.route) {
                             launchSingleTop = true
                         }
-                    }
+                    },
+                    onFindTeacher = { navController.navigate(AppRoute.StudentTeacherSearch.route) }
                 )
             }
             composable(AppRoute.StudentLobby.route) {
@@ -532,6 +554,17 @@ fun AppNav(
                         navController.navigate(AppRoute.TeacherClassroomDetail.build(classroomId))
                     }
                 )
+            }
+            composable(AppRoute.StudentAssignments.route) {
+                StudentAssignmentsRoute()
+            }
+            composable(AppRoute.StudentProfile.route) {
+                StudentProfileRoute(onLoggedOut = {
+                    navController.navigate(AppRoute.Auth.route) {
+                        popUpTo(AppRoute.Auth.route) { inclusive = true }
+                        launchSingleTop = true
+                    }
+                })
             }
             composable(AppRoute.StudentJoinClassroom.route) {
                 JoinClassroomRoute(

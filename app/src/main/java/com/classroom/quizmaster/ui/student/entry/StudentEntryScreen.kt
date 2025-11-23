@@ -19,6 +19,7 @@ import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
+import androidx.compose.material3.OutlinedTextField
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -51,6 +52,8 @@ import com.classroom.quizmaster.ui.components.TagChip
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
 import com.classroom.quizmaster.ui.state.SessionRepositoryUi
+import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomViewModel
+import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomUiState
 import com.classroom.quizmaster.util.JoinCodeGenerator
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
@@ -200,12 +203,16 @@ fun StudentEntryRoute(
     onJoined: () -> Unit,
     initialTab: EntryTab = EntryTab.Lan,
     onTeacherSignIn: (() -> Unit)? = null,
+    onFindTeacher: () -> Unit = {},
     viewModel: StudentEntryViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val joinViewModel: JoinClassroomViewModel = hiltViewModel()
+    val joinState by joinViewModel.uiState.collectAsStateWithLifecycle()
     LaunchedEffect(initialTab) { viewModel.selectTab(initialTab) }
     StudentEntryScreen(
         state = state,
+        joinState = joinState,
         onTabSelect = viewModel::selectTab,
         onJoinCodeChange = viewModel::updateJoinCode,
         onTeacherSelect = viewModel::selectTeacher,
@@ -213,13 +220,16 @@ fun StudentEntryRoute(
         onJoinTeacher = { viewModel.joinTeacher(onJoined) },
         onJoinCode = { viewModel.joinByCode(onJoined) },
         onClearError = viewModel::clearError,
-        onTeacherSignIn = onTeacherSignIn
+        onTeacherSignIn = onTeacherSignIn,
+        onJoinClassroom = { code -> joinViewModel.joinClassroom(code, onJoined) },
+        onFindTeacher = onFindTeacher
     )
 }
 
 @Composable
 fun StudentEntryScreen(
     state: StudentEntryUiState,
+    joinState: JoinClassroomUiState,
     onTabSelect: (EntryTab) -> Unit,
     onJoinCodeChange: (String) -> Unit,
     onTeacherSelect: (String) -> Unit,
@@ -227,7 +237,9 @@ fun StudentEntryScreen(
     onJoinTeacher: () -> Unit,
     onJoinCode: () -> Unit,
     onClearError: () -> Unit,
-    onTeacherSignIn: (() -> Unit)? = null
+    onTeacherSignIn: (() -> Unit)? = null,
+    onJoinClassroom: (String) -> Unit,
+    onFindTeacher: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -240,6 +252,37 @@ fun StudentEntryScreen(
             title = "Join Classroom",
             subtitle = "Discover nearby teachers or use a join code from your teacher."
         )
+        var classroomCode by remember { mutableStateOf("") }
+        SectionCard(
+            title = "Join a classroom",
+            subtitle = "Request access with a classroom code or search by teacher."
+        ) {
+            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = classroomCode,
+                    onValueChange = { classroomCode = it },
+                    label = { Text("Classroom code") },
+                    modifier = Modifier.fillMaxWidth()
+                )
+                joinState.errorMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.error)
+                }
+                joinState.statusMessage?.let {
+                    Text(it, color = MaterialTheme.colorScheme.primary)
+                }
+                PrimaryButton(
+                    text = if (joinState.isLoading) "Sending request..." else "Request to join",
+                    onClick = { onJoinClassroom(classroomCode) },
+                    enabled = classroomCode.isNotBlank() && !joinState.isLoading,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                SecondaryButton(
+                    text = "Find teacher",
+                    onClick = onFindTeacher,
+                    modifier = Modifier.fillMaxWidth()
+                )
+            }
+        }
         if (!state.networkAvailable) {
             AssistiveInfoCard(
                 title = "You're offline",
