@@ -232,7 +232,8 @@ class ClassroomRepositoryImpl @Inject constructor(
                 Timber.w(error, "Queueing classroom upsert for sync: ${normalized.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.CLASSROOM_UPSERT,
-                    UpsertClassroomPayload(normalized)
+                    UpsertClassroomPayload(normalized),
+                    UpsertClassroomPayload.serializer()
                 )
                 resolvedId
             } else {
@@ -374,7 +375,8 @@ class ClassroomRepositoryImpl @Inject constructor(
                 Timber.w(error, "Queueing classroom archive for sync: $classroomId")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.CLASSROOM_ARCHIVE,
-                    ArchiveClassroomPayload(classroomId, archivedAt.toEpochMilliseconds())
+                    ArchiveClassroomPayload(classroomId, archivedAt.toEpochMilliseconds()),
+                    ArchiveClassroomPayload.serializer()
                 )
             }
     }
@@ -403,7 +405,8 @@ class ClassroomRepositoryImpl @Inject constructor(
                 Timber.w(error, "Queueing topic upsert for sync: ${normalized.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.TOPIC_UPSERT,
-                    UpsertTopicPayload(normalized)
+                    UpsertTopicPayload(normalized),
+                    UpsertTopicPayload.serializer()
                 )
                 resolvedId
             } else {
@@ -435,7 +438,8 @@ class ClassroomRepositoryImpl @Inject constructor(
                 Timber.w(error, "Queueing topic archive for sync: $topicId")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.TOPIC_ARCHIVE,
-                    ArchiveTopicPayload(topicId, archivedAt.toEpochMilliseconds())
+                    ArchiveTopicPayload(topicId, archivedAt.toEpochMilliseconds()),
+                    ArchiveTopicPayload.serializer()
                 )
             }
     }

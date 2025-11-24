@@ -95,6 +95,8 @@ class FirebaseTopicDataSource @Inject constructor(
         val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
         val updatedAt: Long = createdAt,
         val isArchived: Boolean = false,
+        // Legacy field name kept for backward compatibility with old documents.
+        val archived: Boolean? = null,
         val archivedAt: Long? = null
     ) {
         fun toDomain(id: String): Topic = Topic(
@@ -105,7 +107,7 @@ class FirebaseTopicDataSource @Inject constructor(
             description = description,
             createdAt = Instant.fromEpochMilliseconds(createdAt),
             updatedAt = Instant.fromEpochMilliseconds(updatedAt),
-            isArchived = isArchived,
+            isArchived = isArchived || (archived ?: false),
             archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
         )
 

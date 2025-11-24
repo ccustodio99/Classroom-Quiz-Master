@@ -205,7 +205,8 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                 Timber.w(it, "Queueing material upsert for sync: ${normalized.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.MATERIAL_UPSERT,
-                    UpsertMaterialPayload(remoteMaterial)
+                    UpsertMaterialPayload(remoteMaterial),
+                    UpsertMaterialPayload.serializer()
                 )
             }
         broadcastIfHosting(normalized.classroomId)
@@ -229,7 +230,8 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                 Timber.w(it, "Queueing material archive for sync: $materialId")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.MATERIAL_ARCHIVE,
-                    ArchiveMaterialPayload(materialId, archivedAt.toEpochMilliseconds())
+                    ArchiveMaterialPayload(materialId, archivedAt.toEpochMilliseconds()),
+                    ArchiveMaterialPayload.serializer()
                 )
             }
         broadcastIfHosting(archivedEntity.classroomId)
@@ -248,7 +250,8 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                 Timber.w(it, "Queueing material delete for sync: $materialId")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.MATERIAL_DELETE,
-                    DeleteMaterialPayload(materialId)
+                    DeleteMaterialPayload(materialId),
+                    DeleteMaterialPayload.serializer()
                 )
             }
         broadcastIfHosting(stored.material.classroomId)
@@ -279,7 +282,8 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                 Timber.w(it, "Queueing material move sync: ${updated.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.MATERIAL_UPSERT,
-                    UpsertMaterialPayload(updated.toDomainModelWithoutAttachments())
+                    UpsertMaterialPayload(updated.toDomainModelWithoutAttachments()),
+                    UpsertMaterialPayload.serializer()
                 )
             }
         broadcastIfHosting(stored.material.classroomId)
@@ -326,7 +330,8 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                 Timber.w(it, "Queueing material duplicate sync: ${duplicated.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.MATERIAL_UPSERT,
-                    UpsertMaterialPayload(duplicated.toDomainModelWithoutAttachments())
+                    UpsertMaterialPayload(duplicated.toDomainModelWithoutAttachments()),
+                    UpsertMaterialPayload.serializer()
                 )
             }
         broadcastIfHosting(classroom.id)

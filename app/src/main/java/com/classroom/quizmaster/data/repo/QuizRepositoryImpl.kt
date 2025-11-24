@@ -154,7 +154,8 @@ class QuizRepositoryImpl @Inject constructor(
                 Timber.w(err, "Queueing quiz upsert for sync: ${normalized.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.QUIZ_UPSERT,
-                    UpsertQuizPayload(normalized)
+                    UpsertQuizPayload(normalized),
+                    UpsertQuizPayload.serializer()
                 )
             } else {
                 Timber.e(err, "Failed to upsert quiz ${normalized.id}")
@@ -186,7 +187,8 @@ class QuizRepositoryImpl @Inject constructor(
                 Timber.w(err, "Queueing quiz archive for sync: $id")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.QUIZ_ARCHIVE,
-                    ArchiveQuizPayload(id, now.toEpochMilliseconds())
+                    ArchiveQuizPayload(id, now.toEpochMilliseconds()),
+                    ArchiveQuizPayload.serializer()
                 )
             } else {
                 Timber.e(err, "Failed to archive quiz $id remotely")

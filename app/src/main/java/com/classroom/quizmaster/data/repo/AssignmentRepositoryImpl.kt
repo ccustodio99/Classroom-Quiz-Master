@@ -165,7 +165,8 @@ class AssignmentRepositoryImpl @Inject constructor(
                 Timber.w(err, "Queueing assignment create for sync: ${assignment.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.ASSIGNMENT_UPSERT,
-                    UpsertAssignmentPayload(assignment)
+                    UpsertAssignmentPayload(assignment),
+                    UpsertAssignmentPayload.serializer()
                 )
             } else {
                 Timber.e(err, "Failed to create assignment ${assignment.id}")
@@ -221,7 +222,8 @@ class AssignmentRepositoryImpl @Inject constructor(
                 Timber.w(err, "Queueing assignment update for sync: ${assignment.id}")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.ASSIGNMENT_UPSERT,
-                    UpsertAssignmentPayload(assignment)
+                    UpsertAssignmentPayload(assignment),
+                    UpsertAssignmentPayload.serializer()
                 )
             } else {
                 Timber.e(err, "Failed to update assignment ${assignment.id}")
@@ -248,7 +250,8 @@ class AssignmentRepositoryImpl @Inject constructor(
                 Timber.w(err, "Queueing assignment archive for sync: $id")
                 pendingOpQueue.enqueue(
                     PendingOpTypes.ASSIGNMENT_ARCHIVE,
-                    ArchiveAssignmentPayload(id, archivedAt.toEpochMilliseconds())
+                    ArchiveAssignmentPayload(id, archivedAt.toEpochMilliseconds()),
+                    ArchiveAssignmentPayload.serializer()
                 )
             } else {
                 Timber.e(err, "Failed to archive assignment $id")
