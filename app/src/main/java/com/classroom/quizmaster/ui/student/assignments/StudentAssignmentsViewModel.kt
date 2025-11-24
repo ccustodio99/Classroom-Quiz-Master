@@ -93,8 +93,12 @@ class StudentAssignmentsViewModel @Inject constructor(
         baseState,
         refreshing
     ) { state, isRefreshing ->
-        state.copy(isRefreshing = isRefreshing)
-    }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudentAssignmentsUiState())
+            state.copy(isRefreshing = isRefreshing)
+        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudentAssignmentsUiState())
+
+    init {
+        refresh()
+    }
 
     fun selectFilter(newFilter: StudentAssignmentFilter) {
         filter.value = newFilter

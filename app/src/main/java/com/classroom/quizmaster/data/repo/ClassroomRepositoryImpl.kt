@@ -21,6 +21,12 @@ import com.classroom.quizmaster.domain.model.Teacher
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.google.firebase.firestore.FirebaseFirestoreException
+import com.classroom.quizmaster.data.sync.PendingOpQueue
+import com.classroom.quizmaster.data.sync.PendingOpTypes
+import com.classroom.quizmaster.data.sync.UpsertClassroomPayload
+import com.classroom.quizmaster.data.sync.ArchiveClassroomPayload
+import com.classroom.quizmaster.data.sync.UpsertTopicPayload
+import com.classroom.quizmaster.data.sync.ArchiveTopicPayload
 import timber.log.Timber
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -47,6 +53,7 @@ class ClassroomRepositoryImpl @Inject constructor(
     private val classroomRemote: FirebaseClassroomDataSource,
     private val topicRemote: FirebaseTopicDataSource,
     private val authRepository: AuthRepository,
+    private val pendingOpQueue: PendingOpQueue,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ClassroomRepository {
 
@@ -187,9 +194,21 @@ class ClassroomRepositoryImpl @Inject constructor(
         } else {
             val studentId = authState.userId ?: return@withContext
             val classrooms = classroomRemote.getClassroomsForStudent(studentId).getOrElse { emptyList() }
-            if (classrooms.isEmpty()) return@withContext
+            val classroomEntities = classrooms.map { it.toEntity() }
+            val topics = if (classrooms.isNotEmpty()) {
+                topicRemote.fetchTopicsForClassrooms(classrooms.map { it.id }).getOrElse { emptyList() }
+            } else {
+                emptyList()
+            }
+            val topicEntities = topics.map { it.toEntity() }
+            if (classroomEntities.isEmpty() && topicEntities.isEmpty()) return@withContext
             database.withTransaction {
-                classroomDao.upsertAll(classrooms.map { it.toEntity() })
+                if (classroomEntities.isNotEmpty()) {
+                    classroomDao.upsertAll(classroomEntities)
+                }
+                if (topicEntities.isNotEmpty()) {
+                    topicDao.upsertAll(topicEntities)
+                }
             }
         }
     }
@@ -209,8 +228,12 @@ class ClassroomRepositoryImpl @Inject constructor(
         database.withTransaction { classroomDao.upsert(normalized.toEntity()) }
         val remoteResult = classroomRemote.upsertClassroom(normalized)
         val remoteId = remoteResult.getOrElse { error ->
-            if (shouldIgnorePermissionDenied(error)) {
-                Timber.w(error, "Skipping remote classroom upsert due to permissions")
+            if (shouldIgnorePermissionDenied(error) || isTransient(error)) {
+                Timber.w(error, "Queueing classroom upsert for sync: ${normalized.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.CLASSROOM_UPSERT,
+                    UpsertClassroomPayload(normalized)
+                )
                 resolvedId
             } else {
                 throw error
@@ -347,9 +370,13 @@ class ClassroomRepositoryImpl @Inject constructor(
         database.withTransaction { classroomDao.upsert(archived) }
         classroomRemote.archiveClassroom(classroomId, archivedAt)
             .onFailure { error ->
-                if (!shouldIgnorePermissionDenied(error) && !isTransient(error)) throw error else Timber.w(error, "Skipping remote archive for $classroomId")
+                if (!shouldIgnorePermissionDenied(error) && !isTransient(error)) throw error
+                Timber.w(error, "Queueing classroom archive for sync: $classroomId")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.CLASSROOM_ARCHIVE,
+                    ArchiveClassroomPayload(classroomId, archivedAt.toEpochMilliseconds())
+                )
             }
-            .getOrElse { }
     }
 
     override suspend fun upsertTopic(topic: Topic): String = withContext(ioDispatcher) {
@@ -372,8 +399,12 @@ class ClassroomRepositoryImpl @Inject constructor(
         database.withTransaction { topicDao.upsert(normalized.toEntity()) }
         val remoteResult = topicRemote.upsertTopic(normalized)
         val remoteId = remoteResult.getOrElse { error ->
-            if (shouldIgnorePermissionDenied(error)) {
-                Timber.w(error, "Skipping remote topic upsert due to permissions")
+            if (shouldIgnorePermissionDenied(error) || isTransient(error)) {
+                Timber.w(error, "Queueing topic upsert for sync: ${normalized.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.TOPIC_UPSERT,
+                    UpsertTopicPayload(normalized)
+                )
                 resolvedId
             } else {
                 throw error
@@ -400,9 +431,13 @@ class ClassroomRepositoryImpl @Inject constructor(
         database.withTransaction { topicDao.upsert(archived) }
         topicRemote.archiveTopic(topicId, archivedAt)
             .onFailure { error ->
-                if (!shouldIgnorePermissionDenied(error) && !isTransient(error)) throw error else Timber.w(error, "Skipping remote topic archive for $topicId")
+                if (!shouldIgnorePermissionDenied(error) && !isTransient(error)) throw error
+                Timber.w(error, "Queueing topic archive for sync: $topicId")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.TOPIC_ARCHIVE,
+                    ArchiveTopicPayload(topicId, archivedAt.toEpochMilliseconds())
+                )
             }
-            .getOrElse { }
     }
 
     override suspend fun getStudent(id: String): Student? = withContext(ioDispatcher) {

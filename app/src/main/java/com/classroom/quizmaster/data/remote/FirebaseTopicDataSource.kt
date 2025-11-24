@@ -18,19 +18,48 @@ class FirebaseTopicDataSource @Inject constructor(
 
     private fun topicsCollection() = firestore.collection("topics")
 
-    suspend fun fetchTopics(): Result<List<Topic>> = try {
-        val uid = authDataSource.currentUserId() ?: return Result.success(emptyList())
-        val documents = topicsCollection()
-            .whereEqualTo("teacherId", uid)
-            .get()
-            .await()
-            .documents
-            .mapNotNull { doc ->
-                doc.toObject(FirestoreTopic::class.java)?.toDomain(doc.id)
+    suspend fun fetchTopics(): Result<List<Topic>> {
+        val teacherId = authDataSource.currentUserId() ?: return Result.success(emptyList())
+        return fetchTopicsForTeacher(teacherId)
+    }
+
+    suspend fun fetchTopicsForTeacher(teacherId: String): Result<List<Topic>> {
+        return try {
+            val documents = topicsCollection()
+                .whereEqualTo("teacherId", teacherId)
+                .get()
+                .await()
+                .documents
+                .mapNotNull { doc ->
+                    doc.toObject(FirestoreTopic::class.java)?.toDomain(doc.id)
+                }
+            Result.success(documents)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
+    }
+
+    suspend fun fetchTopicsForClassrooms(classroomIds: List<String>): Result<List<Topic>> {
+        return try {
+            val normalized = classroomIds.filter { it.isNotBlank() }.distinct()
+            if (normalized.isEmpty()) {
+                Result.success(emptyList())
+            } else {
+                val documents = mutableListOf<Topic>()
+                normalized.chunked(10).forEach { chunk ->
+                    val snapshot = topicsCollection()
+                        .whereIn("classroomId", chunk)
+                        .get()
+                        .await()
+                    documents += snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(FirestoreTopic::class.java)?.toDomain(doc.id)
+                    }
+                }
+                Result.success(documents)
             }
-        Result.success(documents)
-    } catch (error: Exception) {
-        Result.failure(error)
+        } catch (error: Exception) {
+            Result.failure(error)
+        }
     }
 
     suspend fun upsertTopic(topic: Topic): Result<String> = try {

@@ -10,6 +10,10 @@ import com.classroom.quizmaster.data.local.entity.TopicEntity
 import com.classroom.quizmaster.data.remote.FirebaseClassroomDataSource
 import com.classroom.quizmaster.data.remote.FirebaseQuizDataSource
 import com.classroom.quizmaster.data.remote.FirebaseTopicDataSource
+import com.classroom.quizmaster.data.sync.PendingOpQueue
+import com.classroom.quizmaster.data.sync.PendingOpTypes
+import com.classroom.quizmaster.data.sync.UpsertQuizPayload
+import com.classroom.quizmaster.data.sync.ArchiveQuizPayload
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.MediaAsset
 import com.classroom.quizmaster.domain.model.MediaType
@@ -34,8 +38,6 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
-import kotlinx.serialization.decodeFromString
-import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import timber.log.Timber
 import java.util.UUID
@@ -50,6 +52,7 @@ class QuizRepositoryImpl @Inject constructor(
     private val database: QuizMasterDatabase,
     private val json: Json,
     private val authRepository: AuthRepository,
+    private val pendingOpQueue: PendingOpQueue,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : QuizRepository {
 
@@ -60,14 +63,14 @@ class QuizRepositoryImpl @Inject constructor(
     override val quizzes: Flow<List<Quiz>> =
         authRepository.authState
             .switchMapLatest { auth ->
-                val teacherId = auth.userId
-                if (teacherId.isNullOrBlank()) {
+                val userId = auth.userId
+                if (userId.isNullOrBlank()) {
                     flowOf(emptyList())
-                } else {
+                } else if (auth.isTeacher) {
                     combine(
-                        quizDao.observeActiveForTeacher(teacherId),
-                        classroomDao.observeForTeacher(teacherId),
-                        topicDao.observeForTeacher(teacherId)
+                        quizDao.observeActiveForTeacher(userId),
+                        classroomDao.observeForTeacher(userId),
+                        topicDao.observeForTeacher(userId)
                     ) { stored, classrooms, topics ->
                         val classroomIds = classrooms.map { it.id }.toSet()
                         val topicIds = topics.map { it.id }.toSet()
@@ -78,6 +81,19 @@ class QuizRepositoryImpl @Inject constructor(
                             }
                             .map { it.toDomain(json) }
                     }
+                } else {
+                    classroomDao.observeForStudent(userId)
+                        .switchMapLatest { classrooms ->
+                            val activeClassroomIds = classrooms
+                                .filterNot { it.isArchived }
+                                .map { it.id }
+                            if (activeClassroomIds.isEmpty()) {
+                                flowOf(emptyList())
+                            } else {
+                                quizDao.observeActiveForClassrooms(activeClassroomIds)
+                            }
+                        }
+                        .map { stored -> stored.map { it.toDomain(json) } }
                 }
             }
             .distinctUntilChanged()
@@ -134,10 +150,14 @@ class QuizRepositoryImpl @Inject constructor(
         }
         val remoteResult = remote.upsertQuiz(normalized)
         remoteResult.onFailure { err ->
-                if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
-                    Timber.w(err, "Skipping remote quiz upsert due to permissions")
-                } else {
-                    Timber.e(err, "Failed to upsert quiz ${normalized.id}")
+            if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                Timber.w(err, "Queueing quiz upsert for sync: ${normalized.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.QUIZ_UPSERT,
+                    UpsertQuizPayload(normalized)
+                )
+            } else {
+                Timber.e(err, "Failed to upsert quiz ${normalized.id}")
                 throw err
             }
         }
@@ -162,10 +182,14 @@ class QuizRepositoryImpl @Inject constructor(
         }
         val remoteResult = remote.archiveQuiz(id, now)
         remoteResult.onFailure { err ->
-                if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
-                    Timber.w(err, "Skipping remote quiz archive for $id")
-                } else {
-                    Timber.e(err, "Failed to archive quiz $id remotely")
+            if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                Timber.w(err, "Queueing quiz archive for sync: $id")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.QUIZ_ARCHIVE,
+                    ArchiveQuizPayload(id, now.toEpochMilliseconds())
+                )
+            } else {
+                Timber.e(err, "Failed to archive quiz $id remotely")
                 throw err
             }
         }
@@ -272,78 +296,6 @@ class QuizRepositoryImpl @Inject constructor(
         )
         upsert(demoQuiz)
     }
-
-    private fun Quiz.toEntity(timestamp: Instant = Clock.System.now(), resolvedId: String = id): QuizEntity =
-        QuizEntity(
-            id = resolvedId,
-            teacherId = teacherId,
-            classroomId = classroomId,
-            topicId = topicId,
-            title = title,
-            defaultTimePerQ = defaultTimePerQ,
-            shuffle = shuffle,
-            questionCount = questionCount.takeIf { it > 0 } ?: questions.size,
-            category = category.name,
-            createdAt = createdAt.toEpochMilliseconds(),
-            updatedAt = timestamp.toEpochMilliseconds(),
-            isArchived = isArchived,
-            archivedAt = archivedAt?.toEpochMilliseconds()
-        )
-
-    private fun Question.toEntity(
-        quizId: String,
-        index: Int,
-        json: Json
-    ): QuestionEntity = QuestionEntity(
-        id = id.ifBlank { "${quizId}-q$index" },
-        quizId = quizId,
-        type = type.name,
-        stem = stem,
-        choicesJson = json.encodeToString(choices),
-        answerKeyJson = json.encodeToString(answerKey),
-        explanation = explanation,
-        mediaType = media?.type?.name,
-        mediaUrl = media?.url,
-        timeLimitSeconds = timeLimitSeconds,
-        position = index,
-        updatedAt = Clock.System.now().toEpochMilliseconds()
-    )
-
-    private fun QuizWithQuestions.toDomain(json: Json): Quiz = Quiz(
-        id = quiz.id,
-        teacherId = quiz.teacherId,
-        classroomId = quiz.classroomId,
-        topicId = quiz.topicId,
-        title = quiz.title,
-        defaultTimePerQ = quiz.defaultTimePerQ,
-        shuffle = quiz.shuffle,
-        createdAt = Instant.fromEpochMilliseconds(quiz.createdAt),
-        updatedAt = Instant.fromEpochMilliseconds(quiz.updatedAt),
-        questionCount = quiz.questionCount,
-        questions = questions
-            .sortedBy { it.position }
-            .map { it.toDomain(json, quiz.id) },
-        category = runCatching { QuizCategory.valueOf(quiz.category) }.getOrDefault(QuizCategory.STANDARD),
-        isArchived = quiz.isArchived,
-        archivedAt = quiz.archivedAt?.let(Instant::fromEpochMilliseconds)
-    )
-
-    private fun QuestionEntity.toDomain(json: Json, quizId: String): Question = Question(
-        id = id,
-        quizId = quizId,
-        type = QuestionType.valueOf(type.uppercase()),
-        stem = stem,
-        choices = json.decodeFromString(choicesJson),
-        answerKey = json.decodeFromString(answerKeyJson),
-        explanation = explanation,
-        media = mediaType?.let { typeValue ->
-            MediaAsset(
-                type = MediaType.valueOf(typeValue.uppercase()),
-                url = mediaUrl.orEmpty()
-            )
-        },
-        timeLimitSeconds = timeLimitSeconds
-    )
 
     private fun generateLocalQuizId(): String = "local-${UUID.randomUUID()}"
     private fun shouldIgnorePermissionDenied(error: Throwable?): Boolean =

@@ -5,6 +5,11 @@ import com.classroom.quizmaster.data.local.QuizMasterDatabase
 import com.classroom.quizmaster.data.local.entity.AssignmentLocalEntity
 import com.classroom.quizmaster.data.local.entity.SubmissionLocalEntity
 import com.classroom.quizmaster.data.remote.FirebaseAssignmentDataSource
+import com.classroom.quizmaster.data.remote.FirebaseQuizDataSource
+import com.classroom.quizmaster.data.sync.PendingOpQueue
+import com.classroom.quizmaster.data.sync.PendingOpTypes
+import com.classroom.quizmaster.data.sync.UpsertAssignmentPayload
+import com.classroom.quizmaster.data.sync.ArchiveAssignmentPayload
 import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.ScoringMode
 import com.classroom.quizmaster.domain.model.Submission
@@ -26,12 +31,16 @@ import kotlinx.datetime.Instant
 import timber.log.Timber
 import com.classroom.quizmaster.util.switchMapLatest
 import com.google.firebase.firestore.FirebaseFirestoreException
+import kotlinx.serialization.json.Json
 
 @Singleton
 class AssignmentRepositoryImpl @Inject constructor(
     private val remote: FirebaseAssignmentDataSource,
+    private val quizRemote: FirebaseQuizDataSource,
     private val database: QuizMasterDatabase,
     private val authRepository: AuthRepository,
+    private val pendingOpQueue: PendingOpQueue,
+    private val json: Json,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : AssignmentRepository {
 
@@ -98,6 +107,14 @@ class AssignmentRepositoryImpl @Inject constructor(
         val remoteSubmissions = remoteAssignments.associate { assignment ->
             assignment.id to remote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
         }
+        val referencedQuizIds = remoteAssignments
+            .mapNotNull { assignment -> assignment.quizId.takeIf { it.isNotBlank() } }
+            .distinct()
+        val referencedQuizzes = if (referencedQuizIds.isEmpty()) {
+            emptyList()
+        } else {
+            quizRemote.loadQuizzesByIds(referencedQuizIds)
+        }
         database.withTransaction {
             if (remoteAssignments.isNotEmpty()) {
                 assignmentDao.upsertAssignments(remoteAssignments.map { it.toEntity() })
@@ -106,6 +123,15 @@ class AssignmentRepositoryImpl @Inject constructor(
                 if (submissions.isNotEmpty()) {
                     assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
                 }
+            }
+            referencedQuizzes.forEach { quiz ->
+                val quizId = quiz.id
+                quizDao.upsertQuizWithQuestions(
+                    quiz.toEntity(resolvedId = quizId),
+                    quiz.questions.mapIndexed { index, question ->
+                        question.toEntity(quizId, index, json)
+                    }
+                )
             }
         }
     }
@@ -136,7 +162,11 @@ class AssignmentRepositoryImpl @Inject constructor(
         val remoteResult = remote.createAssignment(assignment)
         remoteResult.onFailure { err ->
             if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
-                Timber.w(err, "Skipping remote assignment create ${assignment.id}")
+                Timber.w(err, "Queueing assignment create for sync: ${assignment.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.ASSIGNMENT_UPSERT,
+                    UpsertAssignmentPayload(assignment)
+                )
             } else {
                 Timber.e(err, "Failed to create assignment ${assignment.id}")
                 throw err
@@ -188,7 +218,11 @@ class AssignmentRepositoryImpl @Inject constructor(
         val remoteResult = remote.updateAssignment(assignment)
         remoteResult.onFailure { err ->
             if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
-                Timber.w(err, "Skipping remote assignment update ${assignment.id}")
+                Timber.w(err, "Queueing assignment update for sync: ${assignment.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.ASSIGNMENT_UPSERT,
+                    UpsertAssignmentPayload(assignment)
+                )
             } else {
                 Timber.e(err, "Failed to update assignment ${assignment.id}")
                 throw err
@@ -211,7 +245,11 @@ class AssignmentRepositoryImpl @Inject constructor(
         val remoteResult = remote.archiveAssignment(id, archivedAt)
         remoteResult.onFailure { err ->
             if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
-                Timber.w(err, "Skipping remote assignment archive for $id")
+                Timber.w(err, "Queueing assignment archive for sync: $id")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.ASSIGNMENT_ARCHIVE,
+                    ArchiveAssignmentPayload(id, archivedAt.toEpochMilliseconds())
+                )
             } else {
                 Timber.e(err, "Failed to archive assignment $id")
                 throw err

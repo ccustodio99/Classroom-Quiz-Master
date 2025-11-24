@@ -3,6 +3,7 @@ package com.classroom.quizmaster.data.remote
 import com.classroom.quizmaster.domain.model.Question
 import com.classroom.quizmaster.domain.model.Quiz
 import com.classroom.quizmaster.domain.model.QuizCategory
+import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
@@ -26,20 +27,50 @@ class FirebaseQuizDataSource @Inject constructor(
 
     suspend fun currentTeacherId(): String? = authDataSource.currentUserId()
 
-    suspend fun loadQuizzes(): List<Quiz> = try {
+    suspend fun loadQuizzes(): List<Quiz> {
         val teacherId = currentTeacherId() ?: return emptyList()
-        quizCollection()
-            .whereEqualTo("teacherId", teacherId)
-            .get()
-            .await()
-            .documents
-            .mapNotNull { doc ->
-                doc.toObject(FirestoreQuiz::class.java)?.toDomain(doc.id, json)
-                    ?.takeIf { it.classroomId.isNotBlank() && it.topicId.isNotBlank() }
+        return loadQuizzesForTeacher(teacherId)
+    }
+
+    suspend fun loadQuizzesForTeacher(teacherId: String): List<Quiz> {
+        return try {
+            quizCollection()
+                .whereEqualTo("teacherId", teacherId)
+                .get()
+                .await()
+                .documents
+                .mapNotNull { doc ->
+                    doc.toObject(FirestoreQuiz::class.java)?.toDomain(doc.id, json)
+                        ?.takeIf { it.classroomId.isNotBlank() && it.topicId.isNotBlank() }
+                }
+        } catch (error: Exception) {
+            Timber.e(error, "Failed to load quizzes for teacher")
+            emptyList()
+        }
+    }
+
+    suspend fun loadQuizzesByIds(ids: List<String>): List<Quiz> {
+        return try {
+            val normalized = ids.filter { it.isNotBlank() }.distinct()
+            if (normalized.isEmpty()) {
+                emptyList()
+            } else {
+                val documents = mutableListOf<Quiz>()
+                normalized.chunked(10).forEach { chunk ->
+                    val snapshot = quizCollection()
+                        .whereIn(FieldPath.documentId(), chunk)
+                        .get()
+                        .await()
+                    documents += snapshot.documents.mapNotNull { doc ->
+                        doc.toObject(FirestoreQuiz::class.java)?.toDomain(doc.id, json)
+                    }
+                }
+                documents
             }
-    } catch (error: Exception) {
-        Timber.e(error, "Failed to load quizzes")
-        emptyList()
+        } catch (error: Exception) {
+            Timber.e(error, "Failed to load quizzes for ids")
+            emptyList()
+        }
     }
 
     suspend fun upsertQuiz(quiz: Quiz): Result<Unit> = try {

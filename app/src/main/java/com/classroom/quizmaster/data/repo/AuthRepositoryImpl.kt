@@ -20,7 +20,6 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.distinctUntilChanged
 import kotlinx.coroutines.flow.flow
-import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.first
 import kotlinx.datetime.Clock
 import com.classroom.quizmaster.util.switchMapLatest
@@ -43,34 +42,42 @@ class AuthRepositoryImpl @Inject constructor(
         AuthStateBundle(state, flags, lastTeacherId, roles)
     }
         .switchMapLatest { (state, flags, lastTeacherId, roles) ->
-            val normalized = state.overrideRole(roles)
-            when {
-                normalized.isAuthenticated && normalized.isTeacher -> flow {
-                    val resolved = classroomDataSource.fetchTeacherProfile().getOrNull()
-                    emit(resolved?.let { normalized.copy(teacherProfile = it) } ?: normalized)
+            flow {
+                val normalized = state.overrideRole(roles)
+                val resolved = if (normalized.needsRoleResolution(roles)) {
+                    resolveRoleFromRemote(normalized, classroomDataSource, preferences)
+                } else {
+                    normalized
                 }
-                (flags.contains(DemoMode.OFFLINE_FLAG) || flags.contains(LocalAuthManager.LOCAL_TEACHER_FLAG)) &&
-                    !lastTeacherId.isNullOrBlank() -> flow {
-                    val teacher = teacherDao.get(lastTeacherId)?.toDomain()
-                        ?: Teacher(
-                            id = lastTeacherId,
-                            displayName = DemoMode.TEACHER_NAME,
-                            email = DemoMode.TEACHER_EMAIL,
-                            createdAt = Clock.System.now()
+                when {
+                    resolved.isAuthenticated && resolved.isTeacher -> {
+                        val profile = resolved.teacherProfile
+                            ?: classroomDataSource.fetchTeacherProfile().getOrNull()
+                        emit(profile?.let { resolved.copy(teacherProfile = it) } ?: resolved)
+                    }
+                    (flags.contains(DemoMode.OFFLINE_FLAG) || flags.contains(LocalAuthManager.LOCAL_TEACHER_FLAG)) &&
+                        !lastTeacherId.isNullOrBlank() -> {
+                        val teacher = teacherDao.get(lastTeacherId)?.toDomain()
+                            ?: Teacher(
+                                id = lastTeacherId,
+                                displayName = DemoMode.TEACHER_NAME,
+                                email = DemoMode.TEACHER_EMAIL,
+                                createdAt = Clock.System.now()
+                            )
+                        emit(
+                            AuthState(
+                                userId = lastTeacherId,
+                                displayName = teacher.displayName,
+                                email = teacher.email,
+                                isAuthenticated = true,
+                                isTeacher = true,
+                                role = UserRole.TEACHER,
+                                teacherProfile = teacher
+                            )
                         )
-                    emit(
-                        AuthState(
-                            userId = lastTeacherId,
-                            displayName = teacher.displayName,
-                            email = teacher.email,
-                            isAuthenticated = true,
-                            isTeacher = true,
-                            role = UserRole.TEACHER,
-                            teacherProfile = teacher
-                        )
-                    )
+                    }
+                    else -> emit(resolved)
                 }
-                else -> flowOf(normalized)
             }
         }
         .distinctUntilChanged()
@@ -193,4 +200,32 @@ private fun AuthState.overrideRole(roleMap: Map<String, UserRole>): AuthState {
         isTeacher -> copy(role = UserRole.TEACHER, isTeacher = true)
         else -> this
     }
+}
+
+private fun AuthState.needsRoleResolution(roleMap: Map<String, UserRole>): Boolean =
+    isAuthenticated && userId != null && roleMap[userId] == null
+
+private suspend fun resolveRoleFromRemote(
+    state: AuthState,
+    classroomDataSource: FirebaseClassroomDataSource,
+    preferences: AppPreferencesDataSource
+): AuthState {
+    val userId = state.userId ?: return state
+    val teacherResult = classroomDataSource.fetchTeacherProfile()
+    if (teacherResult.isSuccess) {
+        val teacher = teacherResult.getOrNull()
+        if (teacher != null) {
+            preferences.setUserRole(userId, UserRole.TEACHER)
+            return state.copy(role = UserRole.TEACHER, isTeacher = true, teacherProfile = teacher)
+        }
+    }
+    val studentResult = classroomDataSource.fetchStudentProfile(userId)
+    if (studentResult.isSuccess) {
+        val student = studentResult.getOrNull()
+        if (student != null) {
+            preferences.setUserRole(userId, UserRole.STUDENT)
+            return state.copy(role = UserRole.STUDENT, isTeacher = false)
+        }
+    }
+    return state
 }

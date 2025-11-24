@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
+import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
 import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -33,11 +34,16 @@ data class ClassroomSummaryUi(
 class StudentClassroomViewModel @Inject constructor(
     private val classroomRepository: ClassroomRepository,
     private val authRepository: AuthRepository,
-    private val assignmentRepository: AssignmentRepository
+    private val assignmentRepository: AssignmentRepository,
+    private val learningMaterialRepository: LearningMaterialRepository
 ) : ViewModel() {
 
     init {
-        viewModelScope.launch { classroomRepository.refresh() }
+        viewModelScope.launch {
+            runCatching { classroomRepository.refresh() }
+            runCatching { assignmentRepository.refreshAssignments() }
+            runCatching { learningMaterialRepository.refreshMetadata() }
+        }
     }
 
     val uiState: StateFlow<StudentClassroomUiState> =

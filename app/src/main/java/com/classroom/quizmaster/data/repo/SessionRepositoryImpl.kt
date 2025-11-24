@@ -306,7 +306,7 @@ class SessionRepositoryImpl @Inject constructor(
 
     override suspend fun syncPending() = withContext(ioDispatcher) {
         if (!isTeacherAccount()) return@withContext
-        val pending = opLogDao.pending()
+        val pending = opLogDao.pendingOfTypes(listOf(OP_TYPE_ATTEMPT))
         if (pending.isEmpty()) return@withContext
         val synced = mutableListOf<String>()
         pending.forEach { op ->
@@ -321,8 +321,6 @@ class SessionRepositoryImpl @Inject constructor(
                         result.exceptionOrNull()?.let { Timber.w(it, "Attempt sync failed for ${op.id}") }
                     }
                 }
-
-                else -> Timber.w("Unknown op type ${op.type}")
             }
         }
         if (synced.isNotEmpty()) {

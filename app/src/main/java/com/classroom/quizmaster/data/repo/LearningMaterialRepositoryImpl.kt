@@ -13,6 +13,12 @@ import com.classroom.quizmaster.data.local.entity.LearningMaterialEntity
 import com.classroom.quizmaster.data.local.entity.MaterialAttachmentEntity
 import com.classroom.quizmaster.data.local.entity.MaterialWithAttachments
 import com.classroom.quizmaster.data.local.entity.TopicEntity
+import com.classroom.quizmaster.data.remote.FirebaseMaterialDataSource
+import com.classroom.quizmaster.data.sync.PendingOpQueue
+import com.classroom.quizmaster.data.sync.PendingOpTypes
+import com.classroom.quizmaster.data.sync.UpsertMaterialPayload
+import com.classroom.quizmaster.data.sync.ArchiveMaterialPayload
+import com.classroom.quizmaster.data.sync.DeleteMaterialPayload
 import com.classroom.quizmaster.domain.model.LearningMaterial
 import com.classroom.quizmaster.domain.model.MaterialAttachment
 import com.classroom.quizmaster.domain.model.MaterialAttachmentType
@@ -35,6 +41,7 @@ import kotlinx.serialization.decodeFromString
 import kotlinx.serialization.encodeToString
 import kotlinx.serialization.json.Json
 import java.util.UUID
+import timber.log.Timber
 
 @Singleton
 class LearningMaterialRepositoryImpl @Inject constructor(
@@ -45,6 +52,8 @@ class LearningMaterialRepositoryImpl @Inject constructor(
     private val sessionDao: SessionDao,
     private val authRepository: AuthRepository,
     private val lanHostServer: LanHostServer,
+    private val materialRemote: FirebaseMaterialDataSource,
+    private val pendingOpQueue: PendingOpQueue,
     private val json: Json,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : LearningMaterialRepository {
@@ -97,6 +106,53 @@ class LearningMaterialRepositoryImpl @Inject constructor(
         materialDao.getMaterial(materialId)?.toDomain(json)
     }
 
+    private fun LearningMaterialEntity.toDomainModelWithoutAttachments(): LearningMaterial =
+        LearningMaterial(
+            id = id,
+            teacherId = teacherId,
+            classroomId = classroomId,
+            classroomName = classroomName,
+            topicId = topicId,
+            topicName = topicName,
+            title = title,
+            description = description,
+            body = body,
+            attachments = emptyList(),
+            createdAt = Instant.fromEpochMilliseconds(createdAt),
+            updatedAt = Instant.fromEpochMilliseconds(updatedAt),
+            isArchived = isArchived,
+            archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
+        )
+
+    override suspend fun refreshMetadata() = withContext(ioDispatcher) {
+        val authState = authRepository.authState.firstOrNull() ?: return@withContext
+        val materials = when {
+            authState.role == com.classroom.quizmaster.domain.model.UserRole.TEACHER -> {
+                val teacherId = authState.userId ?: return@withContext
+                materialRemote.fetchForTeacher(teacherId).getOrElse {
+                    Timber.w(it, "Failed to fetch materials for teacher")
+                    emptyList()
+                }
+            }
+            else -> {
+                val studentId = authState.userId ?: return@withContext
+                val classrooms = classroomDao.listForStudent(studentId)
+                val classroomIds = classrooms.map { it.id }
+                materialRemote.fetchForClassrooms(classroomIds).getOrElse {
+                    Timber.w(it, "Failed to fetch materials for student classrooms")
+                    emptyList()
+                }
+            }
+        }
+        if (materials.isEmpty()) return@withContext
+        database.withTransaction {
+            materials.forEach { material ->
+                materialDao.upsertMaterial(material.toEntity())
+                materialDao.clearAttachments(material.id)
+            }
+        }
+    }
+
     override suspend fun upsert(material: LearningMaterial): String = withContext(ioDispatcher) {
         val authState = authRepository.authState.firstOrNull()
             ?: error("No authenticated teacher available")
@@ -143,6 +199,15 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                 materialDao.clearAttachments(normalized.id)
             }
         }
+        val remoteMaterial = normalized.copy(attachments = emptyList())
+        materialRemote.upsertMaterial(remoteMaterial)
+            .onFailure {
+                Timber.w(it, "Queueing material upsert for sync: ${normalized.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.MATERIAL_UPSERT,
+                    UpsertMaterialPayload(remoteMaterial)
+                )
+            }
         broadcastIfHosting(normalized.classroomId)
         resolvedMaterialId
     }
@@ -159,6 +224,14 @@ class LearningMaterialRepositoryImpl @Inject constructor(
         database.withTransaction {
             materialDao.upsertMaterial(archivedEntity)
         }
+        materialRemote.archiveMaterial(materialId, archivedAt)
+            .onFailure {
+                Timber.w(it, "Queueing material archive for sync: $materialId")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.MATERIAL_ARCHIVE,
+                    ArchiveMaterialPayload(materialId, archivedAt.toEpochMilliseconds())
+                )
+            }
         broadcastIfHosting(archivedEntity.classroomId)
     }
 
@@ -170,6 +243,14 @@ class LearningMaterialRepositoryImpl @Inject constructor(
             materialDao.clearAttachments(materialId)
             materialDao.deleteMaterial(materialId)
         }
+        materialRemote.deleteMaterial(materialId)
+            .onFailure {
+                Timber.w(it, "Queueing material delete for sync: $materialId")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.MATERIAL_DELETE,
+                    DeleteMaterialPayload(materialId)
+                )
+            }
         broadcastIfHosting(stored.material.classroomId)
     }
 
@@ -193,6 +274,14 @@ class LearningMaterialRepositoryImpl @Inject constructor(
         database.withTransaction {
             materialDao.upsertMaterial(updated)
         }
+        materialRemote.upsertMaterial(updated.toDomainModelWithoutAttachments())
+            .onFailure {
+                Timber.w(it, "Queueing material move sync: ${updated.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.MATERIAL_UPSERT,
+                    UpsertMaterialPayload(updated.toDomainModelWithoutAttachments())
+                )
+            }
         broadcastIfHosting(stored.material.classroomId)
         broadcastIfHosting(classroom.id)
     }
@@ -232,6 +321,14 @@ class LearningMaterialRepositoryImpl @Inject constructor(
                 materialDao.upsertAttachments(attachments)
             }
         }
+        materialRemote.upsertMaterial(duplicated.toDomainModelWithoutAttachments())
+            .onFailure {
+                Timber.w(it, "Queueing material duplicate sync: ${duplicated.id}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.MATERIAL_UPSERT,
+                    UpsertMaterialPayload(duplicated.toDomainModelWithoutAttachments())
+                )
+            }
         broadcastIfHosting(classroom.id)
         newMaterialId
     }

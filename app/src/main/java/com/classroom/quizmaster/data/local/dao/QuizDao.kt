@@ -23,6 +23,14 @@ interface QuizDao {
     fun observeActiveForTeacher(teacherId: String): Flow<List<QuizWithQuestions>>
 
     @Transaction
+    @Query(
+        "SELECT * FROM quizzes " +
+            "WHERE classroomId IN (:classroomIds) AND isArchived = 0 " +
+            "ORDER BY createdAt DESC"
+    )
+    fun observeActiveForClassrooms(classroomIds: List<String>): Flow<List<QuizWithQuestions>>
+
+    @Transaction
     @Query("SELECT * FROM quizzes WHERE id = :id LIMIT 1")
     suspend fun getQuiz(id: String): QuizWithQuestions?
 

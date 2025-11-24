@@ -21,6 +21,8 @@ interface LearningMaterialRepository {
 
     suspend fun get(materialId: String): LearningMaterial?
 
+    suspend fun refreshMetadata()
+
     suspend fun upsert(material: LearningMaterial): String
 
     suspend fun archive(materialId: String, archivedAt: Instant = Clock.System.now())

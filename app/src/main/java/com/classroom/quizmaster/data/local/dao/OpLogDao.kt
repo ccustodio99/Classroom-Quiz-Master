@@ -16,6 +16,12 @@ interface OpLogDao {
     @Query("SELECT * FROM oplog WHERE synced = 0 ORDER BY ts ASC LIMIT :limit")
     suspend fun pending(limit: Int = 50): List<OpLogEntity>
 
+    @Query(
+        "SELECT * FROM oplog WHERE synced = 0 AND type IN (:types) " +
+            "ORDER BY ts ASC LIMIT :limit"
+    )
+    suspend fun pendingOfTypes(types: List<String>, limit: Int = 50): List<OpLogEntity>
+
     @Query("UPDATE oplog SET synced = 1, retryCount = 0 WHERE id IN (:ids)")
     suspend fun markSynced(ids: List<String>)
 

@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.datetime.Clock
+import kotlinx.coroutines.launch
 
 data class TopicUi(
     val id: String,
@@ -51,6 +52,13 @@ class StudentClassroomDetailViewModel @Inject constructor(
 ) : ViewModel() {
 
     private val classroomId: String = savedStateHandle.get<String>("classroomId").orEmpty()
+
+    init {
+        viewModelScope.launch {
+            runCatching { assignmentRepository.refreshAssignments() }
+            runCatching { learningMaterialRepository.refreshMetadata() }
+        }
+    }
 
     val uiState: StateFlow<StudentClassroomDetailUiState> = combine(
         classroomRepository.classrooms,
