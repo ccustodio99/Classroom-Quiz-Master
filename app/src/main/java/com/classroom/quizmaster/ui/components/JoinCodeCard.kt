@@ -7,6 +7,7 @@ import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -106,6 +107,39 @@ fun QRPlaceholder(
         color = MaterialTheme.colorScheme.surfaceVariant
     ) {
         QrPlaceholderContents()
+    }
+}
+
+@Composable
+private fun QrPlaceholderContents() {
+    val onSurfaceVariantColor = MaterialTheme.colorScheme.onSurfaceVariant
+    val dashedBorderColor = onSurfaceVariantColor.copy(alpha = 0.2f)
+    Box(
+        contentAlignment = Alignment.Center,
+        modifier = Modifier.background(MaterialTheme.colorScheme.surfaceVariant)
+    ) {
+        Column(
+            horizontalAlignment = Alignment.CenterHorizontally
+        ) {
+            Icon(
+                imageVector = Icons.Default.QrCode2,
+                contentDescription = stringResource(R.string.launch_lobby_qr_content_description),
+                modifier = Modifier.size(48.dp),
+                tint = onSurfaceVariantColor
+            )
+            Spacer(modifier = Modifier.height(8.dp))
+            Text(
+                text = stringResource(R.string.launch_lobby_qr_placeholder),
+                style = MaterialTheme.typography.bodySmall,
+                color = onSurfaceVariantColor
+            )
+        }
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            drawRect(
+                color = dashedBorderColor,
+                style = Stroke(width = 4f, pathEffect = PathEffect.dashPathEffect(floatArrayOf(12f, 12f)))
+            )
+        }
     }
 }
 

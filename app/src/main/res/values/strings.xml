@@ -128,6 +128,7 @@
     <string name="launch_lobby_hide_leaderboard">Hide leaderboard</string>
     <string name="launch_lobby_ready_badge">Ready</string>
     <string name="launch_lobby_qr_content_description">QR code for LAN join link</string>
+    <string name="launch_lobby_qr_placeholder">QR code will appear when hosting starts</string>
     <string name="launch_lobby_copy_confirmation">Join link copied</string>
 
     <!-- Host live -->
