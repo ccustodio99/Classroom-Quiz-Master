@@ -21,12 +21,10 @@ import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
 import androidx.compose.material.icons.automirrored.outlined.LibraryBooks
 import androidx.compose.material.icons.outlined.Settings
-import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
-import androidx.compose.material3.TopAppBar
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.DropdownMenu
@@ -41,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -100,7 +99,6 @@ fun TeacherHomeRoute(
 }
 
 @Composable
-@OptIn(ExperimentalMaterial3Api::class)
 fun TeacherHomeScreen(
     state: TeacherHomeUiState,
     onCreateClassroom: () -> Unit,
@@ -135,36 +133,52 @@ fun TeacherHomeScreen(
     Scaffold(
         topBar = {
             var menuExpanded by remember { mutableStateOf(false) }
-            TopAppBar(
-                title = { Text(text = "Home") },
-                actions = {
-                    IconButton(onClick = { menuExpanded = true }) {
-                        Icon(
-                            imageVector = Icons.Outlined.Settings,
-                            contentDescription = "Profile and settings"
-                        )
-                    }
-                    DropdownMenu(
-                        expanded = menuExpanded,
-                        onDismissRequest = { menuExpanded = false }
-                    ) {
-                        DropdownMenuItem(
-                            text = { Text("Profile") },
-                            onClick = {
-                                menuExpanded = false
-                                onProfile()
-                            }
-                        )
-                        DropdownMenuItem(
-                            text = { Text("Sign out") },
-                            onClick = {
-                                menuExpanded = false
-                                onLogout()
-                            }
-                        )
+            Surface(
+                tonalElevation = 3.dp,
+                shadowElevation = 3.dp
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .height(56.dp)
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Text(
+                        text = "Home",
+                        style = MaterialTheme.typography.titleLarge,
+                        fontWeight = FontWeight.SemiBold
+                    )
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        IconButton(onClick = { menuExpanded = true }) {
+                            Icon(
+                                imageVector = Icons.Outlined.Settings,
+                                contentDescription = "Profile and settings"
+                            )
+                        }
+                        DropdownMenu(
+                            expanded = menuExpanded,
+                            onDismissRequest = { menuExpanded = false }
+                        ) {
+                            DropdownMenuItem(
+                                text = { Text("Profile") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onProfile()
+                                }
+                            )
+                            DropdownMenuItem(
+                                text = { Text("Sign out") },
+                                onClick = {
+                                    menuExpanded = false
+                                    onLogout()
+                                }
+                            )
+                        }
                     }
                 }
-            )
+            }
         }
     ) { paddingValues ->
         Column(

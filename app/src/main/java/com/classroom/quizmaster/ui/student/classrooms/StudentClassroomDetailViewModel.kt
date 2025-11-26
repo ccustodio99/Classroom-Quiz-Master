@@ -6,7 +6,6 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
-import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.domain.repository.LearningMaterialRepository
 import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
 import com.classroom.quizmaster.ui.materials.toSummaryUi
@@ -46,7 +45,6 @@ class StudentClassroomDetailViewModel @Inject constructor(
     savedStateHandle: SavedStateHandle,
     classroomRepository: ClassroomRepository,
     assignmentRepository: AssignmentRepository,
-    quizRepository: QuizRepository,
     private val authRepository: AuthRepository,
     learningMaterialRepository: LearningMaterialRepository
 ) : ViewModel() {
@@ -64,25 +62,23 @@ class StudentClassroomDetailViewModel @Inject constructor(
         classroomRepository.classrooms,
         classroomRepository.topics,
         assignmentRepository.assignments,
-        quizRepository.quizzes,
         learningMaterialRepository.observeStudentMaterials(classroomId = classroomId)
-    ) { classrooms, topics, assignments, quizzes, materials ->
+    ) { classrooms, topics, assignments, materials ->
         val classroom = classrooms.firstOrNull { it.id == classroomId }
         val teacherName = classroom?.let {
             runCatching { authRepository.getTeacher(it.teacherId).first()?.displayName }.getOrNull()
                 .orEmpty()
         }.orEmpty()
-        val quizCountByTopic = quizzes.groupBy { it.topicId }.mapValues { it.value.size }
+        val assignmentsForClassroom = assignments.filter { it.classroomId == classroomId }
+        val quizCountByTopic = assignmentsForClassroom.groupBy { it.topicId }.mapValues { it.value.size }
         val topicUi = topics
             .filter { it.classroomId == classroomId && !it.isArchived }
             .map { TopicUi(it.id, it.name, it.description, quizCountByTopic[it.id] ?: 0) }
-        val quizLookup = quizzes.associateBy { it.id }
         val now = Clock.System.now()
-        val assignmentCards = assignments
-            .filter { it.classroomId == classroomId }
+        val assignmentCards = assignmentsForClassroom
             .map { assignment ->
-                val quiz = quizLookup[assignment.quizId]
-                val title = quiz?.title?.ifBlank { "Untitled quiz" } ?: "Untitled quiz"
+                // Students may not have quiz details; fall back to generic title.
+                val title = "Assigned quiz"
                 val statusLabel = when {
                     assignment.isArchived -> "Archived"
                     now < assignment.openAt -> "Scheduled"

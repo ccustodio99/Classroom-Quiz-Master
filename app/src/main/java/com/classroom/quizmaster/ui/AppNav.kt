@@ -59,6 +59,7 @@ import com.classroom.quizmaster.ui.student.join.JoinLanRoute
 import com.classroom.quizmaster.ui.student.assignments.StudentAssignmentDetailRoute
 import com.classroom.quizmaster.ui.materials.editor.MaterialEditorRoute
 import com.classroom.quizmaster.ui.materials.detail.MaterialDetailRoute
+import com.classroom.quizmaster.ui.teacher.profile.TeacherProfileRoute
 
 sealed class AppRoute(val route: String) {
     data object Welcome : AppRoute("neutral/welcome")
@@ -105,6 +106,7 @@ sealed class AppRoute(val route: String) {
     }
     data object TeacherHost : AppRoute("teacher/host")
     data object TeacherReports : AppRoute("teacher/reports")
+    data object TeacherProfile : AppRoute("teacher/profile")
     data object TeacherAssignments : AppRoute("teacher/assignments")
     data object TeacherClassrooms : AppRoute("teacher/classrooms")
     data object TeacherAssignmentCreate : AppRoute("teacher/classrooms/{classroomId}/topics/{topicId}/assignments/create") {
@@ -178,9 +180,7 @@ fun AppNav(
         modifier = modifier,
         studentBottomItems = studentBottomItems,
         onStudentDestinationSelected = { route ->
-            if (route != navController.currentDestination?.route) {
-                appState.navigateToBottomRoute(route)
-            }
+            appState.navigateToBottomRoute(route)
         }
     ) { contentModifier ->
         NavHost(
@@ -243,7 +243,7 @@ fun AppNav(
                     onReports = { navController.navigate(AppRoute.TeacherReports.route) },
                     onClassrooms = { navController.navigate(AppRoute.TeacherClassrooms.route) },
                     onJoinRequests = { navController.navigate(AppRoute.TeacherJoinRequests.route) },
-                    onProfile = { navController.navigate(AppRoute.TeacherHome.route) },
+                    onProfile = { navController.navigate(AppRoute.TeacherProfile.route) },
                     onLogout = {
                         navController.navigate(AppRoute.Auth.route) {
                             popUpTo(AppRoute.Auth.route) { inclusive = true }
@@ -468,6 +468,17 @@ fun AppNav(
             composable(AppRoute.TeacherReports.route) {
                 ReportsRoute()
             }
+            composable(AppRoute.TeacherProfile.route) {
+                TeacherProfileRoute(
+                    onBack = { navController.popBackStack() },
+                    onLoggedOut = {
+                        navController.navigate(AppRoute.Auth.route) {
+                            popUpTo(AppRoute.Auth.route) { inclusive = true }
+                            launchSingleTop = true
+                        }
+                    }
+                )
+            }
             composable(AppRoute.TeacherAssignments.route) {
                 AssignmentsRoute(
                     onAssignmentSelected = { assignmentId ->
@@ -617,6 +628,9 @@ fun AppNav(
                         onBack = { navController.popBackStack() },
                         onOpenMaterial = { materialId ->
                             navController.navigate(AppRoute.StudentMaterialDetail.build(materialId))
+                        },
+                        onOpenAssignment = { assignmentId ->
+                            navController.navigate(AppRoute.StudentAssignmentDetail.build(assignmentId))
                         }
                     )
                 }

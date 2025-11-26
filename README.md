@@ -8,7 +8,7 @@ Classroom Quiz Master is a LAN-first formative assessment app built with Kotlin,
 - **LAN-first gameplay** – A Ktor WebSocket server advertises through Android NSD (`_quizmaster._tcp.`). Payloads are capped, token-gated, and acknowledged under 150 ms median on loopback.
 - **Local-first persistence** – Room stores teachers, classrooms, quizzes, sessions, participants, attempts, assignments, submissions, and LAN metadata. Explicit migrations and schema JSON keep upgrades deterministic.
 - **Resilient sync** – `FirestoreSyncWorker` drains the op-log under network constraints, with exponential backoff and manual triggers. Sync success timestamps live in DataStore.
-- **Firebase surface area** – Auth, Firestore, Storage, Functions, Analytics, Crashlytics, and App Check ship through the BoM. Cloud Functions score assignments idempotently and generate signed CSV/PDF reports.
+- **Firebase surface area** – Auth, Firestore, Storage, Functions, Analytics, and Crashlytics ship through the BoM. Cloud Functions score assignments idempotently and generate signed CSV/PDF reports.
 - **Quality gates** – Baseline profile, macrobenchmark module, detekt/ktlint/lint, Robolectric + Compose instrumentation tests, Firebase emulator tests, and GitHub Actions automation keep regressions out.
 
 ## Project layout
@@ -37,7 +37,7 @@ macrobenchmark // Baseline profile & startup benchmarks
 
 1. **Clone and open** – `git clone <repo>` then `./gradlew tasks` or open the project in Android Studio.
 2. **Configure Firebase**
-   - Enable Email/Password, Google, anonymous auth, Firestore, Storage, Crashlytics, Analytics, and App Check.
+  - Enable Email/Password, Google, anonymous auth, Firestore, Storage, Crashlytics, and Analytics.
    - Place `google-services.json` inside `app/`.
    - Supply the OAuth web client ID via `google_web_client_id` if using Google sign-in (see `strings.xml`).
    - Deploy security rules: `firebase deploy --only firestore:rules,storage:rules`.

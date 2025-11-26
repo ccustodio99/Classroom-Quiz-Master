@@ -64,16 +64,17 @@ class StudentAssignmentDetailViewModel @Inject constructor(
         val assignment = assignments.firstOrNull { it.id == assignmentId }
         val quizTitle = quizzes.firstOrNull { it.id == assignment?.quizId }?.title ?: "Assignment"
         val submission = submissions.firstOrNull { it.assignmentId == assignmentId }
+        val attemptsUsed = submission?.attempts ?: 0
         val status = when {
             assignment == null -> "Not found"
-            submission != null -> "Submitted"
             now < assignment.openAt -> "Scheduled"
-            now <= assignment.closeAt -> "Open"
-            else -> "Closed"
+            now > assignment.closeAt -> "Closed"
+            attemptsUsed >= assignment.attemptsAllowed -> "Submitted"
+            else -> "Open"
         }
-        val attemptsUsed = submission?.attempts ?: 0
         val canStart = assignment != null &&
-            status == "Open" &&
+            now >= assignment.openAt &&
+            now <= assignment.closeAt &&
             attemptsUsed < assignment.attemptsAllowed &&
             !auth.userId.isNullOrBlank()
 

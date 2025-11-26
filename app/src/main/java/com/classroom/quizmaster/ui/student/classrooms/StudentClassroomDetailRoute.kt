@@ -14,14 +14,14 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
-import androidx.compose.material.icons.outlined.ArrowForwardIos
+import androidx.compose.material.icons.automirrored.outlined.ArrowForwardIos
 import androidx.compose.material.icons.outlined.ContentCopy
 import androidx.compose.material.icons.outlined.Groups
-import androidx.compose.material.icons.outlined.InsertDriveFile
+import androidx.compose.material.icons.automirrored.outlined.InsertDriveFile
 import androidx.compose.material3.Card
 import androidx.compose.material3.CardDefaults
 import androidx.compose.material3.CircularProgressIndicator
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.AlertDialog
 import androidx.compose.material3.TextButton
 import androidx.compose.material3.Icon
@@ -55,13 +55,15 @@ import kotlinx.coroutines.launch
 fun StudentClassroomDetailRoute(
     onBack: () -> Unit,
     onOpenMaterial: (String) -> Unit,
+    onOpenAssignment: (String) -> Unit,
     viewModel: StudentClassroomDetailViewModel = hiltViewModel()
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     StudentClassroomDetailScreen(
         state = state,
         onBack = onBack,
-        onOpenMaterial = onOpenMaterial
+        onOpenMaterial = onOpenMaterial,
+        onOpenAssignment = onOpenAssignment
     )
 }
 
@@ -69,7 +71,8 @@ fun StudentClassroomDetailRoute(
 fun StudentClassroomDetailScreen(
     state: StudentClassroomDetailUiState,
     onBack: () -> Unit,
-    onOpenMaterial: (String) -> Unit
+    onOpenMaterial: (String) -> Unit,
+    onOpenAssignment: (String) -> Unit
 ) {
     val clipboard = LocalClipboardManager.current
     val snackbarHostState = remember { SnackbarHostState() }
@@ -138,21 +141,24 @@ fun StudentClassroomDetailScreen(
                 if (state.assignments.isEmpty()) {
                     item {
                         EmptyStateCard(
-                            icon = Icons.Outlined.InsertDriveFile,
+                    icon = Icons.AutoMirrored.Outlined.InsertDriveFile,
                             title = "No assignments yet",
                             message = "Assignments for this class will be listed here."
                         )
                     }
                 } else {
                     items(state.assignments, key = { it.id }) { assignment ->
-                        AssignmentCardCompact(assignment)
+                        AssignmentCardCompact(assignment) {
+                            // Navigate to assignment detail/play from the list
+                            onOpenAssignment(assignment.id)
+                        }
                     }
                 }
                 item { SectionHeader(title = "Materials (${state.materialsCount})") }
                 if (state.materialsCount == 0) {
                     item {
                         EmptyStateCard(
-                            icon = Icons.Outlined.InsertDriveFile,
+                    icon = Icons.AutoMirrored.Outlined.InsertDriveFile,
                             title = "No materials yet",
                             message = "Materials shared by your teacher will appear here."
                         )
@@ -196,9 +202,11 @@ fun StudentClassroomDetailScreen(
 }
 
 @Composable
-private fun AssignmentCardCompact(assignment: AssignmentCardUi) {
+private fun AssignmentCardCompact(assignment: AssignmentCardUi, onClick: () -> Unit = {}) {
     Card(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable { onClick() },
         shape = MaterialTheme.shapes.medium,
         elevation = CardDefaults.cardElevation(defaultElevation = 1.dp)
     ) {
@@ -247,7 +255,7 @@ private fun TopicRow(topic: TopicUi, onClick: () -> Unit) {
                     )
                 }
             }
-            Icon(Icons.Outlined.ArrowForwardIos, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
+            Icon(Icons.AutoMirrored.Outlined.ArrowForwardIos, contentDescription = null, tint = MaterialTheme.colorScheme.onSurfaceVariant)
         }
     }
 }
@@ -336,7 +344,7 @@ private fun InfoBanner() {
 private fun SectionHeader(title: String) {
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(title, style = MaterialTheme.typography.titleMedium)
-        Divider()
+        HorizontalDivider()
     }
 }
 

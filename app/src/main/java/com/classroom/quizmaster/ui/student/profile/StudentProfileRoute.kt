@@ -7,7 +7,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Divider
+import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -30,6 +30,7 @@ fun StudentProfileRoute(
         state = state,
         onNameChanged = viewModel::updateNameInput,
         onSaveName = viewModel::saveName,
+        onRefresh = viewModel::refreshData,
         onResetPassword = viewModel::sendPasswordReset,
         onLogout = {
             viewModel.logout()
@@ -43,6 +44,7 @@ fun StudentProfileScreen(
     state: StudentProfileUiState,
     onNameChanged: (String) -> Unit,
     onSaveName: () -> Unit,
+    onRefresh: () -> Unit,
     onResetPassword: () -> Unit,
     onLogout: () -> Unit
 ) {
@@ -81,6 +83,12 @@ fun StudentProfileScreen(
                     modifier = Modifier.fillMaxWidth()
                 )
                 PrimaryButton(
+                    text = if (state.refreshing) "Refreshing..." else "Refresh data",
+                    onClick = onRefresh,
+                    enabled = !state.refreshing,
+                    modifier = Modifier.fillMaxWidth()
+                )
+                PrimaryButton(
                     text = "Reset password",
                     onClick = onResetPassword,
                     enabled = !state.email.isNullOrBlank(),
@@ -95,7 +103,7 @@ fun StudentProfileScreen(
         ) {
             Column(modifier = Modifier.padding(16.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                 Text("Progress", style = MaterialTheme.typography.titleMedium)
-                Divider()
+                HorizontalDivider()
                 Text("Classrooms: ${state.classroomsCount}")
                 Text("Assignments done: ${state.completedAssignments}")
             }

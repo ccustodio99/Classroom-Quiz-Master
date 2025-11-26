@@ -68,8 +68,7 @@ class AssignmentEditorViewModel @Inject constructor(
                     .filter { quiz ->
                         !quiz.isArchived &&
                             quiz.classroomId == classroomId &&
-                            quiz.topicId == topicId &&
-                            quiz.category == QuizCategory.STANDARD
+                            quiz.topicId == topicId
                     }
                     .sortedByDescending { it.updatedAt }
                     .map { quiz ->
@@ -110,6 +109,7 @@ class AssignmentEditorViewModel @Inject constructor(
                     attemptsAllowed = assignment.attemptsAllowed.toString(),
                     scoringMode = assignment.scoringMode,
                     revealAfterSubmit = assignment.revealAfterSubmit,
+                    isArchived = assignment.isArchived,
                     isLoading = false,
                     errorMessage = null
                 )
@@ -163,6 +163,10 @@ class AssignmentEditorViewModel @Inject constructor(
         val classroomId = classroomId.value
         val topicId = topicId.value
         when {
+            state.isArchived -> {
+                _uiState.update { it.copy(errorMessage = "Unarchive before editing") }
+                return
+            }
             quizId.isBlank() -> {
                 _uiState.update { it.copy(errorMessage = "Select a quiz to assign") }
                 return
@@ -209,13 +213,27 @@ class AssignmentEditorViewModel @Inject constructor(
         }
     }
 
-    fun archive() {
+    fun toggleArchive() {
         val targetId = assignmentId ?: return
+        val archiving = !_uiState.value.isArchived
         viewModelScope.launch {
             _uiState.update { it.copy(isSaving = true, errorMessage = null) }
-            runCatching { assignmentRepository.archiveAssignment(targetId) }
+            runCatching {
+                if (archiving) {
+                    assignmentRepository.archiveAssignment(targetId)
+                } else {
+                    assignmentRepository.unarchiveAssignment(targetId)
+                }
+            }
                 .onSuccess {
-                    _uiState.update { it.copy(isSaving = false, archiveSuccess = true) }
+                    _uiState.update {
+                        it.copy(
+                            isSaving = false,
+                            archiveSuccess = archiving,
+                            isArchived = archiving,
+                            errorMessage = null
+                        )
+                    }
                 }
                 .onFailure { error ->
                     _uiState.update {
@@ -252,6 +270,7 @@ data class AssignmentEditorUiState(
     val attemptsAllowed: String = "1",
     val scoringMode: ScoringMode = ScoringMode.BEST,
     val revealAfterSubmit: Boolean = true,
+    val isArchived: Boolean = false,
     val isLoading: Boolean = false,
     val isSaving: Boolean = false,
     val errorMessage: String? = null,

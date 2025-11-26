@@ -45,7 +45,7 @@
 -keep class com.google.protobuf.** { *; }
 -dontwarn com.google.protobuf.**
 
-# Firebase / Play Services / AppCheck
+# Firebase / Play Services
 -keep class com.google.firebase.** { *; }
 -dontwarn com.google.firebase.**
 -keep class com.google.android.gms.** { *; }

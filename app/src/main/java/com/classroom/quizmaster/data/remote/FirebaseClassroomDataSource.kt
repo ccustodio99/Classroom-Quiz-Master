@@ -352,7 +352,10 @@ class FirebaseClassroomDataSource @Inject constructor(
         val joinCode: String = "",
         val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
         val updatedAt: Long = createdAt,
-        val isArchived: Boolean = false,
+        // Explicitly bind to Firestore field "isArchived" to avoid getter conflicts from Kotlin's boolean naming.
+        @get:com.google.firebase.firestore.PropertyName("isArchived")
+        @set:com.google.firebase.firestore.PropertyName("isArchived")
+        var archivedFlag: Boolean = false,
         // Legacy field name kept for backward compatibility with old documents.
         val archived: Boolean? = null,
         val archivedAt: Long? = null,
@@ -367,7 +370,7 @@ class FirebaseClassroomDataSource @Inject constructor(
             joinCode = joinCode,
             createdAt = Instant.fromEpochMilliseconds(createdAt),
             updatedAt = Instant.fromEpochMilliseconds(updatedAt),
-            isArchived = isArchived || (archived ?: false),
+            isArchived = archivedFlag || (archived ?: false),
             archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds),
             students = students
         )
@@ -381,7 +384,7 @@ class FirebaseClassroomDataSource @Inject constructor(
                 joinCode = classroom.joinCode,
                 createdAt = classroom.createdAt.toEpochMilliseconds(),
                 updatedAt = classroom.updatedAt.toEpochMilliseconds(),
-                isArchived = classroom.isArchived,
+                archivedFlag = classroom.isArchived,
                 archivedAt = classroom.archivedAt?.toEpochMilliseconds(),
                 students = classroom.students
             )

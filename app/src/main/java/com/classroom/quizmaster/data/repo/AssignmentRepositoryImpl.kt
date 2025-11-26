@@ -238,6 +238,8 @@ class AssignmentRepositoryImpl @Inject constructor(
         val existing = assignmentDao.getAssignment(id) ?: return@withContext
         val classroom = classroomDao.get(existing.classroomId) ?: return@withContext
         if (classroom.teacherId != teacherId) return@withContext
+        val topic = topicDao.get(existing.topicId) ?: return@withContext
+        if (topic.teacherId != teacherId || topic.classroomId != classroom.id) return@withContext
         val archivedEntity = existing.copy(
             isArchived = true,
             archivedAt = archivedAt.toEpochMilliseconds(),
@@ -255,6 +257,30 @@ class AssignmentRepositoryImpl @Inject constructor(
                 )
             } else {
                 Timber.e(err, "Failed to archive assignment $id")
+                throw err
+            }
+        }
+        Unit
+    }
+
+    override suspend fun unarchiveAssignment(id: String, unarchivedAt: Instant) = withContext(ioDispatcher) {
+        val teacherId = authRepository.authState.firstOrNull()?.userId ?: return@withContext
+        val existing = assignmentDao.getAssignment(id) ?: return@withContext
+        val classroom = classroomDao.get(existing.classroomId) ?: return@withContext
+        val topic = topicDao.get(existing.topicId) ?: return@withContext
+        if (classroom.teacherId != teacherId || topic.teacherId != teacherId || topic.classroomId != classroom.id) return@withContext
+        val unarchivedEntity = existing.copy(
+            isArchived = false,
+            archivedAt = null,
+            updatedAt = unarchivedAt.toEpochMilliseconds()
+        )
+        database.withTransaction { assignmentDao.upsertAssignments(listOf(unarchivedEntity)) }
+        val remoteResult = remote.unarchiveAssignment(id, unarchivedAt)
+        remoteResult.onFailure { err ->
+            if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
+                Timber.w(err, "Skipping remote unarchive for $id")
+            } else {
+                Timber.e(err, "Failed to unarchive assignment $id")
                 throw err
             }
         }

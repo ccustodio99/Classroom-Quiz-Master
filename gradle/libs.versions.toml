@@ -154,9 +154,6 @@ compose-ui-tooling = { group = "androidx.compose.ui", name = "ui-tooling" }
 compose-ui-tooling-preview = { group = "androidx.compose.ui", name = "ui-tooling-preview" }
 compose-ui-util = { group = "androidx.compose.ui", name = "ui-util" }
 firebase-analytics = { group = "com.google.firebase", name = "firebase-analytics-ktx" }
-firebase-appcheck = { group = "com.google.firebase", name = "firebase-appcheck-ktx" }
-firebase-appcheck-debug = { group = "com.google.firebase", name = "firebase-appcheck-debug" }
-firebase-appcheck-playintegrity = { group = "com.google.firebase", name = "firebase-appcheck-playintegrity" }
 firebase-auth = { group = "com.google.firebase", name = "firebase-auth-ktx" }
 firebase-bom = { group = "com.google.firebase", name = "firebase-bom", version.ref = "firebaseBom" }
 firebase-crashlytics = { group = "com.google.firebase", name = "firebase-crashlytics-ktx" }
@@ -228,13 +225,11 @@ compose-core = [
 ]
 firebase-core = [
     "firebase-analytics",
-    "firebase-appcheck",
     "firebase-auth",
     "firebase-firestore",
     "firebase-storage",
     "firebase-functions",
     "firebase-crashlytics",
-    "firebase-appcheck-playintegrity",
     "firebase-perf"
 ]
 ktor-client = [

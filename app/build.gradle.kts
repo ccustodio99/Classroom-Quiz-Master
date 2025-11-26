@@ -152,8 +152,6 @@ dependencies {
 
     implementation(platform(libs.firebase.bom))
     implementation(libs.bundles.firebase.core)
-    implementation(libs.firebase.appcheck)
-    debugImplementation(libs.firebase.appcheck.debug)
 
     implementation(libs.androidx.core.ktx)
     implementation(libs.androidx.core.splashscreen)

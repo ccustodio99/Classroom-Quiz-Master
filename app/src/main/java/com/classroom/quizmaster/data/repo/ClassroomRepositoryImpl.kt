@@ -6,18 +6,28 @@ import com.classroom.quizmaster.data.local.dao.ClassroomDao
 import com.classroom.quizmaster.data.local.dao.TopicDao
 import com.classroom.quizmaster.data.local.dao.StudentDao
 import com.classroom.quizmaster.data.local.dao.JoinRequestDao
+import com.classroom.quizmaster.data.local.dao.AssignmentDao
+import com.classroom.quizmaster.data.local.dao.MaterialDao
 import com.classroom.quizmaster.data.local.entity.ClassroomEntity
 import com.classroom.quizmaster.data.local.entity.TopicEntity
 import com.classroom.quizmaster.data.local.entity.StudentEntity
 import com.classroom.quizmaster.data.local.entity.JoinRequestEntity
+import com.classroom.quizmaster.data.local.entity.AssignmentLocalEntity
+import com.classroom.quizmaster.data.local.entity.SubmissionLocalEntity
+import com.classroom.quizmaster.data.local.entity.LearningMaterialEntity
 import com.classroom.quizmaster.data.remote.FirebaseClassroomDataSource
 import com.classroom.quizmaster.data.remote.FirebaseTopicDataSource
+import com.classroom.quizmaster.data.remote.FirebaseAssignmentDataSource
+import com.classroom.quizmaster.data.remote.FirebaseMaterialDataSource
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.JoinRequest
 import com.classroom.quizmaster.domain.model.JoinRequestStatus
 import com.classroom.quizmaster.domain.model.Teacher
+import com.classroom.quizmaster.domain.model.Assignment
+import com.classroom.quizmaster.domain.model.Submission
+import com.classroom.quizmaster.domain.model.LearningMaterial
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -42,6 +52,7 @@ import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import com.classroom.quizmaster.util.switchMapLatest
+import kotlinx.serialization.json.Json
 
 @Singleton
 class ClassroomRepositoryImpl @Inject constructor(
@@ -50,10 +61,15 @@ class ClassroomRepositoryImpl @Inject constructor(
     private val topicDao: TopicDao,
     private val studentDao: StudentDao,
     private val joinRequestDao: JoinRequestDao,
+    private val assignmentDao: AssignmentDao,
+    private val materialDao: MaterialDao,
     private val classroomRemote: FirebaseClassroomDataSource,
     private val topicRemote: FirebaseTopicDataSource,
+    private val assignmentRemote: FirebaseAssignmentDataSource,
+    private val materialRemote: FirebaseMaterialDataSource,
     private val authRepository: AuthRepository,
     private val pendingOpQueue: PendingOpQueue,
+    private val json: Json,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ClassroomRepository {
 
@@ -170,19 +186,40 @@ class ClassroomRepositoryImpl @Inject constructor(
         if (authState.isTeacher) {
             val classrooms = classroomRemote.fetchClassrooms().getOrElse { emptyList() }
             val topics = topicRemote.fetchTopics().getOrElse { emptyList() }
+            val assignments = assignmentRemote.fetchAssignments().getOrElse { emptyList() }
+            val submissions = assignments.flatMap { assignment ->
+                assignmentRemote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
+            }
+            val materials = authState.userId?.let { teacherId ->
+                materialRemote.fetchForTeacher(teacherId).getOrElse { emptyList() }
+            }.orEmpty()
             val joinRequests = authState.userId?.let { teacherId ->
                 classroomRemote.fetchJoinRequestsForTeacher(teacherId).getOrElse { emptyList() }
             }.orEmpty()
-            val students = joinRequests.map { it.studentId }.distinct().mapNotNull { id ->
+            val rosterIds = classrooms.flatMap { it.students }
+            val studentIds = (rosterIds + joinRequests.map { it.studentId }).distinct()
+            val students = studentIds.mapNotNull { id ->
                 classroomRemote.fetchStudentProfile(id).getOrNull()
             }
-            if (classrooms.isEmpty() && topics.isEmpty() && joinRequests.isEmpty() && students.isEmpty()) return@withContext
+            if (classrooms.isEmpty() && topics.isEmpty() && joinRequests.isEmpty() && students.isEmpty() && assignments.isEmpty() && materials.isEmpty()) return@withContext
             database.withTransaction {
                 if (classrooms.isNotEmpty()) {
                     classroomDao.upsertAll(classrooms.map { it.toEntity() })
                 }
                 if (topics.isNotEmpty()) {
                     topicDao.upsertAll(topics.map { it.toEntity() })
+                }
+                if (assignments.isNotEmpty()) {
+                    assignmentDao.upsertAssignments(assignments.map { it.toEntity() })
+                }
+                if (submissions.isNotEmpty()) {
+                    assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
+                }
+                if (materials.isNotEmpty()) {
+                    materials.forEach { material ->
+                        materialDao.upsertMaterial(material.toEntity())
+                        materialDao.clearAttachments(material.id)
+                    }
                 }
                 if (joinRequests.isNotEmpty()) {
                     joinRequestDao.upsertAll(joinRequests.map { it.toEntity() })
@@ -201,13 +238,32 @@ class ClassroomRepositoryImpl @Inject constructor(
                 emptyList()
             }
             val topicEntities = topics.map { it.toEntity() }
-            if (classroomEntities.isEmpty() && topicEntities.isEmpty()) return@withContext
+            val assignments = assignmentRemote.fetchAssignments().getOrElse { emptyList() }
+            val submissions = assignments.flatMap { assignment ->
+                assignmentRemote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
+            }
+            val materials = if (classroomEntities.isNotEmpty()) {
+                materialRemote.fetchForClassrooms(classroomEntities.map { it.id }).getOrElse { emptyList() }
+            } else emptyList()
+            if (classroomEntities.isEmpty() && topicEntities.isEmpty() && assignments.isEmpty() && materials.isEmpty()) return@withContext
             database.withTransaction {
                 if (classroomEntities.isNotEmpty()) {
                     classroomDao.upsertAll(classroomEntities)
                 }
                 if (topicEntities.isNotEmpty()) {
                     topicDao.upsertAll(topicEntities)
+                }
+                if (assignments.isNotEmpty()) {
+                    assignmentDao.upsertAssignments(assignments.map { it.toEntity() })
+                }
+                if (submissions.isNotEmpty()) {
+                    assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
+                }
+                if (materials.isNotEmpty()) {
+                    materials.forEach { material ->
+                        materialDao.upsertMaterial(material.toEntity())
+                        materialDao.clearAttachments(material.id)
+                    }
                 }
             }
         }
@@ -567,6 +623,47 @@ class ClassroomRepositoryImpl @Inject constructor(
         status = JoinRequestStatus.valueOf(status),
         createdAt = Instant.fromEpochMilliseconds(createdAt),
         resolvedAt = resolvedAt?.let(Instant::fromEpochMilliseconds)
+    )
+
+    private fun Assignment.toEntity(): AssignmentLocalEntity = AssignmentLocalEntity(
+        id = id,
+        quizId = quizId,
+        classroomId = classroomId,
+        topicId = topicId,
+        openAt = openAt.toEpochMilliseconds(),
+        closeAt = closeAt.toEpochMilliseconds(),
+        attemptsAllowed = attemptsAllowed,
+        scoringMode = scoringMode.name,
+        revealAfterSubmit = revealAfterSubmit,
+        createdAt = createdAt.toEpochMilliseconds(),
+        updatedAt = updatedAt.toEpochMilliseconds(),
+        isArchived = isArchived,
+        archivedAt = archivedAt?.toEpochMilliseconds()
+    )
+
+    private fun Submission.toEntity(): SubmissionLocalEntity = SubmissionLocalEntity(
+        assignmentId = assignmentId,
+        uid = uid,
+        bestScore = bestScore,
+        lastScore = lastScore,
+        attempts = attempts,
+        updatedAt = updatedAt.toEpochMilliseconds()
+    )
+
+    private fun LearningMaterial.toEntity(): LearningMaterialEntity = LearningMaterialEntity(
+        id = id,
+        teacherId = teacherId,
+        classroomId = classroomId,
+        classroomName = classroomName,
+        topicId = topicId,
+        topicName = topicName,
+        title = title,
+        description = description,
+        body = body,
+        createdAt = createdAt.toEpochMilliseconds(),
+        updatedAt = updatedAt.toEpochMilliseconds(),
+        isArchived = isArchived,
+        archivedAt = archivedAt?.toEpochMilliseconds()
     )
 
     private fun generateLocalId(prefix: String): String = "$prefix-${Clock.System.now().toEpochMilliseconds()}"

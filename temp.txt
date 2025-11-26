@@ -4,7 +4,6 @@ import android.app.DatePickerDialog
 import android.app.TimePickerDialog
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -24,7 +23,6 @@ import androidx.compose.material3.Icon
 import androidx.compose.material3.LinearProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedTextField
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -125,7 +123,7 @@ fun AssignmentEditorScreen(
                 message = "Create a quiz for this topic before assigning it."
             )
         } else {
-            QuizDropdown(
+            QuizPicker(
                 options = state.quizOptions,
                 selectedId = state.selectedQuizId,
                 enabled = !state.isSaving,
@@ -176,13 +174,6 @@ fun AssignmentEditorScreen(
                 style = MaterialTheme.typography.bodyMedium
             )
         }
-        if (state.isArchived) {
-            Text(
-                text = "This assignment is archived. Unarchive to edit and save changes.",
-                style = MaterialTheme.typography.bodySmall,
-                color = MaterialTheme.colorScheme.onSurfaceVariant
-            )
-        }
         Row(
             horizontalArrangement = Arrangement.spacedBy(12.dp),
             modifier = Modifier.fillMaxWidth()
@@ -223,70 +214,29 @@ fun AssignmentEditorScreen(
 }
 
 @Composable
-private fun QuizDropdown(
+private fun QuizPicker(
     options: List<QuizOptionUi>,
     selectedId: String,
     enabled: Boolean,
     onSelected: (String) -> Unit
 ) {
-    var expanded by remember { mutableStateOf(false) }
-    val selectedOption = options.firstOrNull { it.id == selectedId }
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Text(text = "Quiz", style = MaterialTheme.typography.titleMedium)
-        Box(modifier = Modifier.fillMaxWidth()) {
-            Surface(
-                onClick = { if (enabled) expanded = true },
+        options.forEach { option ->
+            val selected = option.id == selectedId
+            val label = if (selected) "${option.title} • Selected" else option.title
+            SecondaryButton(
+                text = label,
+                onClick = { onSelected(option.id) },
                 enabled = enabled,
-                modifier = Modifier.fillMaxWidth(),
-                shape = MaterialTheme.shapes.medium,
-                tonalElevation = 1.dp
-            ) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(horizontal = 12.dp, vertical = 14.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween
-                ) {
-                    Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                        Text(
-                            text = selectedOption?.title ?: "Select a quiz",
-                            style = MaterialTheme.typography.bodyLarge
-                        )
-                        selectedOption?.subtitle?.takeIf { it.isNotBlank() }?.let { subtitle ->
-                            Text(
-                                text = subtitle,
-                                style = MaterialTheme.typography.bodySmall,
-                                color = MaterialTheme.colorScheme.onSurfaceVariant
-                            )
-                        }
-                    }
-                    Icon(Icons.Filled.ArrowDropDown, contentDescription = null)
-                }
-            }
-            DropdownMenu(
-                expanded = expanded,
-                onDismissRequest = { expanded = false }
-            ) {
-                options.forEach { option ->
-                    DropdownMenuItem(
-                        text = {
-                            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
-                                Text(option.title, style = MaterialTheme.typography.bodyLarge)
-                                Text(
-                                    option.subtitle,
-                                    style = MaterialTheme.typography.bodySmall,
-                                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                                )
-                            }
-                        },
-                        onClick = {
-                            expanded = false
-                            onSelected(option.id)
-                        },
-                        enabled = enabled
-                    )
-                }
-            }
+                modifier = Modifier.fillMaxWidth()
+            )
+            Text(
+                text = option.subtitle,
+                style = MaterialTheme.typography.bodySmall,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Spacer(modifier = Modifier.height(8.dp))
         }
     }
 }
@@ -300,11 +250,11 @@ private fun DateTimeField(
     onInstantChanged: (Instant) -> Unit
 ) {
     val context = LocalContext.current
-    val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy - h:mm a") }
+    val formatter = remember { DateTimeFormatter.ofPattern("MMM d, yyyy • h:mm a") }
     val display = instant?.let { instantToDisplay(it, timeZone, formatter) } ?: "Select date"
-    Surface(
-        onClick = {
-            if (!enabled) return@Surface
+    val interactionModifier = Modifier
+        .fillMaxWidth()
+        .clickable(enabled = enabled) {
             val initial = (instant ?: Clock.System.now()).toLocalDateTime(timeZone)
             val datePicker = DatePickerDialog(
                 context,
@@ -326,25 +276,15 @@ private fun DateTimeField(
                 initial.dayOfMonth
             )
             datePicker.show()
-        },
-        enabled = enabled,
-        shape = MaterialTheme.shapes.medium,
-        tonalElevation = 1.dp,
-        modifier = Modifier.fillMaxWidth()
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 12.dp, vertical = 14.dp),
-            horizontalArrangement = Arrangement.SpaceBetween
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(label, style = MaterialTheme.typography.labelSmall, color = MaterialTheme.colorScheme.onSurfaceVariant)
-                Text(display, style = MaterialTheme.typography.bodyLarge)
-            }
-            Icon(Icons.Filled.DateRange, contentDescription = null)
         }
-    }
+    OutlinedTextField(
+        value = display,
+        onValueChange = {},
+        modifier = interactionModifier,
+        label = { Text(label) },
+        readOnly = true,
+        enabled = enabled
+    )
 }
 
 private fun scoringOptions(): List<SegmentOption> = listOf(

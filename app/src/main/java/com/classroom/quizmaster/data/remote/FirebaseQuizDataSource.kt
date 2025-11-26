@@ -5,6 +5,7 @@ import com.classroom.quizmaster.domain.model.Quiz
 import com.classroom.quizmaster.domain.model.QuizCategory
 import com.google.firebase.firestore.FieldPath
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.SetOptions
 import kotlinx.coroutines.tasks.await
 import kotlinx.datetime.Clock
@@ -112,7 +113,13 @@ class FirebaseQuizDataSource @Inject constructor(
         val questionCount: Int = 0,
         val questionsJson: String = "[]",
         val category: String = QuizCategory.STANDARD.name,
-        val isArchived: Boolean = false,
+        @get:PropertyName("isArchived")
+        @set:PropertyName("isArchived")
+        var archivedFlag: Boolean = false,
+        // Legacy field kept to read older documents without warnings.
+        @get:PropertyName("archived")
+        @set:PropertyName("archived")
+        var archivedLegacy: Boolean? = null,
         val archivedAt: Long? = null
     ) {
         fun toDomain(id: String, json: Json): Quiz {
@@ -131,7 +138,7 @@ class FirebaseQuizDataSource @Inject constructor(
                 questionCount = computedCount,
                 questions = decodedQuestions,
                 category = runCatching { QuizCategory.valueOf(category) }.getOrDefault(QuizCategory.STANDARD),
-                isArchived = isArchived,
+                isArchived = archivedFlag || (archivedLegacy ?: false),
                 archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
             )
         }
@@ -149,7 +156,7 @@ class FirebaseQuizDataSource @Inject constructor(
                 questionCount = if (quiz.questionCount > 0) quiz.questionCount else quiz.questions.size,
                 questionsJson = json.encodeToString(quiz.questions),
                 category = quiz.category.name,
-                isArchived = quiz.isArchived,
+                archivedFlag = quiz.isArchived,
                 archivedAt = quiz.archivedAt?.toEpochMilliseconds()
             )
         }

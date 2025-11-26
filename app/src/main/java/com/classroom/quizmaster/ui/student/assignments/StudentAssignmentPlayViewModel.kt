@@ -55,13 +55,13 @@ class StudentAssignmentPlayViewModel @Inject constructor(
         }
 
     val uiState: StateFlow<AssignmentPlayUiState> =
-        combine(quizFlow, currentIndex, selected, finished, score, error) { data ->
-            val questions = data[0] as List<Question>
-            val idx = data[1] as Int
-            val selectedChoices = data[2] as Set<String>
-            val done = data[3] as Boolean
-            val points = data[4] as Int
-            val err = data[5] as String?
+        combine(quizFlow, currentIndex, selected, finished, score, error) { values ->
+            val questions = values[0] as List<Question>
+            val idx = values[1] as Int
+            val selectedChoices = values[2] as Set<String>
+            val done = values[3] as Boolean
+            val points = values[4] as Int
+            val err = values[5] as String?
             val safeIndex = idx.coerceIn(0, (questions.size - 1).coerceAtLeast(0))
             AssignmentPlayUiState(
                 assignmentId = assignmentId,
@@ -74,7 +74,11 @@ class StudentAssignmentPlayViewModel @Inject constructor(
                 error = err,
                 loading = questions.isEmpty()
             )
-        }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), AssignmentPlayUiState(assignmentId = assignmentId))
+        }.stateIn(
+            viewModelScope,
+            SharingStarted.WhileSubscribed(5_000),
+            AssignmentPlayUiState(assignmentId = assignmentId)
+        )
 
     fun toggleChoice(choice: String) {
         selected.value = if (selected.value.contains(choice)) {

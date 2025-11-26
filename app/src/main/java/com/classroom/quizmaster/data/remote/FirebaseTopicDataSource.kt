@@ -94,7 +94,10 @@ class FirebaseTopicDataSource @Inject constructor(
         val description: String = "",
         val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
         val updatedAt: Long = createdAt,
-        val isArchived: Boolean = false,
+        // Explicitly bind to Firestore field "isArchived" to avoid Kotlin boolean getter conflicts.
+        @get:com.google.firebase.firestore.PropertyName("isArchived")
+        @set:com.google.firebase.firestore.PropertyName("isArchived")
+        var archivedFlag: Boolean = false,
         // Legacy field name kept for backward compatibility with old documents.
         val archived: Boolean? = null,
         val archivedAt: Long? = null
@@ -107,7 +110,7 @@ class FirebaseTopicDataSource @Inject constructor(
             description = description,
             createdAt = Instant.fromEpochMilliseconds(createdAt),
             updatedAt = Instant.fromEpochMilliseconds(updatedAt),
-            isArchived = isArchived || (archived ?: false),
+            isArchived = archivedFlag || (archived ?: false),
             archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
         )
 
@@ -119,7 +122,7 @@ class FirebaseTopicDataSource @Inject constructor(
                 description = topic.description,
                 createdAt = topic.createdAt.toEpochMilliseconds(),
                 updatedAt = topic.updatedAt.toEpochMilliseconds(),
-                isArchived = topic.isArchived,
+                archivedFlag = topic.isArchived,
                 archivedAt = topic.archivedAt?.toEpochMilliseconds()
             )
         }

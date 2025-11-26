@@ -12,6 +12,13 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
+import androidx.compose.material.icons.outlined.AddCircle
+import androidx.compose.material.icons.outlined.Info
+import androidx.compose.material.icons.outlined.Schedule
+import androidx.compose.material.icons.outlined.School
+import androidx.compose.material.icons.outlined.Topic
+import androidx.compose.material.icons.outlined.ViewList
+import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
@@ -21,11 +28,11 @@ import androidx.compose.material3.Slider
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Switch
 import androidx.compose.material3.Text
-import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -105,98 +112,159 @@ fun QuizEditorScreen(
     onDismissSaveDialog: () -> Unit,
     onDismissDiscardDialog: () -> Unit
 ) {
+    val verticalSpacing = 16.dp
     Column(
         modifier = Modifier
             .fillMaxSize()
             .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+            .padding(vertical = 16.dp, horizontal = 20.dp),
+        verticalArrangement = Arrangement.spacedBy(verticalSpacing)
     ) {
-        Text(
-            text = state.headerTitle(),
-            style = MaterialTheme.typography.headlineMedium
-        )
-        ClassroomTopicSelector(
-            classroomOptions = state.classroomOptions,
-            selectedClassroomId = state.classroomId,
-            onClassroomSelected = onClassroomChange,
-            topicOptions = state.topicsByClassroom[state.classroomId].orEmpty(),
-            selectedTopicId = state.topicId,
-            onTopicSelected = onTopicChange
-        )
-        Text(text = "Test type", style = MaterialTheme.typography.titleMedium)
-        Row(
-            modifier = Modifier.horizontalScroll(rememberScrollState()),
-            horizontalArrangement = Arrangement.spacedBy(8.dp)
+        HeaderSummary(state = state)
+
+        SectionCard(
+            title = "Assignment context",
+            subtitle = "Pair the quiz to where students will see it",
+            leadingIcon = Icons.Outlined.School
         ) {
-            QuizCategoryUi.entries.forEach { category ->
-                FilterChip(
-                    selected = state.quizCategory == category,
-                    onClick = { onCategoryChange(category) },
-                    label = { Text(category.displayName) }
+            ClassroomTopicSelector(
+                classroomOptions = state.classroomOptions,
+                selectedClassroomId = state.classroomId,
+                onClassroomSelected = onClassroomChange,
+                topicOptions = state.topicsByClassroom[state.classroomId].orEmpty(),
+                selectedTopicId = state.topicId,
+                onTopicSelected = onTopicChange
+            )
+            SectionHeader(
+                text = "Test type",
+                helper = state.quizCategory.description
+            )
+            Row(
+                modifier = Modifier.horizontalScroll(rememberScrollState()),
+                horizontalArrangement = Arrangement.spacedBy(8.dp)
+            ) {
+                QuizCategoryUi.entries.forEach { category ->
+                    FilterChip(
+                        selected = state.quizCategory == category,
+                        onClick = { onCategoryChange(category) },
+                        label = { Text(category.displayName) }
+                    )
+                }
+            }
+        }
+
+        SectionCard(
+            title = "Quiz basics",
+            subtitle = "Set the essentials so learners have context",
+            leadingIcon = Icons.Outlined.Info
+        ) {
+            OutlinedTextField(
+                value = state.title,
+                onValueChange = onTitleChange,
+                label = { Text("Title") },
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                OutlinedTextField(
+                    value = state.grade,
+                    onValueChange = onGradeChange,
+                    label = { Text("Grade") },
+                    modifier = Modifier.weight(1f)
+                )
+                OutlinedTextField(
+                    value = state.subject,
+                    onValueChange = onSubjectChange,
+                    label = { Text("Subject") },
+                    modifier = Modifier.weight(1f)
                 )
             }
         }
-        Text(
-            text = state.quizCategory.description,
-            style = MaterialTheme.typography.bodySmall,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        OutlinedTextField(
-            value = state.title,
-            onValueChange = onTitleChange,
-            label = { Text("Title") },
-            modifier = Modifier.fillMaxWidth()
-        )
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            OutlinedTextField(
-                value = state.grade,
-                onValueChange = onGradeChange,
-                label = { Text("Grade") },
-                modifier = Modifier.weight(1f)
-            )
-            OutlinedTextField(
-                value = state.subject,
-                onValueChange = onSubjectChange,
-                label = { Text("Subject") },
-                modifier = Modifier.weight(1f)
-            )
-        }
-        Row(
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp)
+
+        SectionCard(
+            title = "Timing & flow",
+            subtitle = "Match pacing to difficulty and keep sessions fair",
+            leadingIcon = Icons.Outlined.Schedule
         ) {
-            Text("Time/question: ${state.timePerQuestionSeconds}s")
+            Row(
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(12.dp),
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Column {
+                    Text("Time per question", style = MaterialTheme.typography.titleMedium)
+                    Text(
+                        "${state.timePerQuestionSeconds}s",
+                        style = MaterialTheme.typography.bodyMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                Icon(
+                    imageVector = Icons.Outlined.Schedule,
+                    contentDescription = null,
+                    tint = MaterialTheme.colorScheme.primary
+                )
+            }
             Slider(
                 value = state.timePerQuestionSeconds.toFloat(),
                 onValueChange = { onTimeChange(it.toInt()) },
                 valueRange = 15f..120f,
-                modifier = Modifier.weight(1f)
+                modifier = Modifier.fillMaxWidth()
+            )
+            Row(
+                modifier = Modifier.fillMaxWidth(),
+                horizontalArrangement = Arrangement.SpaceBetween
+            ) {
+                Text(
+                    "15s",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+                Text(
+                    "120s",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+
+            ToggleChip(
+                label = "Shuffle questions",
+                checked = state.shuffleQuestions,
+                onCheckedChange = onShuffleChange,
+                description = "Randomize order per student"
             )
         }
-        ToggleChip(
-            label = "Shuffle questions",
-            checked = state.shuffleQuestions,
-            onCheckedChange = onShuffleChange,
-            description = "Randomize order per student"
-        )
-        Text(text = "Questions", style = MaterialTheme.typography.titleLarge)
-        QuestionList(
-            questions = state.questions,
-            onStemChange = onQuestionStem,
-            onAnswerChange = onAnswerChange,
-            onToggleCorrect = onToggleCorrect,
-            onExplanationChange = onExplanationChange,
-            onReorderQuestion = onReorderQuestion
-        )
-        AddQuestionRow(onAddQuestion = onAddQuestion)
-        Row(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
+
+        SectionCard(
+            title = "Questions",
+            subtitle = "Build, reorder, and give helpful explanations",
+            leadingIcon = Icons.Outlined.Topic
+        ) {
+            QuestionList(
+                questions = state.questions,
+                onStemChange = onQuestionStem,
+                onAnswerChange = onAnswerChange,
+                onToggleCorrect = onToggleCorrect,
+                onExplanationChange = onExplanationChange,
+                onReorderQuestion = onReorderQuestion
+            )
+            AddQuestionRow(onAddQuestion = onAddQuestion)
+        }
+
+        Row(
+            horizontalArrangement = Arrangement.spacedBy(16.dp),
+            modifier = Modifier.fillMaxWidth()
+        ) {
             PrimaryButton(
                 text = "Save",
                 onClick = onSaveClick,
-                enabled = state.classroomId.isNotBlank() && state.topicId.isNotBlank()
+                enabled = state.classroomId.isNotBlank() && state.topicId.isNotBlank(),
+                modifier = Modifier.weight(1f)
             )
-            SecondaryButton(text = "Discard", onClick = onDiscardClick)
+            SecondaryButton(
+                text = "Discard",
+                onClick = onDiscardClick,
+                modifier = Modifier.weight(1f)
+            )
         }
         SaveChangesDialog(
             open = state.showSaveDialog,
@@ -306,7 +374,7 @@ private fun QuestionList(
     onReorderQuestion: (Int, Int) -> Unit
 ) {
     if (questions.isEmpty()) {
-        TagChip(text = "No questions yet")
+        EmptyQuestionsState()
     } else {
         questions.forEachIndexed { index, question ->
             Surface(
@@ -398,12 +466,204 @@ private fun AnswerRow(
 
 @Composable
 private fun AddQuestionRow(onAddQuestion: (QuestionTypeUi) -> Unit) {
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-        Text(text = "Add question", style = MaterialTheme.typography.titleMedium)
+    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        SectionHeader(text = "Add question", helper = "Mix question types to balance rigor")
         Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuestionTypeUi.values().forEach { type ->
-                SecondaryButton(text = "+ ${type.name}", onClick = { onAddQuestion(type) })
+            QuestionTypeUi.values()
+                .filterNot { it == QuestionTypeUi.Match }
+                .forEach { type ->
+                QuestionTypeCard(
+                    type = type,
+                    icon = when (type) {
+                        QuestionTypeUi.MultipleChoice -> Icons.Outlined.ViewList
+                        QuestionTypeUi.TrueFalse -> Icons.Outlined.ToggleOn
+                        QuestionTypeUi.FillIn -> Icons.Outlined.ViewList
+                        else -> Icons.Outlined.ViewList
+                    },
+                    onClick = { onAddQuestion(type) },
+                    modifier = Modifier.weight(1f)
+                )
             }
+        }
+    }
+}
+
+@Composable
+private fun QuestionTypeCard(
+    type: QuestionTypeUi,
+    icon: ImageVector,
+    onClick: () -> Unit,
+    modifier: Modifier = Modifier
+) {
+    Surface(
+        modifier = modifier,
+        shape = MaterialTheme.shapes.large,
+        tonalElevation = 2.dp,
+        onClick = onClick
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Icon(
+                imageVector = icon,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+            Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
+                Text(
+                    text = when (type) {
+                        QuestionTypeUi.MultipleChoice -> "Multiple choice"
+                        QuestionTypeUi.TrueFalse -> "True/False"
+                        QuestionTypeUi.FillIn -> "Fill in the blank"
+                        else -> "Question"
+                    },
+                    style = MaterialTheme.typography.titleMedium
+                )
+                Text(
+                    text = when (type) {
+                        QuestionTypeUi.MultipleChoice -> "Great for recall and quick checks"
+                        QuestionTypeUi.TrueFalse -> "Use for binary concepts and quick pacing"
+                        QuestionTypeUi.FillIn -> "Short text answers for precision recall"
+                        else -> "Use the right type to fit your assessment"
+                    },
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun HeaderSummary(state: QuizEditorUiState) {
+    Surface(
+        tonalElevation = 3.dp,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            Text(
+                text = state.headerTitle(),
+                style = MaterialTheme.typography.headlineSmall
+            )
+            Text(
+                text = "Craft a clear, paced experience that aligns with your classroom and topic.",
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+            Row(
+                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                verticalAlignment = Alignment.CenterVertically
+            ) {
+                TagChip(
+                    text = if (state.classroomId.isNotBlank()) "Classroom selected" else "Choose classroom"
+                )
+                TagChip(
+                    text = if (state.topicId.isNotBlank()) "Topic selected" else "Choose topic"
+                )
+                TagChip(text = state.quizCategory.displayName)
+            }
+        }
+    }
+}
+
+@Composable
+private fun SectionCard(
+    title: String,
+    subtitle: String,
+    leadingIcon: ImageVector,
+    content: @Composable () -> Unit
+) {
+    Surface(
+        tonalElevation = 2.dp,
+        shape = MaterialTheme.shapes.large
+    ) {
+        Column(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            verticalArrangement = Arrangement.spacedBy(12.dp)
+        ) {
+            SectionHeader(
+                text = title,
+                helper = subtitle,
+                icon = leadingIcon
+            )
+            content()
+        }
+    }
+}
+
+@Composable
+private fun SectionHeader(
+    text: String,
+    helper: String? = null,
+    icon: ImageVector? = null
+) {
+    Row(
+        verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(8.dp),
+        modifier = Modifier.fillMaxWidth()
+    ) {
+        icon?.let {
+            Icon(
+                imageVector = it,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
+        }
+        Column {
+            Text(text = text, style = MaterialTheme.typography.titleMedium)
+            helper?.let {
+                Text(
+                    text = it,
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+        }
+    }
+}
+
+@Composable
+private fun EmptyQuestionsState() {
+    Surface(
+        modifier = Modifier.fillMaxWidth(),
+        shape = MaterialTheme.shapes.medium,
+        tonalElevation = 1.dp,
+        color = MaterialTheme.colorScheme.secondaryContainer
+    ) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .padding(16.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(
+                verticalArrangement = Arrangement.spacedBy(4.dp),
+                modifier = Modifier.weight(1f)
+            ) {
+                Text(text = "No questions yet", style = MaterialTheme.typography.titleMedium)
+                Text(
+                    text = "Add a MultipleChoice or TrueFalse item to get started.",
+                    style = MaterialTheme.typography.bodySmall,
+                    color = MaterialTheme.colorScheme.onSurfaceVariant
+                )
+            }
+            Icon(
+                imageVector = Icons.Outlined.AddCircle,
+                contentDescription = null,
+                tint = MaterialTheme.colorScheme.primary
+            )
         }
     }
 }

@@ -14,6 +14,9 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import kotlinx.datetime.Clock
+import com.classroom.quizmaster.domain.model.AuthState
+import com.classroom.quizmaster.domain.model.Classroom
+import com.classroom.quizmaster.domain.model.Assignment
 
 data class StudentProfileUiState(
     val fullName: String = "Student",
@@ -22,6 +25,7 @@ data class StudentProfileUiState(
     val completedAssignments: Int = 0,
     val nameInput: String = "",
     val saving: Boolean = false,
+    val refreshing: Boolean = false,
     val statusMessage: String? = null,
     val errorMessage: String? = null
 )
@@ -35,6 +39,7 @@ class StudentProfileViewModel @Inject constructor(
 
     private val nameInput = MutableStateFlow("")
     private val saving = MutableStateFlow(false)
+    private val refreshing = MutableStateFlow(false)
     private val statusMessage = MutableStateFlow<String?>(null)
     private val errorMessage = MutableStateFlow<String?>(null)
 
@@ -43,8 +48,15 @@ class StudentProfileViewModel @Inject constructor(
         classroomRepository.classrooms,
         assignmentRepository.assignments,
         nameInput,
-        saving
-    ) { auth, classrooms, assignments, nameInputValue, savingValue ->
+        saving,
+        refreshing
+    ) { values: Array<Any?> ->
+        val auth = values[0] as AuthState
+        val classrooms = values[1] as List<Classroom>
+        val assignments = values[2] as List<Assignment>
+        val nameInputValue = values[3] as String
+        val savingValue = values[4] as Boolean
+        val refreshingValue = values[5] as Boolean
         val now = Clock.System.now()
         StudentProfileUiState(
             fullName = auth.displayName ?: "Student",
@@ -52,7 +64,8 @@ class StudentProfileViewModel @Inject constructor(
             classroomsCount = classrooms.count { !it.isArchived },
             completedAssignments = assignments.count { it.closeAt < now || it.isArchived },
             nameInput = if (nameInputValue.isBlank()) auth.displayName.orEmpty() else nameInputValue,
-            saving = savingValue
+            saving = savingValue,
+            refreshing = refreshingValue
         )
     }
 
@@ -90,6 +103,23 @@ class StudentProfileViewModel @Inject constructor(
                     saving.value = false
                     errorMessage.value = error.message ?: "Unable to update name"
                 }
+        }
+    }
+
+    fun refreshData() {
+        viewModelScope.launch {
+            refreshing.value = true
+            errorMessage.value = null
+            statusMessage.value = null
+            runCatching {
+                classroomRepository.refresh()
+                assignmentRepository.refreshAssignments()
+            }.onSuccess {
+                statusMessage.value = "Data refreshed"
+            }.onFailure { err ->
+                errorMessage.value = err.message ?: "Unable to refresh data"
+            }
+            refreshing.value = false
         }
     }
 

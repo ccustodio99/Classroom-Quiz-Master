@@ -7,9 +7,6 @@ import androidx.work.Configuration
 import com.classroom.quizmaster.data.remote.FirebaseAnalyticsLogger
 import com.classroom.quizmaster.di.FirebaseInitializer
 import com.classroom.quizmaster.sync.SyncScheduler
-import com.google.firebase.appcheck.playintegrity.PlayIntegrityAppCheckProviderFactory
-import com.google.firebase.appcheck.AppCheckProviderFactory
-import com.google.firebase.appcheck.FirebaseAppCheck
 import com.google.firebase.crashlytics.FirebaseCrashlytics
 import dagger.hilt.android.HiltAndroidApp
 import timber.log.Timber
@@ -25,9 +22,6 @@ class QuizMasterApp : Application(), Configuration.Provider {
     lateinit var syncScheduler: SyncScheduler
 
     @Inject
-    lateinit var firebaseAppCheck: FirebaseAppCheck
-
-    @Inject
     lateinit var crashlytics: FirebaseCrashlytics
 
     @Inject
@@ -39,7 +33,6 @@ class QuizMasterApp : Application(), Configuration.Provider {
     override fun onCreate() {
         super.onCreate()
         initStrictMode()
-        configureAppCheck()
         configureCrashlytics()
         if (BuildConfig.DEBUG) {
             Timber.plant(Timber.DebugTree())
@@ -71,22 +64,6 @@ class QuizMasterApp : Application(), Configuration.Provider {
                 .penaltyLog()
                 .build()
         )
-    }
-
-    private fun configureAppCheck() {
-        val providerFactory: AppCheckProviderFactory = if (BuildConfig.DEBUG) {
-            try {
-                val debugAppCheckProviderFactoryClass = Class.forName("com.google.firebase.appcheck.debug.DebugAppCheckProviderFactory")
-                val getInstanceMethod = debugAppCheckProviderFactoryClass.getMethod("getInstance")
-                getInstanceMethod.invoke(null) as AppCheckProviderFactory
-            } catch (e: ClassNotFoundException) {
-                // Fallback for when DebugAppCheckProviderFactory is not available (e.g., release builds)
-                PlayIntegrityAppCheckProviderFactory.getInstance()
-            }
-        } else {
-            PlayIntegrityAppCheckProviderFactory.getInstance()
-        }
-        firebaseAppCheck.installAppCheckProviderFactory(providerFactory)
     }
 
     private fun configureCrashlytics() {

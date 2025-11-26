@@ -2,6 +2,7 @@ package com.classroom.quizmaster.data.remote
 
 import com.classroom.quizmaster.domain.model.LearningMaterial
 import com.google.firebase.firestore.FirebaseFirestore
+import com.google.firebase.firestore.PropertyName
 import com.google.firebase.firestore.FieldValue
 import javax.inject.Inject
 import javax.inject.Singleton
@@ -77,7 +78,14 @@ class FirebaseMaterialDataSource @Inject constructor(
         val body: String = "",
         val createdAt: Long = Clock.System.now().toEpochMilliseconds(),
         val updatedAt: Long = createdAt,
-        val isArchived: Boolean = false,
+        // Bind directly to the Firestore field name to avoid duplicate "is" getters on boolean properties.
+        @field:PropertyName("isArchived")
+        @JvmField
+        var archivedFlag: Boolean = false,
+        // Legacy field kept to read older documents without warnings.
+        @field:PropertyName("archived")
+        @JvmField
+        var archivedLegacy: Boolean? = null,
         val archivedAt: Long? = null
     ) {
         fun toDomain(id: String): LearningMaterial = LearningMaterial(
@@ -92,7 +100,7 @@ class FirebaseMaterialDataSource @Inject constructor(
             body = body,
             createdAt = Instant.fromEpochMilliseconds(createdAt),
             updatedAt = Instant.fromEpochMilliseconds(updatedAt),
-            isArchived = isArchived,
+            isArchived = archivedFlag || (archivedLegacy ?: false),
             archivedAt = archivedAt?.let(Instant::fromEpochMilliseconds)
         )
 
@@ -108,7 +116,7 @@ class FirebaseMaterialDataSource @Inject constructor(
                 body = material.body,
                 createdAt = material.createdAt.toEpochMilliseconds(),
                 updatedAt = material.updatedAt.toEpochMilliseconds(),
-                isArchived = material.isArchived,
+                archivedFlag = material.isArchived,
                 archivedAt = material.archivedAt?.toEpochMilliseconds()
             )
         }

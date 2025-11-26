@@ -9,21 +9,19 @@ import com.classroom.quizmaster.ui.materials.MaterialSummaryUi
 import com.classroom.quizmaster.ui.materials.toSummaryUi
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.flow.MutableSharedFlow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asSharedFlow
 import kotlinx.coroutines.flow.combine
-import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import timber.log.Timber
+import com.classroom.quizmaster.util.switchMapLatest
 
 @HiltViewModel
-@OptIn(ExperimentalCoroutinesApi::class)
 class TeacherMaterialsViewModel @Inject constructor(
     private val classroomRepository: ClassroomRepository,
     private val learningMaterialRepository: LearningMaterialRepository
@@ -55,7 +53,7 @@ class TeacherMaterialsViewModel @Inject constructor(
         filterState.copy(topicId = resolvedTopic)
     }
 
-    private val materialsFlow = normalizedFilter.flatMapLatest { filterState ->
+    private val materialsFlow = normalizedFilter.switchMapLatest { filterState ->
         learningMaterialRepository.observeTeacherMaterials(
             classroomId = filterState.classroomId?.takeIf { it.isNotBlank() },
             topicId = filterState.topicId?.takeIf { it.isNotBlank() },

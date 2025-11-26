@@ -115,7 +115,7 @@ private fun RowFilters(
             androidx.compose.material3.OutlinedButton(
                 onClick = { onSelected(filter) },
                 colors = colors,
-                border = if (isSelected) null else androidx.compose.material3.ButtonDefaults.outlinedButtonBorder,
+                border = if (isSelected) null else androidx.compose.material3.ButtonDefaults.outlinedButtonBorder(enabled = true),
                 contentPadding = androidx.compose.material3.ButtonDefaults.ContentPadding
             ) {
                 Text(filter.label)

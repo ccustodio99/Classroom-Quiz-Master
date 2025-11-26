@@ -15,5 +15,6 @@ interface AssignmentRepository {
     suspend fun createAssignment(assignment: Assignment)
     suspend fun updateAssignment(assignment: Assignment)
     suspend fun archiveAssignment(id: String, archivedAt: Instant = Clock.System.now())
+    suspend fun unarchiveAssignment(id: String, unarchivedAt: Instant = Clock.System.now())
     suspend fun submitHomework(submission: Submission)
 }

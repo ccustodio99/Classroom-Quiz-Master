@@ -6,12 +6,22 @@ service cloud.firestore {
       return request.auth != null && request.auth.token.firebase != null;
     }
 
+    // Role resolution based on profile collections instead of sign-in provider.
     function isTeacher() {
-      return isAuthenticated() && request.auth.token.firebase.sign_in_provider != 'anonymous';
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/teachers/$(request.auth.uid));
     }
 
     function isStudent() {
-      return isAuthenticated() && request.auth.token.firebase.sign_in_provider == 'anonymous';
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/students/$(request.auth.uid));
+    }
+
+    // Membership helper that works for any authenticated user, regardless of provider.
+    function userInClassroom(classroomId) {
+      return isAuthenticated() &&
+        exists(/databases/$(database)/documents/classrooms/$(classroomId)) &&
+        (get(/databases/$(database)/documents/classrooms/$(classroomId)).data.students.hasAny([request.auth.uid]));
     }
 
     function teacherOwnsResource(resourceTeacherId) {
@@ -20,6 +30,22 @@ service cloud.firestore {
 
     function teacherOwnsDocument(path) {
       return exists(path) && teacherOwnsResource(get(path).data.teacherId);
+    }
+
+    function teacherOwnsAssignment(assignmentId) {
+      return exists(/databases/$(database)/documents/assignments/$(assignmentId)) && (
+        (get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId != null &&
+          teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId))) ||
+        (get(/databases/$(database)/documents/assignments/$(assignmentId)).data.quizId != null &&
+          teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.quizId)))
+      );
+    }
+
+    // Check that a classroom exists and the current student belongs to its roster.
+    function studentInClassroom(classroomId) {
+      return isStudent() &&
+        exists(/databases/$(database)/documents/classrooms/$(classroomId)) &&
+        (get(/databases/$(database)/documents/classrooms/$(classroomId)).data.students.hasAny([request.auth.uid]));
     }
 
     function sessionJoinable(path) {
@@ -79,7 +105,32 @@ service cloud.firestore {
 
     match /quizzes/{quizId} {
       allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      allow read, update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+      // Teachers own their quizzes. Students can read quiz metadata if the quiz lives in a classroom they belong to
+      // or if it is linked to an assignment in their classroom (legacy client path).
+      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+        (
+          resource.data.classroomId != null &&
+          userInClassroom(resource.data.classroomId)
+        ) ||
+        (
+          isStudent() &&
+          exists(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)) &&
+          get(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)).data.quizId == quizId &&
+          studentInClassroom(get(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)).data.classroomId)
+        );
+      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+    }
+
+    // Topic metadata owned by teachers (used when building quizzes).
+    match /topics/{topicId} {
+      allow read: if (isTeacher() && (teacherOwnsResource(resource.data.teacherId) ||
+        (resource.data.classroomId != null && teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(resource.data.classroomId))))) ||
+        // Allow any authenticated classroom member to read topics in their classroom.
+        (resource.data.classroomId != null && userInClassroom(resource.data.classroomId));
+      allow create, update, delete: if isTeacher() && (
+        teacherOwnsResource(request.resource.data.teacherId) ||
+        (request.resource.data.classroomId != null && teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId)))
+      );
     }
 
     match /sessions/{sessionId} {
@@ -100,7 +151,8 @@ service cloud.firestore {
       }
 
       match /attempts/{attemptId} {
-        allow read: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId));
+        allow read: if teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId)) ||
+          (isStudent() && resource.data.uid == request.auth.uid);
         allow create: if cleanAttemptPayload() && (
           teacherOwnsDocument(/databases/$(database)/documents/sessions/$(sessionId)) ||
           (isStudent() && sessionJoinable(/databases/$(database)/documents/sessions/$(sessionId)) && request.resource.data.uid == request.auth.uid)
@@ -110,22 +162,44 @@ service cloud.firestore {
     }
 
     match /assignments/{assignmentId} {
-      allow read: if (isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId))) || isStudent();
-      allow create: if isTeacher() && request.resource.data.quizId != null &&
-        teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId));
-      allow update, delete: if isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId));
+      allow read: if (isTeacher() && teacherOwnsAssignment(assignmentId)) ||
+        (resource.data.classroomId != null && userInClassroom(resource.data.classroomId));
+      allow create: if isTeacher() &&
+        request.resource.data.quizId != null &&
+        request.resource.data.classroomId != null &&
+        teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId)) &&
+        teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId));
+      allow update, delete: if isTeacher() &&
+        teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(resource.data.quizId)) &&
+        teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(resource.data.classroomId));
 
       match /attempts/{attemptId} {
-        allow create: if isStudent() && request.resource.data.uid == request.auth.uid && cleanAttemptPayload();
-        allow read: if isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId));
+        allow create: if isStudent() &&
+          request.resource.data.uid == request.auth.uid &&
+          request.resource.data.assignmentId == assignmentId &&
+          studentInClassroom(request.resource.data.classroomId) &&
+          cleanAttemptPayload();
+        allow read: if (isTeacher() && teacherOwnsAssignment(assignmentId)) ||
+          (isStudent() && resource.data.uid == request.auth.uid);
         allow update, delete: if false;
       }
 
       match /submissions/{uid} {
-        allow read: if (isTeacher() && teacherOwnsDocument(/databases/$(database)/documents/assignments/$(assignmentId))) ||
+        allow read: if (isTeacher() && teacherOwnsAssignment(assignmentId)) ||
           (request.auth != null && request.auth.uid == uid);
         allow write: if false;
       }
+    }
+
+    // Learning materials: owned by teachers; classroom members can read.
+    match /materials/{materialId} {
+      allow read: if (isTeacher() && teacherOwnsResource(resource.data.teacherId)) ||
+        (resource.data.classroomId != null && userInClassroom(resource.data.classroomId));
+      allow create, update, delete: if isTeacher() && (
+        teacherOwnsResource(request.resource.data.teacherId) &&
+        request.resource.data.classroomId != null &&
+        teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId))
+      );
     }
 
     // Join requests: students create their own requests; teachers read/resolve requests for their classrooms.

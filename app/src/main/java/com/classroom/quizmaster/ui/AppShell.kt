@@ -19,6 +19,8 @@ import androidx.compose.material.icons.outlined.Groups
 import androidx.compose.material.icons.outlined.Home
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Settings
+import androidx.compose.material3.DropdownMenu
+import androidx.compose.material3.DropdownMenuItem
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
@@ -29,14 +31,25 @@ import androidx.compose.material3.SnackbarHost
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
+import androidx.hilt.navigation.compose.hiltViewModel
 import com.classroom.quizmaster.ui.components.ConnectivityBanner
+import dagger.hilt.android.lifecycle.HiltViewModel
+import javax.inject.Inject
+import androidx.lifecycle.ViewModel
+import androidx.lifecycle.viewModelScope
+import com.classroom.quizmaster.domain.repository.AuthRepository
+import kotlinx.coroutines.launch
+import timber.log.Timber
 
 @Composable
 fun QuizMasterRootScaffold(
@@ -104,6 +117,8 @@ fun QuizMasterRootScaffold(
 
 @Composable
 private fun TeacherTopBar(appState: QuizMasterAppState) {
+    val viewModel: TeacherTopBarViewModel = hiltViewModel()
+    var menuExpanded by remember { mutableStateOf(false) }
     Surface(
         tonalElevation = 2.dp,
         shadowElevation = 1.dp,
@@ -135,10 +150,36 @@ private fun TeacherTopBar(appState: QuizMasterAppState) {
                 overflow = TextOverflow.Ellipsis,
                 modifier = Modifier.weight(1f)
             )
-            IconButton(onClick = { appState.showMessage("Teacher settings coming soon") }) {
+            IconButton(onClick = { menuExpanded = true }) {
                 Icon(
                     imageVector = Icons.Outlined.Settings,
                     contentDescription = "Open settings"
+                )
+            }
+            DropdownMenu(
+                expanded = menuExpanded,
+                onDismissRequest = { menuExpanded = false }
+            ) {
+                DropdownMenuItem(
+                    text = { Text("Profile") },
+                    onClick = {
+                        menuExpanded = false
+                        appState.navController.navigate(AppRoute.TeacherProfile.route) {
+                            launchSingleTop = true
+                        }
+                    }
+                )
+                DropdownMenuItem(
+                    text = { Text("Sign out") },
+                    onClick = {
+                        menuExpanded = false
+                        viewModel.logout {
+                            appState.navController.navigate(AppRoute.Auth.route) {
+                                launchSingleTop = true
+                                popUpTo(AppRoute.Auth.route) { inclusive = true }
+                            }
+                        }
+                    }
                 )
             }
         }
@@ -246,3 +287,17 @@ data class BottomNavItem(
     val icon: ImageVector,
     val label: String
 )
+
+@HiltViewModel
+class TeacherTopBarViewModel @Inject constructor(
+    private val authRepository: AuthRepository
+) : ViewModel() {
+
+    fun logout(onComplete: () -> Unit) {
+        viewModelScope.launch {
+            runCatching { authRepository.logout() }
+                .onFailure { Timber.w(it, "Failed to logout") }
+            onComplete()
+        }
+    }
+}

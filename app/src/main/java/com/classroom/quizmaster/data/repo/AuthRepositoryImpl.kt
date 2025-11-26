@@ -45,7 +45,7 @@ class AuthRepositoryImpl @Inject constructor(
             flow {
                 val normalized = state.overrideRole(roles)
                 val resolved = if (normalized.needsRoleResolution(roles)) {
-                    resolveRoleFromRemote(normalized, classroomDataSource, preferences)
+                    resolveRoleFromRemote(normalized, classroomDataSource, preferences, authDataSource)
                 } else {
                     normalized
                 }
@@ -208,7 +208,8 @@ private fun AuthState.needsRoleResolution(roleMap: Map<String, UserRole>): Boole
 private suspend fun resolveRoleFromRemote(
     state: AuthState,
     classroomDataSource: FirebaseClassroomDataSource,
-    preferences: AppPreferencesDataSource
+    preferences: AppPreferencesDataSource,
+    authDataSource: FirebaseAuthDataSource
 ): AuthState {
     val userId = state.userId ?: return state
     val teacherResult = classroomDataSource.fetchTeacherProfile()
@@ -218,6 +219,20 @@ private suspend fun resolveRoleFromRemote(
             preferences.setUserRole(userId, UserRole.TEACHER)
             return state.copy(role = UserRole.TEACHER, isTeacher = true, teacherProfile = teacher)
         }
+    }
+    // If the user already has a teacher role but no profile document, create a minimal profile
+    if (state.isTeacher) {
+        val fallbackTeacher = Teacher(
+            id = userId,
+            displayName = state.displayName ?: "Teacher",
+            email = state.email ?: authDataSource.currentUserEmail().orEmpty(),
+            createdAt = Clock.System.now()
+        )
+        classroomDataSource.upsertTeacherProfile(fallbackTeacher)
+            .onSuccess {
+                preferences.setUserRole(userId, UserRole.TEACHER)
+                return state.copy(role = UserRole.TEACHER, isTeacher = true, teacherProfile = fallbackTeacher)
+            }
     }
     val studentResult = classroomDataSource.fetchStudentProfile(userId)
     if (studentResult.isSuccess) {
