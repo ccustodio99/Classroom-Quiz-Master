@@ -1,5 +1,10 @@
 package com.classroom.quizmaster.ui.student.join
 
+import android.Manifest
+import android.content.pm.PackageManager
+import android.os.Build
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedContent
 import androidx.compose.animation.Crossfade
 import androidx.compose.animation.core.tween
@@ -42,14 +47,21 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
+import androidx.compose.runtime.setValue
+import androidx.compose.runtime.saveable.rememberSaveable
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalFocusManager
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
+import androidx.core.content.ContextCompat
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
 import com.classroom.quizmaster.ui.components.SimpleTopBar
+import kotlinx.coroutines.launch
 
 @Composable
 fun JoinLanRoute(
@@ -58,6 +70,37 @@ fun JoinLanRoute(
 ) {
     val state by viewModel.uiState.collectAsState()
     val snackbarHostState = remember { SnackbarHostState() }
+    val context = LocalContext.current
+    val requiredPermissions = remember { lanPermissions() }
+    var hasPermissions by remember {
+        mutableStateOf(requiredPermissions.all { perm ->
+            ContextCompat.checkSelfPermission(context, perm) == PackageManager.PERMISSION_GRANTED
+        })
+    }
+    var permissionPrompted by rememberSaveable { mutableStateOf(false) }
+    val scope = rememberCoroutineScope()
+    val permissionLauncher = rememberLauncherForActivityResult(
+        ActivityResultContracts.RequestMultiplePermissions()
+    ) { results ->
+        hasPermissions = results.values.all { it }
+        if (hasPermissions) {
+            viewModel.discoverLanHosts()
+        } else {
+            scope.launch {
+                snackbarHostState.showSnackbar(
+                    "Nearby Wi-Fi permission is required to discover hosts."
+                )
+            }
+        }
+    }
+
+    val requestDiscovery: () -> Unit = {
+        if (hasPermissions) {
+            viewModel.discoverLanHosts()
+        } else {
+            permissionLauncher.launch(requiredPermissions)
+        }
+    }
 
     LaunchedEffect(state.error) {
         state.error?.let { message ->
@@ -65,12 +108,19 @@ fun JoinLanRoute(
             viewModel.clearError()
         }
     }
-    LaunchedEffect(Unit) { viewModel.discoverLanHosts() }
+    LaunchedEffect(hasPermissions) {
+        if (hasPermissions) {
+            viewModel.discoverLanHosts()
+        } else if (!permissionPrompted) {
+            permissionPrompted = true
+            permissionLauncher.launch(requiredPermissions)
+        }
+    }
     JoinLanScreen(
         state = state,
         snackbarHostState = snackbarHostState,
-        onDiscover = viewModel::discoverLanHosts,
-        onRetry = viewModel::retryDiscovery,
+        onDiscover = requestDiscovery,
+        onRetry = requestDiscovery,
         onNicknameChange = viewModel::updateNickname,
         onManualUriChange = viewModel::updateManualUri,
         onManualJoin = { viewModel.joinFromUri(onJoined) },
@@ -329,3 +379,10 @@ fun JoinLanScreen(
         }
     }
 }
+
+private fun lanPermissions(): Array<String> =
+    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+        arrayOf(Manifest.permission.NEARBY_WIFI_DEVICES)
+    } else {
+        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+    }

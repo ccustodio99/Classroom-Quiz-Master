@@ -5,15 +5,11 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
-import androidx.compose.foundation.layout.Spacer
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
-import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.CircularProgressIndicator
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -265,121 +261,144 @@ fun StudentEntryScreen(
     onJoinClassroom: (String) -> Unit,
     onFindTeacher: () -> Unit
 ) {
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .verticalScroll(rememberScrollState())
             .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp)
+        verticalArrangement = Arrangement.spacedBy(16.dp),
+        contentPadding = PaddingValues(bottom = 24.dp)
     ) {
-        ScreenHeader(
-            title = "Join Classroom",
-            subtitle = "Discover nearby teachers or use a join code from your teacher."
-        )
-        var classroomCode by remember { mutableStateOf("") }
-        SectionCard(
-            title = "Join a classroom",
-            subtitle = "Request access with a classroom code or search by teacher."
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                OutlinedTextField(
-                    value = classroomCode,
-                    onValueChange = { classroomCode = it },
-                    label = { Text("Classroom code") },
-                    modifier = Modifier.fillMaxWidth()
-                )
-                joinState.errorMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.error)
+        item {
+            ScreenHeader(
+                title = "Join Classroom",
+                subtitle = "Discover nearby teachers or use a join code from your teacher."
+            )
+        }
+        item {
+            var classroomCode by remember { mutableStateOf("") }
+            SectionCard(
+                title = "Join a classroom",
+                subtitle = "Request access with a classroom code or search by teacher."
+            ) {
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    OutlinedTextField(
+                        value = classroomCode,
+                        onValueChange = { classroomCode = it },
+                        label = { Text("Classroom code") },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    joinState.errorMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.error)
+                    }
+                    joinState.statusMessage?.let {
+                        Text(it, color = MaterialTheme.colorScheme.primary)
+                    }
+                    PrimaryButton(
+                        text = if (joinState.isLoading) "Sending request..." else "Request to join",
+                        onClick = { onJoinClassroom(classroomCode) },
+                        enabled = classroomCode.isNotBlank() && !joinState.isLoading,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    SecondaryButton(
+                        text = "Find teacher",
+                        onClick = onFindTeacher,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-                joinState.statusMessage?.let {
-                    Text(it, color = MaterialTheme.colorScheme.primary)
-                }
-                PrimaryButton(
-                    text = if (joinState.isLoading) "Sending request..." else "Request to join",
-                    onClick = { onJoinClassroom(classroomCode) },
-                    enabled = classroomCode.isNotBlank() && !joinState.isLoading,
-                    modifier = Modifier.fillMaxWidth()
-                )
-                SecondaryButton(
-                    text = "Find teacher",
-                    onClick = onFindTeacher,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
         if (!state.networkAvailable) {
-            AssistiveInfoCard(
-                title = "You're offline",
-                body = "You can still get ready and your answers will sync once a connection is restored."
-            )
-        }
-        if (onTeacherSignIn != null) {
-            TextButton(
-                onClick = onTeacherSignIn,
-                modifier = Modifier.align(Alignment.End)
-            ) {
-                Text("Are you a teacher? Sign in")
+            item {
+                AssistiveInfoCard(
+                    title = "You're offline",
+                    body = "You can still get ready and your answers will sync once a connection is restored."
+                )
             }
         }
-        SectionCard(
-            title = "How do you want to join?",
-            subtitle = "Switch between nearby teachers and code entry."
-        ) {
-            SegmentedControl(
-                options = listOf(
-                    SegmentOption(EntryTab.Lan.name, "Nearby", "Discover teachers"),
-                    SegmentOption(EntryTab.Code.name, "Join code", "Enter 6-8 characters")
-                ),
-                selectedId = state.tab.name,
-                onSelected = { onTabSelect(EntryTab.valueOf(it)) }
-            )
-        }
-        when (state.tab) {
-            EntryTab.Lan -> TeacherList(
-                state = state,
-                onTeacherSelect = onTeacherSelect,
-                onRefresh = onRefreshTeachers,
-                onJoin = onJoinTeacher
-            )
-            EntryTab.Code -> JoinCodeCard(
-                state = state,
-                onJoinCodeChange = onJoinCodeChange,
-                onJoin = onJoinCode
-            )
-        }
-        if (state.errorMessage != null) {
-            Surface(
-                shape = MaterialTheme.shapes.medium,
-                color = MaterialTheme.colorScheme.errorContainer,
-                tonalElevation = 0.dp,
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .semantics { contentDescription = "join-error" }
-            ) {
+        if (onTeacherSignIn != null) {
+            item {
                 Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(12.dp),
-                    horizontalArrangement = Arrangement.SpaceBetween,
-                    verticalAlignment = Alignment.CenterVertically
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.End
                 ) {
-                    Text(
-                        text = state.errorMessage,
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = MaterialTheme.colorScheme.onErrorContainer
-                    )
-                    SecondaryButton(text = "Dismiss", onClick = onClearError)
+                    TextButton(onClick = onTeacherSignIn) {
+                        Text("Are you a teacher? Sign in")
+                    }
                 }
             }
         }
-        Spacer(modifier = Modifier.weight(1f))
-        val statusText = buildString {
-            append(state.statusMessage.ifBlank { "Offline capable: answers sync when online." })
-            if (state.lastSeenHosts.isNotBlank()) {
-                append(" · Updated ${state.lastSeenHosts}")
+        item {
+            SectionCard(
+                title = "How do you want to join?",
+                subtitle = "Switch between nearby teachers and code entry."
+            ) {
+                SegmentedControl(
+                    options = listOf(
+                        SegmentOption(EntryTab.Lan.name, "Nearby", "Discover teachers"),
+                        SegmentOption(EntryTab.Code.name, "Join code", "Enter 6-8 characters")
+                    ),
+                    selectedId = state.tab.name,
+                    onSelected = { onTabSelect(EntryTab.valueOf(it)) }
+                )
             }
         }
-        TagChip(text = statusText)
+        when (state.tab) {
+            EntryTab.Lan -> {
+                item {
+                    TeacherList(
+                        state = state,
+                        onTeacherSelect = onTeacherSelect,
+                        onRefresh = onRefreshTeachers,
+                        onJoin = onJoinTeacher
+                    )
+                }
+            }
+            EntryTab.Code -> {
+                item {
+                    JoinCodeCard(
+                        state = state,
+                        onJoinCodeChange = onJoinCodeChange,
+                        onJoin = onJoinCode
+                    )
+                }
+            }
+        }
+        if (state.errorMessage != null) {
+            item {
+                Surface(
+                    shape = MaterialTheme.shapes.medium,
+                    color = MaterialTheme.colorScheme.errorContainer,
+                    tonalElevation = 0.dp,
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .semantics { contentDescription = "join-error" }
+                ) {
+                    Row(
+                        modifier = Modifier
+                            .fillMaxWidth()
+                            .padding(12.dp),
+                        horizontalArrangement = Arrangement.SpaceBetween,
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Text(
+                            text = state.errorMessage,
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onErrorContainer
+                        )
+                        SecondaryButton(text = "Dismiss", onClick = onClearError)
+                    }
+                }
+            }
+        }
+        item {
+            val statusText = buildString {
+                append(state.statusMessage.ifBlank { "Offline capable: answers sync when online." })
+                if (state.lastSeenHosts.isNotBlank()) {
+                    append(" · Updated ${state.lastSeenHosts}")
+                }
+            }
+            TagChip(text = statusText)
+        }
     }
 }
 
@@ -427,24 +446,21 @@ private fun TeacherList(
                     message = "Ask your teacher to open the lobby or use a join code."
                 )
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(12.dp),
-                    contentPadding = PaddingValues(bottom = 8.dp)
-                ) {
-                    items(state.teachers, key = { it.id }) { teacher ->
+                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    state.teachers.forEach { teacher ->
                         TeacherCard(
                             teacher = teacher,
                             selected = teacher.id == state.selectedTeacherId,
                             onSelect = { onTeacherSelect(teacher.id) }
                         )
                     }
+                    PrimaryButton(
+                        text = if (state.isJoining) "Joining..." else "Join selected teacher",
+                        onClick = onJoin,
+                        enabled = state.canJoin && !state.isJoining,
+                        modifier = Modifier.fillMaxWidth()
+                    )
                 }
-                PrimaryButton(
-                    text = if (state.isJoining) "Joining..." else "Join selected teacher",
-                    onClick = onJoin,
-                    enabled = state.canJoin && !state.isJoining,
-                    modifier = Modifier.fillMaxWidth()
-                )
             }
         }
     }

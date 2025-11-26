@@ -73,6 +73,8 @@ class ClassroomRepositoryImpl @Inject constructor(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : ClassroomRepository {
 
+    private val opLogDao = database.opLogDao()
+
     override val classrooms: Flow<List<Classroom>> =
         authRepository.authState
             .switchMapLatest { auth ->
@@ -182,6 +184,7 @@ class ClassroomRepositoryImpl @Inject constructor(
 
 
     override suspend fun refresh() = withContext(ioDispatcher) {
+        if (hasPendingOps()) return@withContext
         val authState = authRepository.authState.firstOrNull() ?: return@withContext
         if (authState.isTeacher) {
             val classrooms = classroomRemote.fetchClassrooms().getOrElse { emptyList() }
@@ -218,7 +221,6 @@ class ClassroomRepositoryImpl @Inject constructor(
                 if (materials.isNotEmpty()) {
                     materials.forEach { material ->
                         materialDao.upsertMaterial(material.toEntity())
-                        materialDao.clearAttachments(material.id)
                     }
                 }
                 if (joinRequests.isNotEmpty()) {
@@ -262,7 +264,6 @@ class ClassroomRepositoryImpl @Inject constructor(
                 if (materials.isNotEmpty()) {
                     materials.forEach { material ->
                         materialDao.upsertMaterial(material.toEntity())
-                        materialDao.clearAttachments(material.id)
                     }
                 }
             }
@@ -685,4 +686,7 @@ class ClassroomRepositoryImpl @Inject constructor(
     private fun isTransient(error: Throwable?): Boolean =
         error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
             error?.cause is java.net.UnknownHostException
+
+    private suspend fun hasPendingOps(): Boolean =
+        opLogDao.pending(limit = 1).isNotEmpty()
 }

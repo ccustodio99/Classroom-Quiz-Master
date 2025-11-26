@@ -44,6 +44,8 @@ import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
+import kotlinx.coroutines.delay
+import kotlinx.coroutines.isActive
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableSharedFlow
@@ -90,6 +92,7 @@ class SessionRepositoryImpl @Inject constructor(
     private val attemptDao = database.attemptDao()
     private val quizDao = database.quizDao()
     private val repositoryScope = CoroutineScope(SupervisorJob() + ioDispatcher)
+    private var heartbeatJob: kotlinx.coroutines.Job? = null
 
     private val lanMetaState = lanSessionDao.observeLatest()
         .map { entity -> entity?.toDomain() }
@@ -229,6 +232,7 @@ class SessionRepositoryImpl @Inject constructor(
             .onFailure { Timber.w(it, "Failed to mirror session ${session.id} to Firestore") }
         broadcastSession(session)
         broadcastLeaderboardSnapshot(session.id)
+        startHeartbeat()
         runCatching { learningMaterialRepository.shareSnapshotForClassroom(classroomId) }
             .onFailure { Timber.w(it, "Failed to broadcast materials for $classroomId") }
         session
@@ -348,6 +352,7 @@ class SessionRepositoryImpl @Inject constructor(
         lanClient.disconnect()
         joinedEndpoint = null
         studentNickname = null
+        stopHeartbeat()
         LanHostForegroundService.stop(context)
         if (endedSnapshot != null) {
             firebaseSessionDataSource.publishParticipants(endedSnapshot.id, emptyList())
@@ -373,6 +378,25 @@ class SessionRepositoryImpl @Inject constructor(
                 )
             )
         }
+    }
+
+    private fun startHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = repositoryScope.launch {
+            while (isActive) {
+                runCatching {
+                    val current = sessionDao.currentSession() ?: return@runCatching
+                    broadcastSession(current.toDomain(lanMetaState.value))
+                    broadcastLeaderboardSnapshot(current.id)
+                }.onFailure { Timber.w(it, "Heartbeat broadcast failed") }
+                delay(3_000)
+            }
+        }
+    }
+
+    private fun stopHeartbeat() {
+        heartbeatJob?.cancel()
+        heartbeatJob = null
     }
 
     private suspend fun persistAttempt(

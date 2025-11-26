@@ -10,6 +10,7 @@ import com.classroom.quizmaster.data.sync.PendingOpQueue
 import com.classroom.quizmaster.data.sync.PendingOpTypes
 import com.classroom.quizmaster.data.sync.UpsertAssignmentPayload
 import com.classroom.quizmaster.data.sync.ArchiveAssignmentPayload
+import com.classroom.quizmaster.data.sync.SubmissionPayload
 import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.ScoringMode
 import com.classroom.quizmaster.domain.model.Submission
@@ -48,6 +49,7 @@ class AssignmentRepositoryImpl @Inject constructor(
     private val classroomDao = database.classroomDao()
     private val topicDao = database.topicDao()
     private val quizDao = database.quizDao()
+    private val opLogDao = database.opLogDao()
 
     override val assignments: Flow<List<Assignment>> =
         authRepository.authState
@@ -103,6 +105,7 @@ class AssignmentRepositoryImpl @Inject constructor(
             .distinctUntilChanged()
 
     override suspend fun refreshAssignments() = withContext(ioDispatcher) {
+        if (hasPendingOps()) return@withContext
         val remoteAssignments = remote.fetchAssignments().getOrElse { emptyList() }
         val remoteSubmissions = remoteAssignments.associate { assignment ->
             assignment.id to remote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
@@ -292,7 +295,12 @@ class AssignmentRepositoryImpl @Inject constructor(
         val remoteResult = remote.saveSubmission(submission)
         remoteResult.onFailure { err ->
             if (shouldIgnorePermissionDenied(err) || isTransient(err)) {
-                Timber.w(err, "Skipping remote submission for ${submission.assignmentId}:${submission.uid}")
+                Timber.w(err, "Queueing submission for sync: ${submission.assignmentId}:${submission.uid}")
+                pendingOpQueue.enqueue(
+                    PendingOpTypes.ASSIGNMENT_SUBMISSION,
+                    SubmissionPayload(submission),
+                    SubmissionPayload.serializer()
+                )
             } else {
                 Timber.w(err, "Failed to mirror submission ${submission.assignmentId}:${submission.uid}")
                 throw err
@@ -357,4 +365,7 @@ class AssignmentRepositoryImpl @Inject constructor(
     private fun isTransient(error: Throwable?): Boolean =
         error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
             error?.cause is java.net.UnknownHostException
+
+    private suspend fun hasPendingOps(): Boolean =
+        opLogDao.pending(limit = 1).isNotEmpty()
 }

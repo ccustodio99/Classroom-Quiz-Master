@@ -59,6 +59,7 @@ class QuizRepositoryImpl @Inject constructor(
     private val quizDao = database.quizDao()
     private val classroomDao = database.classroomDao()
     private val topicDao = database.topicDao()
+    private val opLogDao = database.opLogDao()
 
     override val quizzes: Flow<List<Quiz>> =
         authRepository.authState
@@ -99,6 +100,10 @@ class QuizRepositoryImpl @Inject constructor(
             .distinctUntilChanged()
 
     override suspend fun refresh() = withContext(ioDispatcher) {
+        // Students should not pull teacher-owned quiz lists; rules will reject those reads.
+        val auth = authRepository.authState.firstOrNull()
+        if (auth?.isTeacher != true) return@withContext
+        if (hasPendingOps()) return@withContext
         val remoteQuizzes = remote.loadQuizzes()
         if (remoteQuizzes.isEmpty()) return@withContext
         database.withTransaction {
@@ -306,4 +311,7 @@ class QuizRepositoryImpl @Inject constructor(
     private fun isTransient(error: Throwable?): Boolean =
         error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.UNAVAILABLE ||
             error?.cause is java.net.UnknownHostException
+
+    private suspend fun hasPendingOps(): Boolean =
+        opLogDao.pending(limit = 1).isNotEmpty()
 }

@@ -96,6 +96,11 @@ class PendingOpSyncer @Inject constructor(
                         ).getOrThrow()
                         synced += op.id
                     }
+                    PendingOpTypes.ASSIGNMENT_SUBMISSION -> {
+                        val payload = json.decodeFromString<SubmissionPayload>(op.payloadJson)
+                        assignmentRemote.saveSubmission(payload.submission).getOrThrow()
+                        synced += op.id
+                    }
                     PendingOpTypes.MATERIAL_UPSERT -> {
                         val payload = json.decodeFromString<UpsertMaterialPayload>(op.payloadJson)
                         materialRemote.upsertMaterial(payload.material).getOrThrow()
@@ -144,6 +149,7 @@ class PendingOpSyncer @Inject constructor(
             PendingOpTypes.QUIZ_ARCHIVE,
             PendingOpTypes.ASSIGNMENT_UPSERT,
             PendingOpTypes.ASSIGNMENT_ARCHIVE,
+            PendingOpTypes.ASSIGNMENT_SUBMISSION,
             PendingOpTypes.MATERIAL_UPSERT,
             PendingOpTypes.MATERIAL_ARCHIVE,
             PendingOpTypes.MATERIAL_DELETE

@@ -58,6 +58,8 @@ class LearningMaterialRepositoryImpl @Inject constructor(
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
 ) : LearningMaterialRepository {
 
+    private val opLogDao = database.opLogDao()
+
     override fun observeTeacherMaterials(
         classroomId: String?,
         topicId: String?,
@@ -125,6 +127,7 @@ class LearningMaterialRepositoryImpl @Inject constructor(
         )
 
     override suspend fun refreshMetadata() = withContext(ioDispatcher) {
+        if (hasPendingOps()) return@withContext
         val authState = authRepository.authState.firstOrNull() ?: return@withContext
         val materials = when {
             authState.role == com.classroom.quizmaster.domain.model.UserRole.TEACHER -> {
@@ -148,7 +151,6 @@ class LearningMaterialRepositoryImpl @Inject constructor(
         database.withTransaction {
             materials.forEach { material ->
                 materialDao.upsertMaterial(material.toEntity())
-                materialDao.clearAttachments(material.id)
             }
         }
     }
@@ -453,4 +455,7 @@ class LearningMaterialRepositoryImpl @Inject constructor(
     private fun generateMaterialId(): String = "mat-${UUID.randomUUID()}"
 
     private fun generateAttachmentId(): String = "att-${UUID.randomUUID()}"
+
+    private suspend fun hasPendingOps(): Boolean =
+        opLogDao.pending(limit = 1).isNotEmpty()
 }

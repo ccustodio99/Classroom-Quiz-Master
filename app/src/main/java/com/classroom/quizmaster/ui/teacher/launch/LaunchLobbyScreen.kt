@@ -10,8 +10,6 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material.icons.filled.Stop
@@ -89,7 +87,6 @@ fun LaunchLobbyScreen(
     val blockingMessage = state.snackbarMessage
         ?.takeIf { it.isNotBlank() && state.joinCode == "----" && state.qrPayload.isBlank() }
     val controlsEnabled = blockingMessage == null
-    val scrollState = rememberScrollState()
     val headline = if (state.joinCode == "----" && state.qrPayload.isBlank()) {
         "Prepare lobby"
     } else {
@@ -101,102 +98,119 @@ fun LaunchLobbyScreen(
         else -> "${state.discoveredPeers} peers nearby"
     }
 
-    Column(
+    LazyColumn(
         modifier = Modifier
             .fillMaxWidth()
-            .padding(16.dp)
-            .verticalScroll(scrollState),
+            .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        ConnectivityBanner(
-            headline = headline,
-            supportingText = supporting,
-            statusChips = state.statusChips
-        )
+        item {
+            ConnectivityBanner(
+                headline = headline,
+                supportingText = supporting,
+                statusChips = state.statusChips
+            )
+        }
         state.snackbarMessage
             ?.takeIf { it.isNotBlank() }
             ?.let { message ->
-                TagChip(
-                    text = message,
-                    modifier = Modifier.fillMaxWidth()
-                )
-            }
-        HostActionShortcuts(
-            enabled = controlsEnabled,
-            onStart = { showStartDialog = true },
-            onEnd = { showEndDialog = true }
-        )
-        JoinCodeCard(
-            code = state.joinCode,
-            expiresIn = state.qrSubtitle,
-            peersConnected = state.discoveredPeers,
-            qrData = state.qrPayload,
-            onCopy = {
-                val payload = state.qrPayload.ifBlank { state.joinCode }
-                if (payload.isBlank() || payload == "----") return@JoinCodeCard
-                clipboard.setText(AnnotatedString(payload))
-                Toast.makeText(context, copyConfirmation, Toast.LENGTH_SHORT).show()
-            }
-        )
-        Text(
-            text = scanInstructions,
-            style = MaterialTheme.typography.bodyMedium,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-        Surface(shape = MaterialTheme.shapes.large, tonalElevation = 2.dp) {
-            Column(
-                modifier = Modifier.padding(16.dp),
-                verticalArrangement = Arrangement.spacedBy(8.dp)
-            ) {
-                Text("Lobby (${state.players.size})", style = MaterialTheme.typography.titleLarge)
-                if (state.players.isEmpty()) {
+                item {
                     TagChip(
-                        text = "Waiting for students to join",
+                        text = message,
                         modifier = Modifier.fillMaxWidth()
                     )
-                } else {
-                    LazyColumn(verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        items(state.players, key = { it.id }) { player ->
-                            Row(
-                                modifier = Modifier.fillMaxWidth(),
-                                horizontalArrangement = Arrangement.SpaceBetween
-                            ) {
-                                Column {
-                                    Text(player.nickname, style = MaterialTheme.typography.titleMedium)
-                                    player.tag?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                }
+            }
+        item {
+            HostActionShortcuts(
+                enabled = controlsEnabled,
+                onStart = { showStartDialog = true },
+                onEnd = { showEndDialog = true }
+            )
+        }
+        item {
+            JoinCodeCard(
+                code = state.joinCode,
+                expiresIn = state.qrSubtitle,
+                peersConnected = state.discoveredPeers,
+                qrData = state.qrPayload,
+                onCopy = {
+                    val payload = state.qrPayload.ifBlank { state.joinCode }
+                    if (payload.isBlank() || payload == "----") return@JoinCodeCard
+                    clipboard.setText(AnnotatedString(payload))
+                    Toast.makeText(context, copyConfirmation, Toast.LENGTH_SHORT).show()
+                }
+            )
+        }
+        item {
+            Text(
+                text = scanInstructions,
+                style = MaterialTheme.typography.bodyMedium,
+                color = MaterialTheme.colorScheme.onSurfaceVariant
+            )
+        }
+        item {
+            Surface(shape = MaterialTheme.shapes.large, tonalElevation = 2.dp) {
+                Column(
+                    modifier = Modifier.padding(16.dp),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Text("Lobby (${state.players.size})", style = MaterialTheme.typography.titleLarge)
+                    if (state.players.isEmpty()) {
+                        TagChip(
+                            text = "Waiting for students to join",
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    } else {
+                        Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            state.players.forEach { player ->
+                                Row(
+                                    modifier = Modifier.fillMaxWidth(),
+                                    horizontalArrangement = Arrangement.SpaceBetween
+                                ) {
+                                    Column {
+                                        Text(player.nickname, style = MaterialTheme.typography.titleMedium)
+                                        player.tag?.let { Text(it, style = MaterialTheme.typography.bodySmall) }
+                                    }
+                                    TextButton(onClick = { onKick(player.id) }) { Text("Kick") }
                                 }
-                                TextButton(onClick = { onKick(player.id) }) { Text("Kick") }
                             }
                         }
                     }
                 }
             }
         }
-        SecondaryButton(
-            text = if (state.hideLeaderboard) "Show leaderboard" else "Hide leaderboard",
-            onClick = { onToggleLeaderboard(!state.hideLeaderboard) },
-            enabled = controlsEnabled
-        )
-        SecondaryButton(
-            text = if (state.lockAfterFirst) "Unlock after Q1" else "Lock joins after Q1",
-            onClick = { onToggleLock(!state.lockAfterFirst) },
-            enabled = controlsEnabled
-        )
-        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
-            val buttonWidth = (maxWidth - 12.dp) / 2
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                PrimaryButton(
-                    text = "Start",
-                    onClick = { showStartDialog = true },
-                    modifier = Modifier.width(buttonWidth),
-                    enabled = controlsEnabled
-                )
-                SecondaryButton(
-                    text = "End",
-                    onClick = { showEndDialog = true },
-                    modifier = Modifier.width(buttonWidth),
-                    enabled = controlsEnabled
-                )
+        item {
+            SecondaryButton(
+                text = if (state.hideLeaderboard) "Show leaderboard" else "Hide leaderboard",
+                onClick = { onToggleLeaderboard(!state.hideLeaderboard) },
+                enabled = controlsEnabled
+            )
+        }
+        item {
+            SecondaryButton(
+                text = if (state.lockAfterFirst) "Unlock after Q1" else "Lock joins after Q1",
+                onClick = { onToggleLock(!state.lockAfterFirst) },
+                enabled = controlsEnabled
+            )
+        }
+        item {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val buttonWidth = (maxWidth - 12.dp) / 2
+                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                    PrimaryButton(
+                        text = "Start",
+                        onClick = { showStartDialog = true },
+                        modifier = Modifier.width(buttonWidth),
+                        enabled = controlsEnabled
+                    )
+                    SecondaryButton(
+                        text = "End",
+                        onClick = { showEndDialog = true },
+                        modifier = Modifier.width(buttonWidth),
+                        enabled = controlsEnabled
+                    )
+                }
             }
         }
     }

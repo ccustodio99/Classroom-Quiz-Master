@@ -5,6 +5,7 @@ import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.LearningMaterial
 import com.classroom.quizmaster.domain.model.Quiz
 import com.classroom.quizmaster.domain.model.Topic
+import com.classroom.quizmaster.domain.model.Submission
 import kotlinx.serialization.Serializable
 
 @Serializable
@@ -32,6 +33,9 @@ data class UpsertAssignmentPayload(val assignment: Assignment)
 data class ArchiveAssignmentPayload(val assignmentId: String, val archivedAt: Long)
 
 @Serializable
+data class SubmissionPayload(val submission: Submission)
+
+@Serializable
 data class UpsertMaterialPayload(val material: LearningMaterial)
 
 @Serializable
@@ -49,6 +53,7 @@ object PendingOpTypes {
     const val QUIZ_ARCHIVE = "quiz_archive"
     const val ASSIGNMENT_UPSERT = "assignment_upsert"
     const val ASSIGNMENT_ARCHIVE = "assignment_archive"
+    const val ASSIGNMENT_SUBMISSION = "assignment_submission"
     const val MATERIAL_UPSERT = "material_upsert"
     const val MATERIAL_ARCHIVE = "material_archive"
     const val MATERIAL_DELETE = "material_delete"

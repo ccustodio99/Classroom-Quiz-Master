@@ -54,6 +54,7 @@ class LanHostServer @Inject constructor(
     private var server: ApplicationEngine? = null
     private val clients = ConcurrentHashMap<String, Channel<WireMessage>>()
     private val processedAttempts = ConcurrentHashMap<String, Long>()
+    private val lastBroadcastByType = ConcurrentHashMap<String, WireMessage>()
     private val _attempts = MutableSharedFlow<WireMessage.AttemptSubmit>(
         replay = 0,
         extraBufferCapacity = 64
@@ -98,6 +99,7 @@ class LanHostServer @Inject constructor(
     }
 
     suspend fun broadcast(message: WireMessage) {
+        lastBroadcastByType[message.type] = message
         clients.entries.removeIf { (_, channel) ->
             val result = channel.trySend(message)
             if (!result.isSuccess) {
@@ -138,6 +140,7 @@ class LanHostServer @Inject constructor(
                 val clientId = call.request.queryParameters["uid"] ?: hashCode().toString()
                 val outbound = Channel<WireMessage>(Channel.BUFFERED)
                 clients.put(clientId, outbound)?.close()
+                replayLatest(outbound)
                 val sender = launch {
                     for (message in outbound) {
                         runCatching {
@@ -202,6 +205,16 @@ class LanHostServer @Inject constructor(
         val result = channel.trySend(ack)
         if (!result.isSuccess) {
             scope.launch { channel.send(ack) }
+        }
+    }
+
+    private fun replayLatest(channel: SendChannel<WireMessage>) {
+        // Deliver cached session/leaderboard/material messages to newly connected clients
+        lastBroadcastByType.values.forEach { cached ->
+            val result = channel.trySend(cached)
+            if (!result.isSuccess) {
+                scope.launch { channel.send(cached) }
+            }
         }
     }
 
