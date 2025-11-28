@@ -24,8 +24,14 @@ service cloud.firestore {
         (get(/databases/$(database)/documents/classrooms/$(classroomId)).data.students.hasAny([request.auth.uid]));
     }
 
+    function teacherOwnsClassroom(classroomId) {
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/classrooms/$(classroomId)) &&
+        get(/databases/$(database)/documents/classrooms/$(classroomId)).data.teacherId == request.auth.uid;
+    }
+
     function teacherOwnsResource(resourceTeacherId) {
-      return isTeacher() && resourceTeacherId == request.auth.uid;
+      return isAuthenticated() && resourceTeacherId == request.auth.uid;
     }
 
     function teacherOwnsDocument(path) {
@@ -33,18 +39,11 @@ service cloud.firestore {
     }
 
     function teacherOwnsAssignment(assignmentId) {
-      return exists(/databases/$(database)/documents/assignments/$(assignmentId)) && (
-        (get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId != null &&
-          teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId))) ||
-        (get(/databases/$(database)/documents/assignments/$(assignmentId)).data.quizId != null &&
-          teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.quizId)))
-      );
-    }
-
-    function assignmentClassroom(assignmentId) {
-      return exists(/databases/$(database)/documents/assignments/$(assignmentId))
-        ? get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId
-        : null;
+      return request.auth != null &&
+        exists(/databases/$(database)/documents/assignments/$(assignmentId)) &&
+        get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId != null &&
+        exists(/databases/$(database)/documents/classrooms/$(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId)) &&
+        get(/databases/$(database)/documents/classrooms/$(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId)).data.teacherId == request.auth.uid;
     }
 
     // Check that a classroom exists and the current student belongs to its roster.
@@ -120,40 +119,37 @@ service cloud.firestore {
 
     match /classrooms/{classroomId} {
       allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
-      // Teachers manage their own classrooms; any authenticated user can read classrooms (client filters archived).
-      allow read: if isAuthenticated();
-      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+      // Teachers: only their own classrooms. Students: classrooms they belong to.
+      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) || userInClassroom(classroomId);
+      allow update, delete: if teacherOwnsClassroom(classroomId);
     }
 
     match /quizzes/{quizId} {
       allow create: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
       // Teachers own their quizzes. Students can read quiz metadata if the quiz lives in a classroom they belong to
       // or if it is linked to an assignment in their classroom (legacy client path).
-      allow read: if (isTeacher() && resource.data.teacherId == request.auth.uid) ||
-        (
-          resource.data.classroomId != null &&
-          userInClassroom(resource.data.classroomId)
-        ) ||
+      allow read: if (
+        (resource.data.teacherId == request.auth.uid) ||
+        (resource.data.classroomId != null && teacherOwnsClassroom(resource.data.classroomId)) ||
+        (resource.data.classroomId != null && userInClassroom(resource.data.classroomId)) ||
         (
           isStudent() &&
           exists(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)) &&
           get(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)).data.quizId == quizId &&
           studentInClassroom(get(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)).data.classroomId)
         ) ||
-        quizAccessibleViaSession(quizId);
-      allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
+        quizAccessibleViaSession(quizId)
+      );
+      allow update, delete: if resource.data.classroomId != null && teacherOwnsClassroom(resource.data.classroomId);
     }
 
     // Topic metadata owned by teachers (used when building quizzes).
     match /topics/{topicId} {
-      allow read: if (isTeacher() && (teacherOwnsResource(resource.data.teacherId) ||
-        (resource.data.classroomId != null && teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(resource.data.classroomId))))) ||
-        // Allow any authenticated classroom member to read topics in their classroom.
-        (resource.data.classroomId != null && userInClassroom(resource.data.classroomId));
-      allow create, update, delete: if isTeacher() && (
-        teacherOwnsResource(request.resource.data.teacherId) ||
-        (request.resource.data.classroomId != null && teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId)))
+      allow read: if (
+        (isTeacher() && resource.data.teacherId == request.auth.uid) ||
+        (resource.data.classroomId != null && userInClassroom(resource.data.classroomId))
       );
+      allow create, update, delete: if isTeacher() && request.resource.data.teacherId == request.auth.uid;
     }
 
     match /sessions/{sessionId} {
@@ -185,16 +181,18 @@ service cloud.firestore {
     }
 
     match /assignments/{assignmentId} {
-      allow read: if (isTeacher() && teacherOwnsAssignment(assignmentId)) ||
-        (resource.data.classroomId != null && userInClassroom(resource.data.classroomId));
+      allow read: if (
+        resource.data.classroomId != null &&
+          (
+            teacherOwnsClassroom(resource.data.classroomId) ||
+            userInClassroom(resource.data.classroomId)
+          )
+      );
       allow create: if isTeacher() &&
         request.resource.data.quizId != null &&
         request.resource.data.classroomId != null &&
-        teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(request.resource.data.quizId)) &&
-        teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(request.resource.data.classroomId));
-      allow update, delete: if isTeacher() &&
-        teacherOwnsDocument(/databases/$(database)/documents/quizzes/$(resource.data.quizId)) &&
-        teacherOwnsDocument(/databases/$(database)/documents/classrooms/$(resource.data.classroomId));
+        teacherOwnsClassroom(request.resource.data.classroomId);
+      allow update, delete: if resource.data.classroomId != null && teacherOwnsClassroom(resource.data.classroomId);
 
       match /attempts/{attemptId} {
         allow create: if isStudent() &&
@@ -202,13 +200,17 @@ service cloud.firestore {
           request.resource.data.assignmentId == assignmentId &&
           studentInClassroom(request.resource.data.classroomId) &&
           cleanAttemptPayload();
-        allow read: if (isTeacher() && teacherOwnsAssignment(assignmentId)) ||
-          (isStudent() && resource.data.uid == request.auth.uid);
+        allow read: if teacherOwnsAssignment(assignmentId) ||
+          (
+            isStudent() &&
+              resource.data.uid == request.auth.uid &&
+              studentInClassroom(get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId)
+          );
         allow update, delete: if false;
       }
 
       match /submissions/{uid} {
-        allow read: if (isTeacher() && teacherOwnsAssignment(assignmentId)) ||
+        allow read: if teacherOwnsAssignment(assignmentId) ||
           (request.auth != null && request.auth.uid == uid);
         // Allow the authenticated user to submit/update their own assignment submission
         // as long as the assignment exists. Classroom membership is not enforced to

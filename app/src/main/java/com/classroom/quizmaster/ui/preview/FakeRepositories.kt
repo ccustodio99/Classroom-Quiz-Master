@@ -58,4 +58,5 @@ class FakeSessionRepositoryUi : SessionRepositoryUi {
 class FakeAssignmentRepositoryUi : AssignmentRepositoryUi {
     override val assignments: Flow<AssignmentsUiState> = flowOf(AssignmentsUiState())
     override val reports: Flow<ReportsUiState> = flowOf(ReportsUiState())
+    override fun selectReportsClassroom(classroomId: String?) = Unit
 }

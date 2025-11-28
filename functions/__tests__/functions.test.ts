@@ -1,5 +1,5 @@
 import * as admin from 'firebase-admin';
-import firebaseFunctionsTest from 'firebase-functions-test';
+import firebaseFunctionsTest = require('firebase-functions-test');
 import {
   exportReport,
   scoreAttempt,
@@ -83,7 +83,7 @@ describe('Cloud Functions', () => {
     const snap = { data: () => attemptData, ref: attemptRef };
     const context = { params: { assignmentId: 'a1', attemptId: 'attempt-1' } } as any;
 
-    const wrapped = fft.wrap(scoreAttempt);
+    const wrapped = fft.wrap(scoreAttempt as any);
     await wrapped(snap, context);
 
     expect(firestoreStub.runTransaction).toHaveBeenCalled();
@@ -99,19 +99,43 @@ describe('Cloud Functions', () => {
   });
 
   test('exportReport validates ownership and returns signed URLs', async () => {
-    const sessionData = { teacherId: 'teacher1' };
+    const sessionData = { teacherId: 'teacher1', quizId: 'quiz1', classroomId: 'class1', name: 'Session A' };
+    const quizData = {
+      title: 'Quiz Title',
+      category: 'pre',
+      defaultTimePerQ: 30,
+      topicId: 'topic1',
+      questions: [{ id: 'q1', stem: 'Question text', answerKey: ['A'], choices: ['A', 'B'] }],
+    };
+    const classroomData = {
+      name: 'Class 1',
+      subject: 'Math',
+      grade: '8',
+      students: ['student1'],
+      teacherId: 'teacher1',
+    };
     const attempts = [
       {
         id: 'attempt-1',
-        data: () => ({ uid: 'student1', questionId: 'q1', selected: ['A'], points: 900, timeMs: 1_200, correct: true }),
-        get: (field: string) => ({
+        data: () => ({
           uid: 'student1',
           questionId: 'q1',
           selected: ['A'],
           points: 900,
           timeMs: 1_200,
           correct: true,
-        } as any)[field],
+          createdAt: admin.firestore.Timestamp.fromMillis(1_000),
+        }),
+        get: (field: string) =>
+          ({
+            uid: 'student1',
+            questionId: 'q1',
+            selected: ['A'],
+            points: 900,
+            timeMs: 1_200,
+            correct: true,
+            createdAt: admin.firestore.Timestamp.fromMillis(1_000),
+          } as any)[field],
       },
     ];
 
@@ -129,40 +153,86 @@ describe('Cloud Functions', () => {
       }),
     } as unknown as admin.firestore.DocumentReference;
 
+    const quizRef = {
+      get: jest.fn(async () => ({ exists: true, get: (field: string) => (quizData as any)[field] })),
+    } as unknown as admin.firestore.DocumentReference;
+
+    const classroomRef = {
+      get: jest.fn(async () => ({ exists: true, get: (field: string) => (classroomData as any)[field] })),
+    } as unknown as admin.firestore.DocumentReference;
+
+    const teacherRef = {
+      get: jest.fn(async () => ({ exists: true, get: () => 'Teacher Name' })),
+    } as unknown as admin.firestore.DocumentReference;
+
+    const studentsCollection = {
+      where: jest.fn(() => ({
+        get: jest.fn(async () => ({ docs: [] as admin.firestore.QueryDocumentSnapshot[] })),
+      })),
+    };
+
+    const topicsCollection = {
+      where: jest.fn(() => ({
+        get: jest.fn(async () => ({ docs: [] as admin.firestore.QueryDocumentSnapshot[] })),
+      })),
+    };
+
     const firestoreStub = {
       collection: jest.fn((name: string) => {
         if (name === 'sessions') {
           return { doc: () => sessionRef };
+        }
+        if (name === 'quizzes') {
+          return { doc: () => quizRef };
+        }
+        if (name === 'classrooms') {
+          return { doc: () => classroomRef };
+        }
+        if (name === 'students') {
+          return studentsCollection;
+        }
+        if (name === 'topics') {
+          return topicsCollection;
+        }
+        if (name === 'teachers') {
+          return { doc: () => teacherRef };
         }
         throw new Error(`Unexpected collection ${name}`);
       }),
       runTransaction: jest.fn(),
     } as unknown as admin.firestore.Firestore;
 
-    const savedFiles: Record<string, { save: jest.Mock; getSignedUrl: jest.Mock }> = {};
+    const savedFiles: Record<string, { save: jest.Mock; getSignedUrl: jest.Mock; saved?: unknown }> = {};
     const bucket = {
       file: (path: string) => {
-        const entry = savedFiles[path] ?? {
-          save: jest.fn(async () => {}),
-          getSignedUrl: jest.fn(async () => [`https://example.com/${path}`]),
-        };
-        savedFiles[path] = entry;
-        return entry;
+        if (!savedFiles[path]) {
+          const record: any = {};
+          record.save = jest.fn(async (content: unknown) => {
+            record.saved = content;
+          });
+          record.getSignedUrl = jest.fn(async () => [`https://example.com/${path}`]);
+          savedFiles[path] = record;
+        }
+        return savedFiles[path];
       },
     } as any;
 
     setFirestoreForTests(firestoreStub);
     setBucketFactoryForTests(() => bucket);
 
-    const callable = fft.wrap(exportReport);
+    const callable = fft.wrap(exportReport as any);
     const result = await callable(
       { sessionId: 's1' },
       { auth: { uid: 'teacher1', token: { firebase: { sign_in_provider: 'password' } } } }
     );
 
-    expect(result.csvUrl).toContain('https://example.com/reports/s1/');
-    expect(result.pdfUrl).toContain('https://example.com/reports/s1/');
+    expect(result.csvUrl).toContain('https://example.com/reports/s1/assessment-report');
+    expect(result.pdfUrl).toContain('https://example.com/reports/s1/assessment-report');
     expect(result.accuracy).toBe(100);
+    expect(result.exportVersion).toBe('v2');
     expect(Object.keys(savedFiles).length).toBe(2);
+    const csvRecord = Object.entries(savedFiles).find(([key]) => key.endsWith('.csv'))?.[1];
+    expect((csvRecord as any).saved as string).toContain('session_id');
+    expect((csvRecord as any).saved as string).toContain('student_id');
   });
 });

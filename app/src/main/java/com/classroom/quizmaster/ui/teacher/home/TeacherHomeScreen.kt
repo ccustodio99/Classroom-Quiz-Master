@@ -6,6 +6,7 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -268,15 +269,16 @@ private fun ClassroomsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                 Text(
-                    text = "Join Requests",
+                    text = "Join requests",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onJoinRequests() }
+                    modifier = Modifier
+                        .clickable { onJoinRequests() }
                 )
                 Text(
-                    text = "View archived",
+                    text = "Archived",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.primary,
                     modifier = Modifier.clickable { onViewArchived() }
@@ -315,9 +317,9 @@ private fun ClassroomsSection(
                             )
                             val meta = buildList {
                                 classroom.grade?.takeIf { it.isNotBlank() }?.let { add("Grade $it") }
-                                add("${classroom.topicCount} topics")
-                                add("${classroom.quizCount} quizzes")
-                            }.joinToString(" • ")
+                                add(pluralize(classroom.topicCount, "topic", "topics"))
+                                add(pluralize(classroom.quizCount, "quiz", "quizzes"))
+                            }.joinToString(" \u2022 ")
                             Text(
                                 text = meta,
                                 style = MaterialTheme.typography.bodyMedium,
@@ -398,32 +400,40 @@ private fun ActionCards(
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit
 ) {
-    Text(text = "Actions", style = MaterialTheme.typography.titleLarge)
+    Text(text = "Shortcuts", style = MaterialTheme.typography.titleLarge)
     val filtered = if (FeatureToggles.LIVE_ENABLED) actionCards else actionCards.filterNot { it.id == ACTION_LIVE }
     val fallback = if (FeatureToggles.LIVE_ENABLED) defaultActionCards else defaultActionCards.filterNot { it.id == ACTION_LIVE }
-    val cards = (if (filtered.isEmpty()) fallback else filtered)
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        cards.forEach {
-            val baseAction = resolveAction(
-                card = it,
-                onCreateQuiz = onCreateQuiz,
-                onAssignments = onAssignments,
-                onLiveSessions = onLiveSessions,
-                onReports = onReports,
-                onClassrooms = onClassrooms,
-                onJoinRequests = onJoinRequests
-            )
-
-            val enabled = baseAction != null
-            ActionCard(
-                card = it,
-                onClick = {
-                    if (enabled) {
-                        baseAction?.invoke()
+    val cards = if (filtered.isEmpty()) fallback else filtered
+    val groups = listOf(
+        "Classes & students" to listOf(ACTION_CLASSROOMS, ACTION_JOIN_REQUESTS),
+        "Content & assignments" to listOf(ACTION_CREATE_QUIZ, ACTION_ASSIGNMENTS),
+        "Insights" to listOf(ACTION_REPORTS)
+    )
+    Column(verticalArrangement = Arrangement.spacedBy(16.dp)) {
+        groups.forEach { (heading, ids) ->
+            val items = cards.filter { it.id in ids }
+            if (items.isNotEmpty()) {
+                Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(text = heading, style = MaterialTheme.typography.titleMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
+                    items.forEach { card ->
+                        val baseAction = resolveAction(
+                            card = card,
+                            onCreateQuiz = onCreateQuiz,
+                            onAssignments = onAssignments,
+                            onLiveSessions = onLiveSessions,
+                            onReports = onReports,
+                            onClassrooms = onClassrooms,
+                            onJoinRequests = onJoinRequests
+                        )
+                        val enabled = baseAction != null
+                        ActionCard(
+                            card = card,
+                            onClick = { baseAction?.invoke() },
+                            enabled = enabled
+                        )
                     }
-                },
-                enabled = enabled
-            )
+                }
+            }
         }
     }
 }
@@ -534,7 +544,9 @@ private fun ActionCard(
     enabled: Boolean
 ) {
     Surface(
-        modifier = Modifier.fillMaxWidth(),
+        modifier = Modifier
+            .fillMaxWidth()
+            .clickable(enabled = enabled) { onClick() },
         shape = MaterialTheme.shapes.large,
         tonalElevation = if (card.primary) 4.dp else 2.dp
     ) {
@@ -589,6 +601,11 @@ private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_REPORTS -> Icons.Outlined.Timeline
     ACTION_CLASSROOMS -> Icons.AutoMirrored.Outlined.LibraryBooks
     else -> Icons.AutoMirrored.Outlined.ArrowForward
+}
+
+private fun pluralize(count: Int, singular: String, plural: String): String {
+    val label = if (count == 1) singular else plural
+    return "$count $label"
 }
 
 const val ACTION_CREATE_QUIZ = "teacher_home:create_quiz"

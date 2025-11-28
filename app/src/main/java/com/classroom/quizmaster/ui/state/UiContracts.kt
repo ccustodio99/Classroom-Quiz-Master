@@ -50,4 +50,5 @@ interface SessionRepositoryUi {
 interface AssignmentRepositoryUi {
     val assignments: Flow<AssignmentsUiState>
     val reports: Flow<ReportsUiState>
+    fun selectReportsClassroom(classroomId: String?)
 }

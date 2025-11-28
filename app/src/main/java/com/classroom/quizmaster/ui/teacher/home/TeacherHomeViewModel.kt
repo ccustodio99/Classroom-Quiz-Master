@@ -123,8 +123,13 @@ class TeacherHomeViewModel @Inject constructor(
         val hasSeededData = !teacherId.isNullOrBlank() && header.seeded.contains(teacherId)
         val canSeed = BuildConfig.DEBUG && !teacherId.isNullOrBlank() && !hasSeededData
         val showSampleCard = BuildConfig.DEBUG && (
-            canSeed || hasSeededData || header.seedUi.isSeeding || header.seedUi.isClearing
-        )
+            content.classrooms.isEmpty() ||
+                content.quizzes.isEmpty() ||
+                canSeed ||
+                hasSeededData ||
+                header.seedUi.isSeeding ||
+                header.seedUi.isClearing
+            )
         val offline = header.connectivity.isOffline
         val bannerHeadline = if (offline) "You're offline" else ""
         val bannerSupporting = if (offline) {
@@ -147,7 +152,8 @@ class TeacherHomeViewModel @Inject constructor(
             isClearingSamples = header.seedUi.isClearing,
             canSeedSampleData = canSeed && !header.seedUi.isSeeding && !header.seedUi.isClearing,
             canClearSampleData = hasSeededData && !header.seedUi.isSeeding && !header.seedUi.isClearing,
-            sampleSeedMessage = header.seedUi.message
+            sampleSeedMessage = header.seedUi.message,
+            recentQuizzes = header.home.recentQuizzes.take(5)
         )
     }
         .stateIn(
