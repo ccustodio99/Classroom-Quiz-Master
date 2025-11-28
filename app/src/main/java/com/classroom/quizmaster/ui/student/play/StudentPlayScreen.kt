@@ -43,7 +43,8 @@ fun StudentPlayRoute(
         state = state,
         onAnswerSelected = viewModel::selectAnswer,
         onToggleLeaderboard = viewModel::toggleLeaderboard,
-        onSubmit = viewModel::submitSelection
+        onSubmit = viewModel::submitSelection,
+        onSync = viewModel::syncSession
     )
 }
 
@@ -52,7 +53,8 @@ fun StudentPlayScreen(
     state: StudentPlayUiState,
     onAnswerSelected: (String) -> Unit,
     onToggleLeaderboard: () -> Unit,
-    onSubmit: () -> Unit
+    onSubmit: () -> Unit,
+    onSync: () -> Unit
 ) {
     Column(
         modifier = Modifier
@@ -77,6 +79,11 @@ fun StudentPlayScreen(
                 remainingSeconds = state.timerSeconds
             )
         }
+        SecondaryButton(
+            text = "Sync with host",
+            onClick = onSync,
+            modifier = Modifier.fillMaxWidth()
+        )
         Surface(
             shape = MaterialTheme.shapes.large,
             tonalElevation = 3.dp
@@ -223,7 +230,8 @@ private fun StudentPlayPreview() {
             ),
             onAnswerSelected = {},
             onToggleLeaderboard = {},
-            onSubmit = {}
+            onSubmit = {},
+            onSync = {}
         )
     }
 }

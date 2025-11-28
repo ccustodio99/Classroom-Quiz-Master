@@ -22,12 +22,30 @@ sealed interface WireMessage {
     @Serializable
     @SerialName("question_push")
     data class QuestionPush(
+        val sessionId: String,
+        val quizId: String,
         val questionId: String,
         val stem: String,
         val choicesJson: String,
+        val answerKeyJson: String,
+        val explanation: String = "",
+        val position: Int = 0,
         val timeLimitSeconds: Int
     ) : WireMessage {
         override val type: String = "question_push"
+    }
+
+    @Serializable
+    @SerialName("quiz_snapshot")
+    data class QuizSnapshot(
+        val quizId: String,
+        val teacherId: String,
+        val classroomId: String,
+        val topicId: String,
+        val title: String,
+        val questionsJson: String
+    ) : WireMessage {
+        override val type: String = "quiz_snapshot"
     }
 
     @Serializable
@@ -57,7 +75,8 @@ sealed interface WireMessage {
     @Serializable
     @SerialName("leaderboard")
     data class Leaderboard(
-        val leaderboardJson: String
+        val leaderboardJson: String,
+        val sessionId: String? = null
     ) : WireMessage {
         override val type: String = "leaderboard"
     }

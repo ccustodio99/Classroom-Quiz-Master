@@ -43,6 +43,7 @@ import androidx.compose.ui.unit.dp
 import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.hilt.navigation.compose.hiltViewModel
 import com.classroom.quizmaster.ui.components.ConnectivityBanner
+import com.classroom.quizmaster.config.FeatureToggles
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import androidx.lifecycle.ViewModel
@@ -169,18 +170,20 @@ private fun TeacherTopBar(appState: QuizMasterAppState) {
                         }
                     }
                 )
-                DropdownMenuItem(
-                    text = { Text("Sign out") },
-                    onClick = {
-                        menuExpanded = false
-                        viewModel.logout {
-                            appState.navController.navigate(AppRoute.Auth.route) {
-                                launchSingleTop = true
-                                popUpTo(AppRoute.Auth.route) { inclusive = true }
+                if (FeatureToggles.SIGN_OUT_ENABLED) {
+                    DropdownMenuItem(
+                        text = { Text("Sign out") },
+                        onClick = {
+                            menuExpanded = false
+                            viewModel.logout {
+                                appState.navController.navigate(AppRoute.Auth.route) {
+                                    launchSingleTop = true
+                                    popUpTo(AppRoute.Auth.route) { inclusive = true }
+                                }
                             }
                         }
-                    }
-                )
+                    )
+                }
             }
         }
     }

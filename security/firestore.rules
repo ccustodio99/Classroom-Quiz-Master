@@ -41,11 +41,33 @@ service cloud.firestore {
       );
     }
 
+    function assignmentClassroom(assignmentId) {
+      return exists(/databases/$(database)/documents/assignments/$(assignmentId))
+        ? get(/databases/$(database)/documents/assignments/$(assignmentId)).data.classroomId
+        : null;
+    }
+
     // Check that a classroom exists and the current student belongs to its roster.
     function studentInClassroom(classroomId) {
       return isStudent() &&
         exists(/databases/$(database)/documents/classrooms/$(classroomId)) &&
         (get(/databases/$(database)/documents/classrooms/$(classroomId)).data.students.hasAny([request.auth.uid]));
+    }
+
+    // Student is enrolled (participant doc exists) in a specific live session.
+    function studentInSession(sessionId) {
+      return isStudent() &&
+        exists(/databases/$(database)/documents/sessions/$(sessionId)) &&
+        exists(/databases/$(database)/documents/sessions/$(sessionId)/participants/$(request.auth.uid));
+    }
+
+    // Allow quiz reads for students already admitted to the live session tied to that quiz.
+    function quizAccessibleViaSession(quizId) {
+      return isStudent() &&
+        request.queryParams.sessionId != null &&
+        exists(/databases/$(database)/documents/sessions/$(request.queryParams.sessionId)) &&
+        get(/databases/$(database)/documents/sessions/$(request.queryParams.sessionId)).data.quizId == quizId &&
+        studentInSession(request.queryParams.sessionId);
     }
 
     function sessionJoinable(path) {
@@ -117,7 +139,8 @@ service cloud.firestore {
           exists(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)) &&
           get(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)).data.quizId == quizId &&
           studentInClassroom(get(/databases/$(database)/documents/assignments/$(request.queryParams.assignmentId)).data.classroomId)
-        );
+        ) ||
+        quizAccessibleViaSession(quizId);
       allow update, delete: if isTeacher() && resource.data.teacherId == request.auth.uid;
     }
 
@@ -187,7 +210,13 @@ service cloud.firestore {
       match /submissions/{uid} {
         allow read: if (isTeacher() && teacherOwnsAssignment(assignmentId)) ||
           (request.auth != null && request.auth.uid == uid);
-        allow write: if false;
+        // Allow the authenticated user to submit/update their own assignment submission
+        // as long as the assignment exists. Classroom membership is not enforced to
+        // avoid blocking offline/unsynced rosters.
+        allow create, update: if request.auth != null &&
+          request.auth.uid == uid &&
+          exists(/databases/$(database)/documents/assignments/$(assignmentId));
+        allow delete: if false;
       }
     }
 

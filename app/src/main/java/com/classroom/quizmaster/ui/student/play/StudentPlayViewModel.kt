@@ -81,6 +81,12 @@ class StudentPlayViewModel @Inject constructor(
         _uiState.update { it.copy(showLeaderboard = !it.showLeaderboard) }
     }
 
+    fun syncSession() {
+        viewModelScope.launch {
+            sessionRepositoryUi.syncSession()
+        }
+    }
+
     fun selectAnswer(answerId: String) {
         val question = _uiState.value.question ?: return
         if (_uiState.value.reveal) return
@@ -102,6 +108,14 @@ class StudentPlayViewModel @Inject constructor(
         viewModelScope.launch {
             _uiState.update { it.copy(submissionStatus = SubmissionStatus.Sending, submissionMessage = "Submitting...") }
             runCatching { sessionRepositoryUi.submitStudentAnswer(selection.toList()) }
+                .onSuccess {
+                    _uiState.update {
+                        it.copy(
+                            submissionStatus = SubmissionStatus.Acknowledged,
+                            submissionMessage = ""
+                        )
+                    }
+                }
                 .onFailure { throwable ->
                     _uiState.update {
                         it.copy(

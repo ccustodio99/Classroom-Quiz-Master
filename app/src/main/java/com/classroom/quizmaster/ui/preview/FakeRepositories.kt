@@ -52,6 +52,7 @@ class FakeSessionRepositoryUi : SessionRepositoryUi {
     override suspend fun submitStudentAnswer(answerIds: List<String>) = Unit
     override suspend fun updateStudentProfile(nickname: String, avatarId: String?) = Unit
     override suspend fun clearStudentError() = Unit
+    override suspend fun syncSession() = Unit
 }
 
 class FakeAssignmentRepositoryUi : AssignmentRepositoryUi {

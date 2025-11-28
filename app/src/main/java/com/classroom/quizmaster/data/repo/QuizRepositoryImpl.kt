@@ -59,6 +59,7 @@ class QuizRepositoryImpl @Inject constructor(
     private val quizDao = database.quizDao()
     private val classroomDao = database.classroomDao()
     private val topicDao = database.topicDao()
+    private val sessionDao = database.sessionDao()
     private val opLogDao = database.opLogDao()
 
     override val quizzes: Flow<List<Quiz>> =
@@ -83,18 +84,36 @@ class QuizRepositoryImpl @Inject constructor(
                             .map { it.toDomain(json) }
                     }
                 } else {
-                    classroomDao.observeForStudent(userId)
-                        .switchMapLatest { classrooms ->
-                            val activeClassroomIds = classrooms
-                                .filterNot { it.isArchived }
-                                .map { it.id }
-                            if (activeClassroomIds.isEmpty()) {
-                                flowOf(emptyList())
-                            } else {
-                                quizDao.observeActiveForClassrooms(activeClassroomIds)
-                            }
+                    combine(
+                        classroomDao.observeForStudent(userId),
+                        sessionDao.observeCurrentSession()
+                    ) { classrooms, sessionEntity ->
+                        classrooms to sessionEntity
+                    }.switchMapLatest { (classrooms, sessionEntity) ->
+                        val activeClassroomIds = classrooms
+                            .filterNot { it.isArchived }
+                            .map { it.id }
+                            .toMutableSet()
+                        sessionEntity?.classroomId
+                            ?.takeIf { it.isNotBlank() }
+                            ?.let { activeClassroomIds += it }
+                        val quizFlow = if (activeClassroomIds.isEmpty()) {
+                            quizDao.observeAll()
+                        } else {
+                            quizDao.observeActiveForClassrooms(activeClassroomIds.toList())
                         }
-                        .map { stored -> stored.map { it.toDomain(json) } }
+                        quizFlow.map { stored ->
+                            val augmented = if (sessionEntity != null) {
+                                val alreadyPresent = stored.any { it.quiz.id == sessionEntity.quizId }
+                                if (alreadyPresent) {
+                                    stored
+                                } else {
+                                    quizDao.getQuiz(sessionEntity.quizId)?.let { stored + it } ?: stored
+                                }
+                            } else stored
+                            augmented.map { it.toDomain(json) }
+                        }
+                    }
                 }
             }
             .distinctUntilChanged()

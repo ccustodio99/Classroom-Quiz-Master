@@ -109,10 +109,21 @@ fun StudentProfileScreen(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        PrimaryButton(
-            text = "Sign out",
-            onClick = onLogout,
-            modifier = Modifier.fillMaxWidth()
+        if (com.classroom.quizmaster.config.FeatureToggles.SIGN_OUT_ENABLED) {
+            PrimaryButton(
+                text = "Switch account",
+                onClick = onLogout,
+                modifier = Modifier.fillMaxWidth()
+            )
+        }
+        Text(
+            text = "Last sync: ${state.lastSyncLabel}",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = "Refresh data synchronizes online and offline data.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
         )
     }
 }

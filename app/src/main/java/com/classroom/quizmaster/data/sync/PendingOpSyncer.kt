@@ -98,8 +98,16 @@ class PendingOpSyncer @Inject constructor(
                     }
                     PendingOpTypes.ASSIGNMENT_SUBMISSION -> {
                         val payload = json.decodeFromString<SubmissionPayload>(op.payloadJson)
-                        assignmentRemote.saveSubmission(payload.submission).getOrThrow()
-                        synced += op.id
+                        runCatching { assignmentRemote.saveSubmission(payload.submission).getOrThrow() }
+                            .onSuccess { synced += op.id }
+                            .onFailure { err ->
+                                if (err.message?.contains("PERMISSION_DENIED", ignoreCase = true) == true) {
+                                    // Drop permanently to avoid retry spam when perms are denied server-side.
+                                    synced += op.id
+                                } else {
+                                    throw err
+                                }
+                            }
                     }
                     PendingOpTypes.MATERIAL_UPSERT -> {
                         val payload = json.decodeFromString<UpsertMaterialPayload>(op.payloadJson)

@@ -23,4 +23,5 @@ interface SessionRepository {
     suspend fun kickParticipant(uid: String)
     suspend fun syncPending()
     suspend fun endSession()
+    suspend fun refreshCurrentSession()
 }

@@ -53,6 +53,7 @@ import com.classroom.quizmaster.ui.model.StatusChipType
 import com.classroom.quizmaster.ui.model.StatusChipUi
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
+import com.classroom.quizmaster.config.FeatureToggles
 
 @Composable
 fun TeacherHomeRoute(
@@ -168,16 +169,18 @@ fun TeacherHomeScreen(
                                     onProfile()
                                 }
                             )
-                            DropdownMenuItem(
-                                text = { Text("Sign out") },
-                                onClick = {
-                                    menuExpanded = false
-                                    onLogout()
-                                }
-                            )
+                if (FeatureToggles.SIGN_OUT_ENABLED) {
+                    DropdownMenuItem(
+                        text = { Text("Switch account") },
+                        onClick = {
+                            menuExpanded = false
+                            onLogout()
                         }
-                    }
+                    )
                 }
+            }
+        }
+    }
             }
         }
     ) { paddingValues ->
@@ -396,7 +399,9 @@ private fun ActionCards(
     onJoinRequests: () -> Unit
 ) {
     Text(text = "Actions", style = MaterialTheme.typography.titleLarge)
-    val cards = (if (actionCards.isEmpty()) defaultActionCards else actionCards)
+    val filtered = if (FeatureToggles.LIVE_ENABLED) actionCards else actionCards.filterNot { it.id == ACTION_LIVE }
+    val fallback = if (FeatureToggles.LIVE_ENABLED) defaultActionCards else defaultActionCards.filterNot { it.id == ACTION_LIVE }
+    val cards = (if (filtered.isEmpty()) fallback else filtered)
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         cards.forEach {
             val baseAction = resolveAction(
@@ -437,7 +442,7 @@ private fun resolveAction(
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
         ACTION_CLASSROOMS -> onClassrooms
-        ACTION_LIVE -> onLiveSessions
+        ACTION_LIVE -> if (FeatureToggles.LIVE_ENABLED) onLiveSessions else null
         ACTION_JOIN_REQUESTS -> onJoinRequests
         else -> null
     }
@@ -621,7 +626,7 @@ private val defaultActionCards = listOf(
         title = "Live sessions",
         description = "Host LAN-first quiz sessions.",
         route = ACTION_LIVE,
-        ctaLabel = "Launch live session"
+        ctaLabel = "Live disabled"
     ),
     HomeActionCard(
         id = ACTION_JOIN_REQUESTS,

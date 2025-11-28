@@ -35,6 +35,7 @@ import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
+import com.classroom.quizmaster.config.FeatureToggles
 import com.classroom.quizmaster.ui.components.SimpleTopBar
 import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomViewModel
 import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomUiState
@@ -144,65 +145,67 @@ fun StudentJoinScreen(
                 }
             }
 
-            Text(text = "Join live quiz", style = MaterialTheme.typography.titleMedium)
-            Card(
-                modifier = Modifier.fillMaxWidth(),
-                colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
-            ) {
-                Column(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(16.dp),
-                    verticalArrangement = Arrangement.spacedBy(12.dp)
-                ) {
-                    OutlinedTextField(
-                        value = sessionCode,
-                        onValueChange = onSessionCodeChanged,
-                        label = { Text("Session code") },
-                        placeholder = { Text("Enter session code") },
-                        singleLine = true,
-                        keyboardOptions = KeyboardOptions(
-                            imeAction = ImeAction.Done,
-                            keyboardType = KeyboardType.Ascii
-                        )
-                    )
-                    if (!sessionError.isNullOrBlank()) {
-                        InlineStatusMessage(message = sessionError, isError = true)
-                    }
-                    Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        Button(
-                            onClick = onJoinSession,
-                            enabled = sessionCode.isNotBlank() && !isJoiningSession
-                        ) {
-                            Text(if (isJoiningSession) "Joining..." else "Join session")
-                        }
-                        TextButton(onClick = onOpenJoinLan) {
-                            Icon(imageVector = Icons.Outlined.Lan, contentDescription = null)
-                            Spacer(modifier = Modifier.width(6.dp))
-                            Text("Find nearby sessions")
-                        }
-                    }
-                }
-            }
-            currentSession?.let { session ->
+            if (FeatureToggles.LIVE_ENABLED) {
+                Text(text = "Join live quiz", style = MaterialTheme.typography.titleMedium)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
-                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)
                 ) {
                     Column(
                         modifier = Modifier
                             .fillMaxWidth()
                             .padding(16.dp),
-                        verticalArrangement = Arrangement.spacedBy(8.dp)
+                        verticalArrangement = Arrangement.spacedBy(12.dp)
                     ) {
-                        Text("Current session", style = MaterialTheme.typography.titleMedium)
-                        Text("Code: ${session.joinCode}", style = MaterialTheme.typography.bodyMedium)
-                        Text("Status: ${session.status}", style = MaterialTheme.typography.bodySmall)
-                        Button(
-                            onClick = onOpenCurrentSession,
-                            modifier = Modifier.fillMaxWidth()
+                        OutlinedTextField(
+                            value = sessionCode,
+                            onValueChange = onSessionCodeChanged,
+                            label = { Text("Session code") },
+                            placeholder = { Text("Enter session code") },
+                            singleLine = true,
+                            keyboardOptions = KeyboardOptions(
+                                imeAction = ImeAction.Done,
+                                keyboardType = KeyboardType.Ascii
+                            )
+                        )
+                        if (!sessionError.isNullOrBlank()) {
+                            InlineStatusMessage(message = sessionError, isError = true)
+                        }
+                        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            Button(
+                                onClick = onJoinSession,
+                                enabled = sessionCode.isNotBlank() && !isJoiningSession
+                            ) {
+                                Text(if (isJoiningSession) "Joining..." else "Join session")
+                            }
+                            TextButton(onClick = onOpenJoinLan) {
+                                Icon(imageVector = Icons.Outlined.Lan, contentDescription = null)
+                                Spacer(modifier = Modifier.width(6.dp))
+                                Text("Find nearby sessions")
+                            }
+                        }
+                    }
+                }
+                currentSession?.let { session ->
+                    Card(
+                        modifier = Modifier.fillMaxWidth(),
+                        colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.primaryContainer)
+                    ) {
+                        Column(
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .padding(16.dp),
+                            verticalArrangement = Arrangement.spacedBy(8.dp)
                         ) {
-                            Text("Return to session")
+                            Text("Current session", style = MaterialTheme.typography.titleMedium)
+                            Text("Code: ${session.joinCode}", style = MaterialTheme.typography.bodyMedium)
+                            Text("Status: ${session.status}", style = MaterialTheme.typography.bodySmall)
+                            Button(
+                                onClick = onOpenCurrentSession,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Text("Return to session")
+                            }
                         }
                     }
                 }

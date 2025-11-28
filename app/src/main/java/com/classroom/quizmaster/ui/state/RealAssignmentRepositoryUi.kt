@@ -2,6 +2,8 @@ package com.classroom.quizmaster.ui.state
 
 import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.Quiz
+import com.classroom.quizmaster.domain.model.QuizCategory
+import com.classroom.quizmaster.domain.model.Student
 import com.classroom.quizmaster.domain.model.Submission
 import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
@@ -11,6 +13,8 @@ import com.classroom.quizmaster.ui.model.AssignmentCardUi
 import com.classroom.quizmaster.ui.model.ReportRowUi
 import com.classroom.quizmaster.ui.teacher.assignments.AssignmentsUiState
 import com.classroom.quizmaster.ui.teacher.reports.ReportsUiState
+import com.classroom.quizmaster.ui.teacher.reports.StudentImprovementUi
+import com.classroom.quizmaster.ui.teacher.reports.StudentProgressUi
 import javax.inject.Inject
 import javax.inject.Singleton
 import kotlin.math.roundToInt
@@ -67,9 +71,10 @@ class RealAssignmentRepositoryUi @Inject constructor(
                     combine(
                         submissionMapFlow(assignments),
                         quizRepository.quizzes,
-                        classroomRepository.topics
-                    ) { submissions, quizzes, topics ->
-                        buildReportsState(assignments, submissions, quizzes, topics)
+                        classroomRepository.topics,
+                        classroomRepository.students
+                    ) { submissions, quizzes, topics, students ->
+                        buildReportsState(assignments, submissions, quizzes, topics, students)
                     }
                 }
             }
@@ -139,8 +144,12 @@ class RealAssignmentRepositoryUi @Inject constructor(
         assignments: List<Assignment>,
         submissions: Map<String, List<Submission>>,
         quizzes: List<Quiz>,
-        topics: List<Topic>
+        topics: List<Topic>,
+        students: List<Student>
     ): ReportsUiState {
+        val assignmentLookup = assignments.associateBy { it.id }
+        val quizLookup = quizzes.associateBy { it.id }
+        val studentNameLookup = students.associateBy({ it.id }, { it.displayName.ifBlank { it.email.ifBlank { it.id } } })
         val scores = submissions.values.flatten().map { it.bestScore }
         val average = if (scores.isEmpty()) 0 else scores.average().roundToInt()
         val median = medianScore(scores)
@@ -160,16 +169,13 @@ class RealAssignmentRepositoryUi @Inject constructor(
         val reportRows = assignments
             .sortedByDescending { it.updatedAt }
             .mapNotNull { assignment ->
-                val quiz = quizzes.firstOrNull { it.id == assignment.quizId } ?: return@mapNotNull null
+                val quiz = quizLookup[assignment.quizId] ?: return@mapNotNull null
                 val assignmentScores = submissions[assignment.id].orEmpty()
-                val correctRate = if (assignmentScores.isEmpty()) {
-                    0f
-                } else {
-                    assignmentScores
-                        .map { it.bestScore.coerceIn(0, 100) / 100f }
-                        .average()
-                        .toFloat()
-                }
+                if (assignmentScores.isEmpty()) return@mapNotNull null
+                val correctRate = assignmentScores
+                    .map { it.bestScore.coerceIn(0, 100) / 100f }
+                    .average()
+                    .toFloat()
                 ReportRowUi(
                     question = quiz.title.ifBlank { "Untitled quiz" },
                     pValue = correctRate.coerceIn(0f, 1f),
@@ -178,12 +184,78 @@ class RealAssignmentRepositoryUi @Inject constructor(
                 )
             }
         val lastUpdatedInstant = assignments.maxOfOrNull { it.updatedAt }
+
+        // Pre/Post analysis by student
+        val preScoresByUid = mutableMapOf<String, MutableList<Int>>()
+        val postScoresByUid = mutableMapOf<String, MutableList<Int>>()
+        submissions.forEach { (assignmentId, subs) ->
+            val assignment = assignmentLookup[assignmentId] ?: return@forEach
+            val quiz = quizLookup[assignment.quizId] ?: return@forEach
+            when (quiz.category) {
+                QuizCategory.PRE_TEST -> subs.forEach { submission ->
+                    preScoresByUid.getOrPut(submission.uid) { mutableListOf() }.add(submission.bestScore)
+                }
+
+                QuizCategory.POST_TEST -> subs.forEach { submission ->
+                    postScoresByUid.getOrPut(submission.uid) { mutableListOf() }.add(submission.bestScore)
+                }
+
+                else -> {}
+            }
+        }
+        val classPreAverage = preScoresByUid.values.flatten().let { list ->
+            if (list.isEmpty()) 0 else list.average().roundToInt()
+        }
+        val classPostAverage = postScoresByUid.values.flatten().let { list ->
+            if (list.isEmpty()) 0 else list.average().roundToInt()
+        }
+        val classDelta = classPostAverage - classPreAverage
+
+        val studentProgress = submissions.values
+            .flatten()
+            .groupBy { submission: Submission -> submission.uid }
+            .map { (uid, subs) ->
+                val completed = subs.size
+                val total = assignments.size.coerceAtLeast(1)
+                val score = subs.map { it.bestScore }.ifEmpty { listOf(0) }.average().roundToInt()
+                StudentProgressUi(
+                    name = studentNameLookup[uid] ?: uid,
+                    completed = completed,
+                    total = total,
+                    score = score
+                )
+            }
+            .sortedByDescending { it.score }
+
+        val studentImprovement = (preScoresByUid.keys + postScoresByUid.keys)
+            .distinct()
+            .map { uid ->
+                val preList = preScoresByUid[uid].orEmpty()
+                val postList = postScoresByUid[uid].orEmpty()
+                val preAvg = if (preList.isEmpty()) 0 else preList.average().roundToInt()
+                val postAvg = if (postList.isEmpty()) 0 else postList.average().roundToInt()
+                StudentImprovementUi(
+                    name = studentNameLookup[uid] ?: uid,
+                    preAvg = preAvg,
+                    postAvg = postAvg,
+                    delta = postAvg - preAvg,
+                    preAttempts = preList.size,
+                    postAttempts = postList.size
+                )
+            }
+            .sortedByDescending { it.delta }
+
         return ReportsUiState(
             average = average,
             median = median,
+            classPreAverage = classPreAverage,
+            classPostAverage = classPostAverage,
+            classDelta = classDelta,
             topTopics = topicAverages.take(3),
             questionRows = reportRows,
-            lastUpdated = lastUpdatedInstant?.let(::formatRelativeTime) ?: "Not updated"
+            lastUpdated = lastUpdatedInstant?.let(::formatRelativeTime) ?: "Not updated",
+            studentProgress = studentProgress,
+            studentImprovement = studentImprovement
         )
     }
 

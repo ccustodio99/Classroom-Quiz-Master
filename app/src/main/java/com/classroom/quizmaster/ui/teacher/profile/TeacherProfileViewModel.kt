@@ -7,6 +7,7 @@ import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.QuizRepository
 import com.classroom.quizmaster.domain.model.AuthState
+import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -15,6 +16,7 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.datetime.Instant
 
 data class TeacherProfileUiState(
     val displayNameInput: String = "",
@@ -22,7 +24,8 @@ data class TeacherProfileUiState(
     val isSaving: Boolean = false,
     val isRefreshing: Boolean = false,
     val errorMessage: String? = null,
-    val savedMessage: String? = null
+    val savedMessage: String? = null,
+    val lastSyncLabel: String = "Never"
 )
 
 @HiltViewModel
@@ -30,7 +33,8 @@ class TeacherProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val classroomRepository: ClassroomRepository,
     private val assignmentRepository: AssignmentRepository,
-    private val quizRepository: QuizRepository
+    private val quizRepository: QuizRepository,
+    private val preferences: AppPreferencesDataSource
 ) : ViewModel() {
 
     private val editingName = MutableStateFlow("")
@@ -45,7 +49,8 @@ class TeacherProfileViewModel @Inject constructor(
         saving,
         refreshing,
         error,
-        saved
+        saved,
+        preferences.lastSuccessfulSyncEpoch
     ) { values: Array<Any?> ->
         val auth = values[0] as AuthState
         val nameInput = values[1] as String
@@ -53,6 +58,7 @@ class TeacherProfileViewModel @Inject constructor(
         val isRefreshing = values[3] as Boolean
         val errorMessage = values[4] as String?
         val savedMessage = values[5] as String?
+        val lastSyncEpoch = values[6] as Long
         val currentName = auth.teacherProfile?.displayName ?: auth.displayName.orEmpty()
         val currentEmail = auth.teacherProfile?.email ?: auth.email.orEmpty()
         val effectiveName = if (nameInput.isNotEmpty()) nameInput else currentName
@@ -62,7 +68,8 @@ class TeacherProfileViewModel @Inject constructor(
             isSaving = isSaving,
             isRefreshing = isRefreshing,
             errorMessage = errorMessage,
-            savedMessage = savedMessage
+            savedMessage = savedMessage,
+            lastSyncLabel = formatLastSync(lastSyncEpoch)
         )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), TeacherProfileUiState())
 
@@ -117,4 +124,8 @@ class TeacherProfileViewModel @Inject constructor(
             onLoggedOut()
         }
     }
+
+    private fun formatLastSync(epoch: Long): String =
+        if (epoch <= 0L) "Never"
+        else Instant.fromEpochMilliseconds(epoch).toString()
 }

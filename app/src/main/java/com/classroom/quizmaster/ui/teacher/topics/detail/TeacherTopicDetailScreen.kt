@@ -18,6 +18,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.ui.components.EmptyState
+import com.classroom.quizmaster.config.FeatureToggles
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
 
@@ -181,7 +182,12 @@ fun TeacherTopicDetailScreen(
                             style = MaterialTheme.typography.bodySmall,
                             color = MaterialTheme.colorScheme.onSurfaceVariant
                         )
-                        SecondaryButton(text = "Launch live", onClick = { onLaunchLive(quiz.id) })
+                        if (FeatureToggles.LIVE_ENABLED) {
+                            SecondaryButton(
+                                text = "Launch live",
+                                onClick = { onLaunchLive(quiz.id) }
+                            )
+                        }
                     }
                 }
             }

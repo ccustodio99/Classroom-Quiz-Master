@@ -48,6 +48,7 @@ import kotlinx.coroutines.flow.onEach
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.withTimeoutOrNull
 import kotlinx.datetime.Clock
 import javax.inject.Inject
@@ -95,6 +96,9 @@ class RealSessionRepositoryUi @Inject constructor(
         .stateIn(scope, SharingStarted.Eagerly, com.classroom.quizmaster.domain.model.AuthState())
     private val preferredNickname = preferences.preferredNickname
         .stateIn(scope, SharingStarted.Eagerly, null)
+    private val remainingSeconds = MutableStateFlow(0)
+    private var countdownJob: Job? = null
+    private var lastQuestionId: String? = null
 
     init {
         authState
@@ -105,8 +109,9 @@ class RealSessionRepositoryUi @Inject constructor(
             .onEach { saved -> applyPreferredNickname(saved) }
             .launchIn(scope)
 
-        sessionState
-            .onEach { session ->
+        combine(sessionState, quizzesState) { session, quizzes -> session to quizzes }
+            .onEach { (session, quizzes) ->
+                syncTimer(session, quizzes)
                 session?.teacherId
                     ?.takeIf { it.isNotBlank() }
                     ?.let { id ->
@@ -149,10 +154,16 @@ class RealSessionRepositoryUi @Inject constructor(
                 val quiz = quizzes.firstOrNull { it.id == session.quizId }
                 val totalQuestions = quiz?.questions?.size?.takeIf { it > 0 } ?: quiz?.questionCount ?: 0
                 val currentQuestion = quiz?.questions?.getOrNull(session.currentIndex)
+                    ?: quiz?.questions?.lastOrNull()
+                val lanEndpoint = session.lanMeta?.let { meta ->
+                    listOfNotNull(meta.hostIp.takeIf { it.isNotBlank() }, meta.port.takeIf { it > 0 }?.toString())
+                        .joinToString(":")
+                }.orEmpty()
+                val timeLimit = currentQuestion?.timeLimitSeconds ?: 45
                 HostLiveUiState(
                     questionIndex = session.currentIndex.coerceAtLeast(0),
                     totalQuestions = totalQuestions,
-                    timerSeconds = currentQuestion?.timeLimitSeconds ?: 45,
+                    timerSeconds = remainingSeconds.value.coerceAtMost(timeLimit),
                     isRevealed = session.reveal,
                     question = currentQuestion?.toDraft(),
                     distribution = emptyList(),
@@ -161,7 +172,9 @@ class RealSessionRepositoryUi @Inject constructor(
                             participant.toLeaderboardRow(index + 1, authState.value.userId)
                         },
                     muteSfx = muted,
-                    showLeaderboard = !session.hideLeaderboard
+                    showLeaderboard = !session.hideLeaderboard,
+                    joinCode = session.joinCode,
+                    lanEndpoint = lanEndpoint
                 )
             }
         }
@@ -219,6 +232,8 @@ class RealSessionRepositoryUi @Inject constructor(
             } else {
                 val quiz = quizzes.firstOrNull { it.id == session.quizId }
                 val question = quiz?.questions?.getOrNull(session.currentIndex)
+                    ?: quiz?.questions?.lastOrNull()
+                val timeLimit = question?.timeLimitSeconds ?: 30
                 val youId = auth.userId
                 val leaderboard = participants.sortedByDescending { it.totalPoints }
                     .mapIndexed { index, participant -> participant.toLeaderboardRow(index + 1, youId) }
@@ -229,9 +244,9 @@ class RealSessionRepositoryUi @Inject constructor(
                 }
                 StudentPlayUiState(
                     question = question?.toDraft(),
-                    timerSeconds = question?.timeLimitSeconds ?: 30,
+                    timerSeconds = remainingSeconds.value.coerceAtMost(timeLimit),
                     reveal = session.reveal,
-                    progress = if (question == null) 0f else 1f,
+                    progress = if (question == null || timeLimit <= 0) 0f else remainingSeconds.value.toFloat() / timeLimit.toFloat(),
                     leaderboard = leaderboard,
                     distribution = emptyList(),
                     streak = player?.rank ?: 0,
@@ -487,12 +502,24 @@ class RealSessionRepositoryUi @Inject constructor(
     override suspend fun submitStudentAnswer(answerIds: List<String>) {
         val studentId = authState.value.userId ?: return
         val session = sessionState.value ?: return
-        val question = quizzesState.value.firstOrNull { it.id == session.quizId }?.questions?.getOrNull(session.currentIndex) ?: return
+        val question = quizzesState.value
+            .firstOrNull { it.id == session.quizId }
+            ?.questions
+            ?.getOrNull(session.currentIndex)
+            ?: return
+
+        // Answers in the UI are identified by "questionId_index" but scoring expects the
+        // actual choice text. Normalize the submitted ids back to their choice strings
+        // so they can be compared to the question answer key.
+        val selectedChoices = answerIds.mapNotNull { answerId ->
+            val index = answerId.substringAfterLast('_').toIntOrNull() ?: return@mapNotNull null
+            question.choices.getOrNull(index)
+        }
 
         submitAnswerUseCase(
             uid = studentId,
             questionId = question.id,
-            selected = answerIds,
+            selected = selectedChoices,
             correctAnswers = question.answerKey,
             timeTakenMs = 0L, // This should be calculated
             timeLimitMs = question.timeLimitSeconds * 1000L,
@@ -513,6 +540,10 @@ class RealSessionRepositoryUi @Inject constructor(
                 ?.descriptor
         } ?: error("Session not found on this network")
         sessionRepository.joinLanHost(descriptor, sanitized).getOrThrow()
+    }
+
+    override suspend fun syncSession() {
+        sessionRepository.refreshCurrentSession()
     }
 
     override suspend fun updateStudentProfile(nickname: String, avatarId: String?) {
@@ -548,6 +579,55 @@ class RealSessionRepositoryUi @Inject constructor(
             quiz.classroomId == context.classroomId &&
                 (context.topicId == null || quiz.topicId == context.topicId)
         }?.id
+    }
+
+    private fun syncTimer(
+        session: com.classroom.quizmaster.domain.model.Session?,
+        quizzes: List<com.classroom.quizmaster.domain.model.Quiz>
+    ) {
+        if (session == null) {
+            countdownJob?.cancel()
+            countdownJob = null
+            lastQuestionId = null
+            remainingSeconds.value = 0
+            return
+        }
+        val quiz = quizzes.firstOrNull { it.id == session.quizId }
+        val currentQuestion = quiz?.questions?.getOrNull(session.currentIndex)
+            ?: quiz?.questions?.lastOrNull()
+        val questionId = currentQuestion?.id
+        val timeLimit = currentQuestion?.timeLimitSeconds ?: 0
+        val reveal = session.reveal
+        if (questionId == null || timeLimit <= 0) {
+            countdownJob?.cancel()
+            countdownJob = null
+            lastQuestionId = null
+            remainingSeconds.value = 0
+            return
+        }
+        if (questionId != lastQuestionId || reveal) {
+            lastQuestionId = questionId
+            countdownJob?.cancel()
+            countdownJob = null
+            remainingSeconds.value = if (reveal) 0 else timeLimit
+        }
+        if (countdownJob == null && !reveal) {
+            startCountdown(timeLimit)
+        }
+    }
+
+    private fun startCountdown(timeLimit: Int) {
+        countdownJob?.cancel()
+        remainingSeconds.value = timeLimit
+        countdownJob = scope.launch {
+            while (remainingSeconds.value > 0) {
+                delay(1_000)
+                remainingSeconds.update { current ->
+                    val next = (current - 1).coerceAtLeast(0)
+                    next
+                }
+            }
+        }
     }
 
     private fun buildStatusChips(pendingOps: Int, offline: Boolean): List<StatusChipUi> {

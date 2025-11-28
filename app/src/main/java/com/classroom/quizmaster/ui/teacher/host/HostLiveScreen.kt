@@ -72,6 +72,24 @@ fun HostLiveScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
+        if (state.joinCode.isNotBlank() || state.lanEndpoint.isNotBlank()) {
+            Surface(shape = MaterialTheme.shapes.large, tonalElevation = 2.dp) {
+                Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                    Text(text = "Join code", style = MaterialTheme.typography.labelLarge)
+                    Text(
+                        text = state.joinCode.ifBlank { "----" },
+                        style = MaterialTheme.typography.headlineSmall
+                    )
+                    Text(
+                        text = buildString {
+                            if (state.lanEndpoint.isNotBlank()) append(state.lanEndpoint)
+                            else append("LAN starting...")
+                        },
+                        style = MaterialTheme.typography.bodySmall
+                    )
+                }
+            }
+        }
         val timeLimit = (state.question?.timeLimitSeconds ?: 60).coerceAtLeast(1)
         val progress = (state.timerSeconds.toFloat() / timeLimit.toFloat()).coerceIn(0f, 1f)
         val totalQuestions = state.totalQuestions.takeIf { it > 0 } ?: (state.questionIndex + 1).coerceAtLeast(1)
@@ -159,6 +177,8 @@ private fun HostLivePreview() {
                 totalQuestions = 10,
                 timerSeconds = 24,
                 isRevealed = true,
+                joinCode = "6U4JYC",
+                lanEndpoint = "192.168.0.10:48765",
                 question = QuestionDraftUi(
                     id = "q1",
                     stem = "Which planet is known as the Red Planet?",

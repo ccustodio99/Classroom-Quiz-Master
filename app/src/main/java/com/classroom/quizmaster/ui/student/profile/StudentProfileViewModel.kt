@@ -5,6 +5,7 @@ import androidx.lifecycle.viewModelScope
 import com.classroom.quizmaster.domain.repository.AssignmentRepository
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
+import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import dagger.hilt.android.lifecycle.HiltViewModel
 import javax.inject.Inject
 import kotlinx.coroutines.flow.MutableStateFlow
@@ -17,6 +18,7 @@ import kotlinx.datetime.Clock
 import com.classroom.quizmaster.domain.model.AuthState
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.Assignment
+import kotlinx.datetime.Instant
 
 data class StudentProfileUiState(
     val fullName: String = "Student",
@@ -27,14 +29,16 @@ data class StudentProfileUiState(
     val saving: Boolean = false,
     val refreshing: Boolean = false,
     val statusMessage: String? = null,
-    val errorMessage: String? = null
+    val errorMessage: String? = null,
+    val lastSyncLabel: String = "Never"
 )
 
 @HiltViewModel
 class StudentProfileViewModel @Inject constructor(
     private val authRepository: AuthRepository,
     private val classroomRepository: ClassroomRepository,
-    private val assignmentRepository: AssignmentRepository
+    private val assignmentRepository: AssignmentRepository,
+    private val preferences: AppPreferencesDataSource
 ) : ViewModel() {
 
     private val nameInput = MutableStateFlow("")
@@ -72,9 +76,14 @@ class StudentProfileViewModel @Inject constructor(
     val uiState: StateFlow<StudentProfileUiState> = combine(
         baseState,
         statusMessage,
-        errorMessage
-    ) { state, status, error ->
-        state.copy(statusMessage = status, errorMessage = error)
+        errorMessage,
+        preferences.lastSuccessfulSyncEpoch
+    ) { state, status, error, lastSync ->
+        state.copy(
+            statusMessage = status,
+            errorMessage = error,
+            lastSyncLabel = formatLastSync(lastSync)
+        )
     }.stateIn(viewModelScope, SharingStarted.WhileSubscribed(5_000), StudentProfileUiState())
 
     fun updateNameInput(value: String) {
@@ -139,4 +148,8 @@ class StudentProfileViewModel @Inject constructor(
     fun logout() {
         viewModelScope.launch { authRepository.logout() }
     }
+
+    private fun formatLastSync(epoch: Long): String =
+        if (epoch <= 0L) "Never"
+        else Instant.fromEpochMilliseconds(epoch).toString()
 }

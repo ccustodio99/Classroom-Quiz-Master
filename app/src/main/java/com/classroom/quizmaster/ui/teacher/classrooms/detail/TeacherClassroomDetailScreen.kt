@@ -47,6 +47,7 @@ import androidx.compose.ui.unit.dp
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.classroom.quizmaster.R
+import com.classroom.quizmaster.config.FeatureToggles
 import com.classroom.quizmaster.ui.components.EmptyState
 import com.classroom.quizmaster.ui.components.PrimaryButton
 import com.classroom.quizmaster.ui.components.SecondaryButton
@@ -193,13 +194,17 @@ fun TeacherClassroomDetailScreen(
                 }
             )
 
-            TabRow(selectedTabIndex = selectedTab.ordinal) {
-                ClassroomDetailTab.values().forEach { tab ->
-                    Tab(
-                        selected = tab == selectedTab,
-                        onClick = { selectedTab = tab },
-                        text = { Text(tab.label) }
-                    )
+    val availableTabs = ClassroomDetailTab.values().filter { FeatureToggles.LIVE_ENABLED || it != ClassroomDetailTab.Live }
+    if (!FeatureToggles.LIVE_ENABLED && selectedTab == ClassroomDetailTab.Live) {
+        selectedTab = availableTabs.firstOrNull() ?: ClassroomDetailTab.Students
+    }
+    TabRow(selectedTabIndex = availableTabs.indexOf(selectedTab).coerceAtLeast(0)) {
+        availableTabs.forEach { tab ->
+            Tab(
+                selected = tab == selectedTab,
+                onClick = { selectedTab = tab },
+                text = { Text(tab.label) }
+            )
                 }
             }
 
@@ -231,7 +236,7 @@ fun TeacherClassroomDetailScreen(
                             onRequestDelete = { pendingDelete.value = it }
                         )
                         ClassroomDetailTab.Assignments -> AssignmentTab(onAssignments)
-                        ClassroomDetailTab.Live -> LiveTab(onLaunchLive)
+                        ClassroomDetailTab.Live -> if (FeatureToggles.LIVE_ENABLED) LiveTab(onLaunchLive) else {}
                         ClassroomDetailTab.Reports -> ReportsTab(onReports)
                     }
                 }
@@ -427,8 +432,9 @@ private fun LiveTab(onLaunchLive: () -> Unit) {
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )
             PrimaryButton(
-                text = "Launch live session",
-                onClick = onLaunchLive,
+                text = "Live disabled",
+                onClick = {},
+                enabled = false,
                 modifier = Modifier.fillMaxWidth()
             )
         }

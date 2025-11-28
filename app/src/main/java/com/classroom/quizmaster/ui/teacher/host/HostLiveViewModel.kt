@@ -22,7 +22,9 @@ data class HostLiveUiState(
     val distribution: List<DistributionBar> = emptyList(),
     val leaderboard: List<LeaderboardRowUi> = emptyList(),
     val muteSfx: Boolean = true,
-    val showLeaderboard: Boolean = true
+    val showLeaderboard: Boolean = true,
+    val joinCode: String = "",
+    val lanEndpoint: String = ""
 )
 
 @HiltViewModel

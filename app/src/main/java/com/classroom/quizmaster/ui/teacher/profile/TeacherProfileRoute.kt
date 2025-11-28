@@ -109,12 +109,23 @@ fun TeacherProfileScreen(
         ) {
             Text(if (state.isRefreshing) "Refreshing..." else "Refresh data")
         }
-        Button(
-            onClick = onLogout,
-            enabled = !state.isSaving,
-            modifier = Modifier.fillMaxWidth()
-        ) {
-            Text("Sign out")
+        Text(
+            text = "Last sync: ${state.lastSyncLabel}",
+            style = MaterialTheme.typography.bodySmall
+        )
+        Text(
+            text = "Refresh data synchronizes online and offline data.",
+            style = MaterialTheme.typography.bodySmall,
+            color = MaterialTheme.colorScheme.onSurfaceVariant
+        )
+        if (com.classroom.quizmaster.config.FeatureToggles.SIGN_OUT_ENABLED) {
+            Button(
+                onClick = onLogout,
+                enabled = !state.isSaving,
+                modifier = Modifier.fillMaxWidth()
+            ) {
+                Text("Switch account")
+            }
         }
         Button(
             onClick = onBack,

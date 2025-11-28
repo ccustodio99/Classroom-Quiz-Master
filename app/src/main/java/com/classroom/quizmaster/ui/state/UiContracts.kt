@@ -44,6 +44,7 @@ interface SessionRepositoryUi {
     suspend fun submitStudentAnswer(answerIds: List<String>)
     suspend fun updateStudentProfile(nickname: String, avatarId: String?)
     suspend fun clearStudentError()
+    suspend fun syncSession()
 }
 
 interface AssignmentRepositoryUi {

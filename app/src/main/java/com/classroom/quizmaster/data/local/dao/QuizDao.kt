@@ -37,6 +37,10 @@ interface QuizDao {
     @Query("SELECT * FROM questions WHERE id = :questionId LIMIT 1")
     suspend fun getQuestion(questionId: String): QuestionEntity?
 
+    @Transaction
+    @Query("SELECT * FROM quizzes")
+    fun observeAll(): Flow<List<QuizWithQuestions>>
+
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun upsertQuiz(quiz: QuizEntity)
 
