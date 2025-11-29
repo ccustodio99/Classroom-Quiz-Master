@@ -70,7 +70,7 @@ fun StudentMaterialsScreen(
             ) {
                 EmptyState(
                     title = "No materials yet",
-                    message = state.emptyMessage.ifBlank { "Your teacher will send materials over LAN when available." }
+                    message = state.emptyMessage.ifBlank { "Your teacher will share materials here when available." }
                 )
             }
         } else {

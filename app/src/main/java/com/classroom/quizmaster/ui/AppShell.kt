@@ -214,7 +214,7 @@ private fun StudentTopBar() {
                     style = MaterialTheme.typography.titleMedium
                 )
                 Text(
-                    text = "Connect over LAN or enter a code",
+                    text = "Enter your teacher's join code to get started",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )
@@ -249,7 +249,7 @@ private fun NeutralTopBar() {
                     maxLines = 2
                 )
                 Text(
-                    text = "Teachers create & host quizzes. Students join with a code or over LAN.",
+                    text = "Create quizzes, schedule practice, and review class progress.",
                     style = MaterialTheme.typography.bodySmall,
                     color = MaterialTheme.colorScheme.onSurfaceVariant
                 )

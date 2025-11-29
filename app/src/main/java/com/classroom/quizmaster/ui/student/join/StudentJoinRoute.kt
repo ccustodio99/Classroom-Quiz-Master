@@ -146,7 +146,7 @@ fun StudentJoinScreen(
             }
 
             if (FeatureToggles.LIVE_ENABLED) {
-                Text(text = "Join live quiz", style = MaterialTheme.typography.titleMedium)
+                Text(text = "Join a quiz", style = MaterialTheme.typography.titleMedium)
                 Card(
                     modifier = Modifier.fillMaxWidth(),
                     colors = CardDefaults.cardColors(containerColor = MaterialTheme.colorScheme.surfaceVariant)

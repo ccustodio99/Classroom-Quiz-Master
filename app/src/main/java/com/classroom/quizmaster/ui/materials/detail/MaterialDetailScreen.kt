@@ -104,7 +104,7 @@ fun MaterialDetailScreen(
                 actions = {
                     if (allowShare && material != null) {
                         IconButton(onClick = onShare) {
-                            Icon(imageVector = Icons.Outlined.Share, contentDescription = "Share over LAN")
+                            Icon(imageVector = Icons.Outlined.Share, contentDescription = "Share locally")
                         }
                     }
                 }

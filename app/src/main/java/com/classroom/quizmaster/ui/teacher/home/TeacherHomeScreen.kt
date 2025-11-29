@@ -16,7 +16,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowForward
 import androidx.compose.material.icons.outlined.GroupAdd
-import androidx.compose.material.icons.outlined.PlayArrow
 import androidx.compose.material.icons.outlined.Quiz
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Timeline
@@ -61,7 +60,6 @@ fun TeacherHomeRoute(
     onCreateClassroom: () -> Unit,
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
-    onLiveSessions: (String) -> Unit,
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit,
@@ -84,7 +82,6 @@ fun TeacherHomeRoute(
         onCreateClassroom = onCreateClassroom,
         onCreateQuiz = onCreateQuiz,
         onAssignments = onAssignments,
-        onLiveSessions = onLiveSessions,
         onReports = onReports,
         onClassrooms = onClassrooms,
         onJoinRequests = onJoinRequests,
@@ -106,7 +103,6 @@ fun TeacherHomeScreen(
     onCreateClassroom: () -> Unit,
     onCreateQuiz: (String, String) -> Unit,
     onAssignments: () -> Unit,
-    onLiveSessions: (String) -> Unit,
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit,
@@ -127,9 +123,6 @@ fun TeacherHomeScreen(
         } else {
             onClassrooms()
         }
-    }
-    val liveSessionAction = {
-        defaultClassroomId?.let(onLiveSessions) ?: onClassrooms()
     }
 
     Scaffold(
@@ -226,7 +219,6 @@ fun TeacherHomeScreen(
                 actionCards = state.actionCards,
                 onCreateQuiz = createQuizAction,
                 onAssignments = onAssignments,
-                onLiveSessions = liveSessionAction,
                 onReports = onReports,
                 onClassrooms = onClassrooms,
                 onJoinRequests = onJoinRequests
@@ -395,14 +387,13 @@ private fun ActionCards(
     actionCards: List<HomeActionCard>,
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
-    onLiveSessions: () -> Unit,
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit
 ) {
     Text(text = "Shortcuts", style = MaterialTheme.typography.titleLarge)
-    val filtered = if (FeatureToggles.LIVE_ENABLED) actionCards else actionCards.filterNot { it.id == ACTION_LIVE }
-    val fallback = if (FeatureToggles.LIVE_ENABLED) defaultActionCards else defaultActionCards.filterNot { it.id == ACTION_LIVE }
+    val filtered = actionCards
+    val fallback = defaultActionCards
     val cards = if (filtered.isEmpty()) fallback else filtered
     val groups = listOf(
         "Classes & students" to listOf(ACTION_CLASSROOMS, ACTION_JOIN_REQUESTS),
@@ -420,7 +411,6 @@ private fun ActionCards(
                             card = card,
                             onCreateQuiz = onCreateQuiz,
                             onAssignments = onAssignments,
-                            onLiveSessions = onLiveSessions,
                             onReports = onReports,
                             onClassrooms = onClassrooms,
                             onJoinRequests = onJoinRequests
@@ -442,7 +432,6 @@ private fun resolveAction(
     card: HomeActionCard,
     onCreateQuiz: () -> Unit,
     onAssignments: () -> Unit,
-    onLiveSessions: () -> Unit,
     onReports: () -> Unit,
     onClassrooms: () -> Unit,
     onJoinRequests: () -> Unit
@@ -452,7 +441,6 @@ private fun resolveAction(
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
         ACTION_CLASSROOMS -> onClassrooms
-        ACTION_LIVE -> if (FeatureToggles.LIVE_ENABLED) onLiveSessions else null
         ACTION_JOIN_REQUESTS -> onJoinRequests
         else -> null
     }
@@ -462,7 +450,6 @@ private fun resolveAction(
         ACTION_ASSIGNMENTS -> onAssignments
         ACTION_REPORTS -> onReports
         ACTION_CLASSROOMS -> onClassrooms
-        ACTION_LIVE -> onLiveSessions
         ACTION_JOIN_REQUESTS -> onJoinRequests
         else -> null
     }
@@ -596,7 +583,6 @@ private fun ActionCard(
 private fun iconForAction(actionId: String): ImageVector = when (actionId) {
     ACTION_CREATE_QUIZ -> Icons.Outlined.Quiz
     ACTION_ASSIGNMENTS -> Icons.Outlined.School
-    ACTION_LIVE -> Icons.Outlined.PlayArrow
     ACTION_JOIN_REQUESTS -> Icons.Outlined.GroupAdd
     ACTION_REPORTS -> Icons.Outlined.Timeline
     ACTION_CLASSROOMS -> Icons.AutoMirrored.Outlined.LibraryBooks
@@ -612,7 +598,6 @@ const val ACTION_CREATE_QUIZ = "teacher_home:create_quiz"
 const val ACTION_ASSIGNMENTS = "teacher_home:assignments"
 const val ACTION_REPORTS = "teacher_home:reports"
 const val ACTION_CLASSROOMS = "teacher_home:classrooms"
-const val ACTION_LIVE = "teacher_home:live"
 const val ACTION_JOIN_REQUESTS = "teacher_home:join_requests"
 
 private val defaultActionCards = listOf(
@@ -639,13 +624,6 @@ private val defaultActionCards = listOf(
         ctaLabel = "Open assignments"
     ),
     HomeActionCard(
-        id = ACTION_LIVE,
-        title = "Live sessions",
-        description = "Host LAN-first quiz sessions.",
-        route = ACTION_LIVE,
-        ctaLabel = "Live disabled"
-    ),
-    HomeActionCard(
         id = ACTION_JOIN_REQUESTS,
         title = "Join requests",
         description = "Approve or decline student requests.",
@@ -669,12 +647,9 @@ private fun TeacherHomePreview() {
             state = TeacherHomeUiState(
                 greeting = "Welcome back, Ms. Ramos",
                 teacherName = "Ms. Ramos",
-                connectivityHeadline = "LAN connected | Cloud synced",
+                connectivityHeadline = "All data synced",
                 connectivitySupporting = "Last sync 2 min ago",
-                statusChips = listOf(
-                    StatusChipUi("lan", "LAN", StatusChipType.Lan),
-                    StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)
-                ),
+                statusChips = listOf(StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)),
                 classrooms = listOf(
                     ClassroomOverviewUi(
                         id = "1",
@@ -727,7 +702,6 @@ private fun TeacherHomePreview() {
             onCreateClassroom = {},
             onCreateQuiz = { _: String, _: String -> },
             onAssignments = {},
-            onLiveSessions = {},
             onReports = {},
             onClassrooms = {},
             onJoinRequests = {},

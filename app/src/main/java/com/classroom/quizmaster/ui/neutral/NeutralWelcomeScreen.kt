@@ -57,7 +57,7 @@ fun NeutralWelcomeScreen(
                 modifier = Modifier.fillMaxWidth()
             )
             Text(
-                text = "Host live quizzes over LAN or assign practice sets.",
+                text = "Create classroom quizzes, schedule practice, and review reports.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
@@ -66,7 +66,7 @@ fun NeutralWelcomeScreen(
         }
 
         Column(
-            verticalArrangement = Arrangement.spacedBy(4.dp),
+            verticalArrangement = Arrangement.spacedBy(8.dp),
             modifier = Modifier.fillMaxWidth()
         ) {
             PrimaryButton(
@@ -74,17 +74,20 @@ fun NeutralWelcomeScreen(
                 onClick = onLogin,
                 modifier = Modifier.fillMaxWidth()
             )
+            TextButton(
+                onClick = onOfflineDemo,
+                enabled = !isOfflineDemoLoading,
+                modifier = Modifier.align(Alignment.CenterHorizontally)
+            ) {
+                Text(if (isOfflineDemoLoading) "Preparing demo..." else "Explore offline demo")
+            }
             Text(
-                text = "Sign in to create quizzes, launch LAN sessions, and join classroom games.",
+                text = "Try the app with sample data. Progress won't be saved.",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.onSurfaceVariant,
                 textAlign = TextAlign.Center,
                 modifier = Modifier.fillMaxWidth()
             )
-        }
-
-        TextButton(onClick = onOfflineDemo, enabled = !isOfflineDemoLoading) {
-            Text(if (isOfflineDemoLoading) "Preparing demo..." else "Explore offline demo")
         }
     }
 }

@@ -192,7 +192,7 @@ class TeacherMaterialsViewModel @Inject constructor(
             runCatching { learningMaterialRepository.shareSnapshotForClassroom(classroomId) }
                 .onSuccess { _events.emit("Shared materials with nearby students") }
                 .onFailure { err ->
-                    _events.emit(err.message ?: "Unable to share materials over LAN")
+                    _events.emit(err.message ?: "Unable to share materials right now.")
                 }
         }
     }

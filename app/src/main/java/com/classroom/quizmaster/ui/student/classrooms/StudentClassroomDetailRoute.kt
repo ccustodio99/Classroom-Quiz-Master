@@ -326,12 +326,12 @@ private fun InfoBanner() {
             )
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 Text(
-                    text = "Ready to join a live quiz?",
+                    text = "Ready to join a quiz?",
                     style = MaterialTheme.typography.bodyLarge,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )
                 Text(
-                    text = "Connect over LAN or enter a code in the Join tab.",
+                    text = "Enter the join code from your teacher in the Join tab.",
                     style = MaterialTheme.typography.bodyMedium,
                     color = MaterialTheme.colorScheme.onSecondaryContainer
                 )

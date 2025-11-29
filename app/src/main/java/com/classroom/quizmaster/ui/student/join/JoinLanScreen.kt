@@ -145,7 +145,7 @@ fun JoinLanScreen(
         modifier = Modifier.fillMaxSize(),
         topBar = {
             SimpleTopBar(
-                title = "Join a live quiz",
+                title = "Join a quiz",
                 actions = {
                     IconButton(onClick = onDiscover, enabled = !state.isDiscovering) {
                         Icon(
@@ -287,7 +287,7 @@ fun JoinLanScreen(
                             },
                             supportingContent = {
                                 Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                                    Text("Join code • ${service.joinCode.ifBlank { "LAN" }}")
+                                    Text("Join code • ${service.joinCode.ifBlank { "LOCAL" }}")
                                     Text("${service.host}:${service.port}")
                                 }
                             },

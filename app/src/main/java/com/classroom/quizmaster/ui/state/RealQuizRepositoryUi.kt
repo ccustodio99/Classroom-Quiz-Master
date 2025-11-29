@@ -22,7 +22,6 @@ import com.classroom.quizmaster.ui.teacher.home.ACTION_ASSIGNMENTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CREATE_QUIZ
 import com.classroom.quizmaster.ui.teacher.home.ACTION_REPORTS
 import com.classroom.quizmaster.ui.teacher.home.ACTION_CLASSROOMS
-import com.classroom.quizmaster.ui.teacher.home.ACTION_LIVE
 import com.classroom.quizmaster.ui.teacher.home.ACTION_JOIN_REQUESTS
 import com.classroom.quizmaster.ui.teacher.home.ClassroomOverviewUi
 import com.classroom.quizmaster.ui.teacher.home.HomeActionCard
@@ -413,13 +412,6 @@ class RealQuizRepositoryUi @Inject constructor(
             description = "Schedule asynchronous practice.",
             route = ACTION_ASSIGNMENTS,
             ctaLabel = "Manage"
-        ),
-        HomeActionCard(
-            id = ACTION_LIVE,
-            title = "Live sessions",
-            description = "Host LAN-first quiz sessions.",
-            route = ACTION_LIVE,
-            ctaLabel = "Launch"
         ),
         HomeActionCard(
             id = ACTION_JOIN_REQUESTS,

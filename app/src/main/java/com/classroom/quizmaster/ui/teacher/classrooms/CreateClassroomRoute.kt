@@ -75,7 +75,7 @@ fun CreateClassroomScreen(
             style = MaterialTheme.typography.headlineMedium
         )
         Text(
-            text = "Classrooms group topics, quizzes, live sessions, and assignments.",
+            text = "Classrooms group topics, quizzes, and assignments.",
             style = MaterialTheme.typography.bodyMedium,
             color = MaterialTheme.colorScheme.onSurfaceVariant
         )

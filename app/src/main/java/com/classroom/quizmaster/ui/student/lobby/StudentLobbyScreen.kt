@@ -176,10 +176,10 @@ private fun PlayerCard(player: PlayerLobbyUi) {
 }
 
 private fun connectionLabel(quality: ConnectionQuality): String = when (quality) {
-    ConnectionQuality.Excellent -> "LAN excellent"
-    ConnectionQuality.Good -> "LAN good"
-    ConnectionQuality.Fair -> "LAN fair"
-    ConnectionQuality.Weak -> "LAN weak"
+    ConnectionQuality.Excellent -> "Connection excellent"
+    ConnectionQuality.Good -> "Connection good"
+    ConnectionQuality.Fair -> "Connection fair"
+    ConnectionQuality.Weak -> "Connection weak"
     ConnectionQuality.Offline -> "Offline"
 }
 
@@ -191,7 +191,7 @@ private fun StudentLobbyPreview() {
             state = StudentLobbyUiState(
                 studentId = "demo-student",
                 hostName = "Ms. Navarro",
-                joinCode = "SCILAN",
+                joinCode = "SCI123",
                 joinStatus = "Waiting for host",
                 players = listOf(
                     PlayerLobbyUi("1", "Nova", AvatarOption("1", "N", emptyList(), "spark"), true, "You"),

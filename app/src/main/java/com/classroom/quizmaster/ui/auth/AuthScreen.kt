@@ -123,15 +123,15 @@ fun AuthScreen(
     onForgotPassword: () -> Unit
 ) {
     var teacherTab by rememberSaveable { mutableStateOf(TeacherAuthTab.SignIn) }
+    val scrollState = rememberScrollState()
 
     Column(
         modifier = Modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(horizontal = 16.dp, vertical = 24.dp),
+        .fillMaxSize()
+        .verticalScroll(scrollState)
+        .padding(horizontal = 16.dp, vertical = 24.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp)
     ) {
-        HeroSection()
         if (state.isOffline) {
             StatusMessageCard(
                 message = stringResource(id = R.string.auth_offline_message),
@@ -169,21 +169,6 @@ fun AuthScreen(
         onSignupBack = onSignupBack
     )
 }
-}
-
-@Composable
-private fun HeroSection() {
-    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        Text(
-            text = stringResource(id = R.string.app_name),
-            style = MaterialTheme.typography.displaySmall
-        )
-        Text(
-            text = stringResource(R.string.auth_hero_body),
-            style = MaterialTheme.typography.bodyLarge,
-            color = MaterialTheme.colorScheme.onSurfaceVariant
-        )
-    }
 }
 
 @Composable
@@ -365,11 +350,14 @@ private fun TeacherSignInForm(
                 !state.loading,
             isLoading = state.loading
         )
-        TextButton(onClick = onDemo) {
-            Text(text = stringResource(R.string.auth_demo))
-        }
         TextButton(onClick = onForgotPassword) {
             Text(text = "Forgot password?")
+        }
+        TextButton(
+            onClick = onDemo,
+            enabled = !state.loading
+        ) {
+            Text(text = if (state.loading) "Preparing demo..." else "Explore offline demo")
         }
     }
 }

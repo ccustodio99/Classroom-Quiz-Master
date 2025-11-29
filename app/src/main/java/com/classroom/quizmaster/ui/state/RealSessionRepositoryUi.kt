@@ -13,6 +13,7 @@ import com.classroom.quizmaster.domain.usecase.StartSessionUseCase
 import com.classroom.quizmaster.domain.usecase.SubmitAnswerUseCase
 import com.classroom.quizmaster.data.lan.LanDiscoveryEvent
 import com.classroom.quizmaster.data.lan.LanServiceDescriptor
+import com.classroom.quizmaster.config.FeatureToggles
 import com.classroom.quizmaster.ui.model.AnswerOptionUi
 import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.model.LeaderboardRowUi
@@ -631,9 +632,10 @@ class RealSessionRepositoryUi @Inject constructor(
     }
 
     private fun buildStatusChips(pendingOps: Int, offline: Boolean): List<StatusChipUi> {
-        val chips = mutableListOf(
-            StatusChipUi("lan", "LAN", StatusChipType.Lan)
-        )
+        val chips = mutableListOf<StatusChipUi>()
+        if (FeatureToggles.LIVE_ENABLED) {
+            chips += StatusChipUi("local", "Local network", StatusChipType.Lan)
+        }
         if (offline) {
             chips += StatusChipUi("offline", "Offline-first", StatusChipType.Offline)
             if (pendingOps > 0) {

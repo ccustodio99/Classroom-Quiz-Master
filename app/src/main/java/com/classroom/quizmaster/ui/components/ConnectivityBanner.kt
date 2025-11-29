@@ -89,10 +89,9 @@ private fun StatusIndicator(chip: StatusChipUi) {
 private fun ConnectivityBannerPreview() {
     QuizMasterTheme {
         ConnectivityBanner(
-            headline = "LAN connected | Cloud syncing",
+            headline = "All data synced",
             supportingText = "Quiz draft saved locally. Cloud retry scheduled in 2 min.",
             statusChips = listOf(
-                StatusChipUi("lan", "LAN", StatusChipType.Lan),
                 StatusChipUi("cloud", "Cloud", StatusChipType.Cloud),
                 StatusChipUi("offline", "Offline-ready", StatusChipType.Offline)
             )

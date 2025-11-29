@@ -237,9 +237,6 @@ fun AppNav(
                         navController.navigate(AppRoute.TeacherQuizCreate.build(classroomId, topicId))
                     },
                     onAssignments = { navController.navigate(AppRoute.TeacherAssignments.route) },
-                    onLiveSessions = { classId ->
-                        navController.navigate(AppRoute.TeacherLaunch.build(classId))
-                    },
                     onReports = { navController.navigate(AppRoute.TeacherReports.route) },
                     onClassrooms = { navController.navigate(AppRoute.TeacherClassrooms.route) },
                     onJoinRequests = { navController.navigate(AppRoute.TeacherJoinRequests.route) },

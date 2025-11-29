@@ -38,8 +38,8 @@
     <string name="auth_password_show">Show password</string>
     <string name="auth_password_hide">Hide password</string>
     <string name="auth_banner_title">Welcome to Classroom Quiz Master</string>
-    <string name="auth_banner_body">Teachers create &amp; host quizzes. Students join with a code or over LAN.</string>
-    <string name="auth_hero_body">Manage quizzes, launch live sessions, and sync reports across your classrooms.</string>
+    <string name="auth_banner_body">Create quizzes, schedule practice, and review class progress.</string>
+    <string name="auth_hero_body">Create classroom quizzes, assign practice, and review reports.</string>
     <string name="auth_teacher_section_title">Teacher or student</string>
     <string name="auth_teacher_section_subtitle">Sign in or create an account to host or join quizzes.</string>
     <string name="auth_teacher_tab_sign_in">Sign in</string>
@@ -84,7 +84,7 @@
     <string name="teacher_home_title">Teacher home</string>
     <string name="teacher_home_create_quiz">Create quiz</string>
     <string name="teacher_home_manage_quizzes">Manage quizzes</string>
-    <string name="teacher_home_launch_live">Launch live session</string>
+    <string name="teacher_home_launch_live">Launch session</string>
     <string name="teacher_home_view_reports">Reports</string>
     <string name="teacher_home_assignments">Assignments</string>
     <string name="teacher_home_sync_status">Pending sync items: %1$d</string>
@@ -161,7 +161,7 @@
 
     <!-- Reports -->
     <string name="reports_title">Reports</string>
-    <string name="reports_empty">Run a live session to generate reports.</string>
+    <string name="reports_empty">Run a quiz to generate reports.</string>
     <string name="reports_export_csv">Export CSV</string>
     <string name="reports_export_pdf">Export PDF summary</string>
     <string name="reports_share_insight">Share insight</string>

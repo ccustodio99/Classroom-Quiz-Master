@@ -427,7 +427,7 @@ private fun LiveTab(onLaunchLive: () -> Unit) {
         ) {
             Text("Live sessions", style = MaterialTheme.typography.titleLarge)
             Text(
-                text = "Host a LAN-first quiz session. Students join over local Wi-Fi with the session code.",
+                text = "Live hosting is temporarily unavailable.",
                 style = MaterialTheme.typography.bodyMedium,
                 color = MaterialTheme.colorScheme.onSurfaceVariant
             )

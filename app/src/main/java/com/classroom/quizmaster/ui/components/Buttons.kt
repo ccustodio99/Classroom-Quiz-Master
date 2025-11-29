@@ -276,11 +276,11 @@ private fun ButtonsPreview() {
             GhostButton(text = "Skip for now", onClick = {})
             SegmentedControl(
                 options = listOf(
-                    SegmentOption("lan", "LAN", "Nearby"),
+                    SegmentOption("code", "Join code", "In class"),
                     SegmentOption("cloud", "Cloud", "Online"),
                     SegmentOption("offline", "Offline")
                 ),
-                selectedId = "lan",
+                selectedId = "code",
                 onSelected = {}
             )
             ToggleChip(
@@ -289,7 +289,7 @@ private fun ButtonsPreview() {
                 onCheckedChange = {},
                 description = "Prevent late participants from joining mid-game"
             )
-            TagChip(text = "LAN connected", leadingIcon = {
+            TagChip(text = "Sync ready", leadingIcon = {
                 Icon(Icons.Default.Check, contentDescription = null, tint = MaterialTheme.colorScheme.onSecondaryContainer)
             })
         }

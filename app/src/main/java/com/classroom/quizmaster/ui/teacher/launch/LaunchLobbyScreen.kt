@@ -90,7 +90,7 @@ fun LaunchLobbyScreen(
     val headline = if (state.joinCode == "----" && state.qrPayload.isBlank()) {
         "Prepare lobby"
     } else {
-        "LAN lobby ready"
+        "Lobby ready"
     }
     val supporting = when {
         blockingMessage != null -> blockingMessage
@@ -290,7 +290,7 @@ private fun LaunchLobbyPreview() {
                 qrPayload = "ws://192.168.0.10:48765/ws?token=demo",
                 discoveredPeers = 6,
                 statusChips = listOf(
-                    StatusChipUi("lan", "LAN", StatusChipType.Lan),
+                    StatusChipUi("local", "Local network", StatusChipType.Lan),
                     StatusChipUi("cloud", "Cloud", StatusChipType.Cloud)
                 ),
                 players = listOf(

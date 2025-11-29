@@ -83,7 +83,7 @@ fun HostLiveScreen(
                     Text(
                         text = buildString {
                             if (state.lanEndpoint.isNotBlank()) append(state.lanEndpoint)
-                            else append("LAN starting...")
+                            else append("Starting...")
                         },
                         style = MaterialTheme.typography.bodySmall
                     )
