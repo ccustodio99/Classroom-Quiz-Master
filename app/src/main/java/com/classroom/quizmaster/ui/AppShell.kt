@@ -7,12 +7,19 @@ import androidx.compose.animation.fadeOut
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.WindowInsetsSides
+import androidx.compose.foundation.layout.only
+import androidx.compose.foundation.layout.systemBars
+import androidx.compose.foundation.layout.windowInsetsPadding
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.outlined.Groups
@@ -88,29 +95,42 @@ fun QuizMasterRootScaffold(
             }
         }
     ) { padding ->
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .padding(padding)
-        ) {
-            AnimatedVisibility(
-                visible = appState.connectivityBannerState is ConnectivityBannerState.Visible,
-                enter = fadeIn() + expandVertically(),
-                exit = fadeOut() + shrinkVertically()
+        BoxWithConstraints {
+            val horizontalInsets = WindowInsets.systemBars.only(WindowInsetsSides.Horizontal)
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .padding(padding)
+                    .windowInsetsPadding(horizontalInsets)
             ) {
-                val banner = appState.connectivityBannerState
-                if (banner is ConnectivityBannerState.Visible) {
-                    ConnectivityBanner(
-                        headline = banner.headline,
-                        supportingText = banner.supportingText,
-                        statusChips = banner.statusChips,
-                        modifier = Modifier
-                            .padding(horizontal = 16.dp, vertical = 12.dp)
+                AnimatedVisibility(
+                    visible = appState.connectivityBannerState is ConnectivityBannerState.Visible,
+                    enter = fadeIn() + expandVertically(),
+                    exit = fadeOut() + shrinkVertically()
+                ) {
+                    val banner = appState.connectivityBannerState
+                    if (banner is ConnectivityBannerState.Visible) {
+                        ConnectivityBanner(
+                            headline = banner.headline,
+                            supportingText = banner.supportingText,
+                            statusChips = banner.statusChips,
+                            modifier = Modifier
+                                .padding(horizontal = 16.dp, vertical = 12.dp)
+                        )
+                    }
+                }
+                Box(
+                    modifier = Modifier
+                        .fillMaxSize()
+                        .widthIn(max = 900.dp)
+                        .align(Alignment.CenterHorizontally)
+                ) {
+                    content(
+                        Modifier
+                            .fillMaxSize()
+                            .windowInsetsPadding(WindowInsets.systemBars.only(WindowInsetsSides.Bottom))
                     )
                 }
-            }
-            Box(modifier = Modifier.fillMaxSize()) {
-                content(Modifier.fillMaxSize())
             }
         }
     }

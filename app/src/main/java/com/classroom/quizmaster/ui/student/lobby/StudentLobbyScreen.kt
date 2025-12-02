@@ -3,12 +3,12 @@ package com.classroom.quizmaster.ui.student.lobby
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.aspectRatio
 import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.width
-import androidx.compose.foundation.lazy.LazyRow
-import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -18,6 +18,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.hilt.navigation.compose.hiltViewModel
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
@@ -129,12 +130,30 @@ fun StudentLobbyScreen(
             }
         }
         Text("Players", style = MaterialTheme.typography.titleMedium)
-        if (state.players.isEmpty()) {
-            Text("Waiting for classmates to join", style = MaterialTheme.typography.bodyMedium)
-        } else {
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(state.players, key = { it.id }) { player ->
-                    PlayerCard(player)
+        BoxWithConstraints {
+            val isCompact = maxWidth < 480.dp
+            if (state.players.isEmpty()) {
+                Text("Waiting for classmates to join", style = MaterialTheme.typography.bodyMedium)
+            } else {
+                val columns = when {
+                    maxWidth < 400.dp -> 1
+                    maxWidth < 640.dp -> 2
+                    else -> 3
+                }
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(columns),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    items(state.players, key = { it.id }) { player ->
+                        PlayerCard(
+                            player = player,
+                            modifier = Modifier
+                                .fillMaxWidth()
+                                .aspectRatio(if (isCompact) 4f / 3f else 3f / 2f)
+                        )
+                    }
                 }
             }
         }
@@ -154,11 +173,12 @@ fun StudentLobbyScreen(
 }
 
 @Composable
-private fun PlayerCard(player: PlayerLobbyUi) {
+private fun PlayerCard(
+    player: PlayerLobbyUi,
+    modifier: Modifier = Modifier
+) {
     Surface(
-        modifier = Modifier
-            .height(120.dp)
-            .width(160.dp),
+        modifier = modifier,
         tonalElevation = if (player.ready) 6.dp else 2.dp,
         shape = MaterialTheme.shapes.large
     ) {

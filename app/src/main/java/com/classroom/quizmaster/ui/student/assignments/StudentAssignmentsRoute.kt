@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material3.Card
@@ -100,7 +102,8 @@ private fun RowFilters(
     onSelected: (StudentAssignmentFilter) -> Unit
 ) {
     androidx.compose.foundation.layout.Row(
-        horizontalArrangement = Arrangement.spacedBy(12.dp)
+        horizontalArrangement = Arrangement.spacedBy(12.dp),
+        modifier = Modifier.horizontalScroll(rememberScrollState())
     ) {
         StudentAssignmentFilter.values().forEach { filter ->
             val isSelected = selected == filter
@@ -137,7 +140,7 @@ private fun AssignmentCard(assignment: AssignmentCardUi, onClick: () -> Unit) {
             Text(assignment.title, style = MaterialTheme.typography.bodyLarge, maxLines = 1, overflow = TextOverflow.Ellipsis)
             Text(assignment.dueIn, style = MaterialTheme.typography.bodyMedium, color = MaterialTheme.colorScheme.onSurfaceVariant)
             Text(
-                text = "${assignment.submissions} submissions • ${assignment.statusLabel}",
+                text = "${assignment.submissions} submissions - ${assignment.statusLabel}",
                 style = MaterialTheme.typography.bodySmall,
                 color = MaterialTheme.colorScheme.primary
             )

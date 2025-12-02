@@ -3,12 +3,16 @@ package com.classroom.quizmaster.ui.teacher.quiz_editor
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
+import androidx.compose.foundation.lazy.LazyRow
+import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.ArrowDownward
 import androidx.compose.material.icons.filled.ArrowUpward
@@ -17,7 +21,7 @@ import androidx.compose.material.icons.outlined.Info
 import androidx.compose.material.icons.outlined.Schedule
 import androidx.compose.material.icons.outlined.School
 import androidx.compose.material.icons.outlined.Topic
-import androidx.compose.material.icons.outlined.ViewList
+import androidx.compose.material.icons.automirrored.outlined.ViewList
 import androidx.compose.material.icons.outlined.ToggleOn
 import androidx.compose.material3.FilterChip
 import androidx.compose.material3.Icon
@@ -468,20 +472,22 @@ private fun AnswerRow(
 private fun AddQuestionRow(onAddQuestion: (QuestionTypeUi) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         SectionHeader(text = "Add question", helper = "Mix question types to balance rigor")
-        Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-            QuestionTypeUi.values()
-                .filterNot { it == QuestionTypeUi.Match }
-                .forEach { type ->
+        val questionTypes = QuestionTypeUi.values().filterNot { it == QuestionTypeUi.Match }
+        LazyRow(
+            horizontalArrangement = Arrangement.spacedBy(12.dp),
+            contentPadding = PaddingValues(horizontal = 4.dp)
+        ) {
+            items(questionTypes, key = { it.name }) { type ->
                 QuestionTypeCard(
                     type = type,
                     icon = when (type) {
-                        QuestionTypeUi.MultipleChoice -> Icons.Outlined.ViewList
+                        QuestionTypeUi.MultipleChoice -> Icons.AutoMirrored.Outlined.ViewList
                         QuestionTypeUi.TrueFalse -> Icons.Outlined.ToggleOn
-                        QuestionTypeUi.FillIn -> Icons.Outlined.ViewList
-                        else -> Icons.Outlined.ViewList
+                        QuestionTypeUi.FillIn -> Icons.AutoMirrored.Outlined.ViewList
+                        else -> Icons.AutoMirrored.Outlined.ViewList
                     },
                     onClick = { onAddQuestion(type) },
-                    modifier = Modifier.weight(1f)
+                    modifier = Modifier.width(220.dp)
                 )
             }
         }

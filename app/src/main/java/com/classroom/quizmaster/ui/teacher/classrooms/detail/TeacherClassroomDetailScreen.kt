@@ -10,10 +10,12 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.Tab
-import androidx.compose.material.TabRow
+import androidx.compose.material.ScrollableTabRow
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.outlined.ArrowBack
 import androidx.compose.material.icons.filled.ContentCopy
@@ -156,7 +158,8 @@ fun TeacherClassroomDetailScreen(
                     modifier = Modifier
                         .fillMaxWidth()
                         .height(56.dp)
-                        .padding(horizontal = 12.dp),
+                        .padding(horizontal = 12.dp)
+                        .statusBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.spacedBy(8.dp)
                 ) {
@@ -198,7 +201,7 @@ fun TeacherClassroomDetailScreen(
     if (!FeatureToggles.LIVE_ENABLED && selectedTab == ClassroomDetailTab.Live) {
         selectedTab = availableTabs.firstOrNull() ?: ClassroomDetailTab.Students
     }
-    TabRow(selectedTabIndex = availableTabs.indexOf(selectedTab).coerceAtLeast(0)) {
+    ScrollableTabRow(selectedTabIndex = availableTabs.indexOf(selectedTab).coerceAtLeast(0)) {
         availableTabs.forEach { tab ->
             Tab(
                 selected = tab == selectedTab,
@@ -277,7 +280,8 @@ private fun HeaderSection(
     Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
         Row(
             horizontalArrangement = Arrangement.spacedBy(8.dp),
-            verticalAlignment = Alignment.CenterVertically
+            verticalAlignment = Alignment.CenterVertically,
+            modifier = Modifier.horizontalScroll(rememberScrollState())
         ) {
             TagChip(text = if (state.isArchived) "Archived" else "Active")
             TagChip(text = "Students: ${state.studentCount}")

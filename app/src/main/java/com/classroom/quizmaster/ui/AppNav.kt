@@ -117,8 +117,15 @@ sealed class AppRoute(val route: String) {
         fun build(assignmentId: String) = "teacher/assignments/$assignmentId/edit"
     }
     data object TeacherArchived : AppRoute("teacher/classrooms/archived")
-    data object TeacherMaterialCreate : AppRoute("teacher/classrooms/{classroomId}/materials/create") {
-        fun build(classroomId: String) = "teacher/classrooms/$classroomId/materials/create"
+    data object TeacherMaterialCreate : AppRoute("teacher/classrooms/{classroomId}/materials/create?topicId={topicId}") {
+        fun build(classroomId: String, topicId: String? = null): String {
+            val resolvedTopic = topicId?.takeIf { it.isNotBlank() }
+            return if (resolvedTopic != null) {
+                "teacher/classrooms/$classroomId/materials/create?topicId=$resolvedTopic"
+            } else {
+                "teacher/classrooms/$classroomId/materials/create"
+            }
+        }
     }
     data object TeacherMaterialEdit : AppRoute("teacher/materials/{materialId}/edit") {
         fun build(materialId: String) = "teacher/materials/$materialId/edit"
@@ -378,7 +385,7 @@ fun AppNav(
                             navController.navigate(AppRoute.TeacherAssignmentEdit.build(assignmentId))
                         },
                         onCreateMaterial = { classId, topicIdArg ->
-                            navController.navigate(AppRoute.TeacherMaterialCreate.build(classId))
+                            navController.navigate(AppRoute.TeacherMaterialCreate.build(classId, topicIdArg))
                         },
                         onOpenMaterial = { materialId ->
                             navController.navigate(AppRoute.TeacherMaterialEdit.build(materialId))
@@ -525,7 +532,10 @@ fun AppNav(
             }
             composable(
                 route = AppRoute.TeacherMaterialCreate.route,
-                arguments = listOf(navArgument("classroomId") { type = NavType.StringType })
+                arguments = listOf(
+                    navArgument("classroomId") { type = NavType.StringType },
+                    navArgument("topicId") { type = NavType.StringType; defaultValue = "" }
+                )
             ) { entry ->
                 val classroomId = entry.arguments?.getString("classroomId").orEmpty()
                 if (classroomId.isBlank()) {

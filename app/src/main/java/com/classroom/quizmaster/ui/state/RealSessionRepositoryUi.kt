@@ -146,6 +146,7 @@ class RealSessionRepositoryUi @Inject constructor(
             if (message.isNullOrBlank()) base else base.copy(snackbarMessage = message)
         }
             .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, LaunchLobbyUiState())
 
     override val hostState: Flow<HostLiveUiState> =
         combine(sessionState, quizzesState, participantsState, muteSfx) { session, quizzes, participants, muted ->
@@ -180,6 +181,7 @@ class RealSessionRepositoryUi @Inject constructor(
             }
         }
             .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, HostLiveUiState())
 
     override val studentEntry: Flow<StudentEntryUiState> = entryState.asStateFlow()
 
@@ -225,6 +227,7 @@ class RealSessionRepositoryUi @Inject constructor(
             }
         }
             .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, StudentLobbyUiState())
 
     override val studentPlay: Flow<StudentPlayUiState> =
         combine(sessionState, quizzesState, participantsState, authState, pendingOps) { session, quizzes, participants, auth, pending ->
@@ -266,6 +269,7 @@ class RealSessionRepositoryUi @Inject constructor(
             }
         }
             .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, StudentPlayUiState())
 
     override val studentEnd: Flow<StudentEndUiState> =
         combine(sessionState, participantsState, authState) { session, participants, auth ->
@@ -300,6 +304,7 @@ class RealSessionRepositoryUi @Inject constructor(
             }
         }
             .distinctUntilChanged()
+            .stateIn(scope, SharingStarted.Eagerly, StudentEndUiState())
 
     override val avatarOptions: Flow<List<AvatarOption>> = flowOf(defaultAvatarOptions)
 

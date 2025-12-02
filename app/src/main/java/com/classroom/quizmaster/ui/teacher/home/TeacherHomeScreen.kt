@@ -3,6 +3,7 @@ package com.classroom.quizmaster.ui.teacher.home
 import android.widget.Toast
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
@@ -11,6 +12,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
@@ -29,6 +32,7 @@ import androidx.compose.material3.IconButton
 import androidx.compose.material3.Scaffold
 import androidx.compose.material3.DropdownMenu
 import androidx.compose.material3.DropdownMenuItem
+import androidx.compose.material3.TextButton
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
@@ -135,8 +139,8 @@ fun TeacherHomeScreen(
                 Row(
                     modifier = Modifier
                         .fillMaxWidth()
-                        .height(56.dp)
-                        .padding(horizontal = 16.dp),
+                        .padding(horizontal = 16.dp)
+                        .statusBarsPadding(),
                     verticalAlignment = Alignment.CenterVertically,
                     horizontalArrangement = Arrangement.SpaceBetween
                 ) {
@@ -178,70 +182,76 @@ fun TeacherHomeScreen(
             }
         }
     ) { paddingValues ->
-        Column(
+        BoxWithConstraints(
             modifier = Modifier
                 .fillMaxSize()
-                .verticalScroll(rememberScrollState())
                 .padding(paddingValues)
-                .padding(horizontal = 16.dp, vertical = 8.dp),
-            verticalArrangement = Arrangement.spacedBy(16.dp)
         ) {
-            Text(text = state.greeting, style = MaterialTheme.typography.headlineLarge)
-            if (state.teacherName.isNotBlank()) {
-                Text(
-                    text = state.teacherName,
-                    style = MaterialTheme.typography.titleMedium,
-                    color = MaterialTheme.colorScheme.onSurfaceVariant
-                )
-            }
-            if (
-                state.connectivityHeadline.isNotBlank() ||
-                    state.connectivitySupporting.isNotBlank() ||
-                    state.statusChips.isNotEmpty()
+            Column(
+                modifier = Modifier
+                    .align(Alignment.TopCenter)
+                    .widthIn(max = 1000.dp)
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 8.dp),
+                verticalArrangement = Arrangement.spacedBy(16.dp)
             ) {
-                ConnectivityBanner(
-                    headline = state.connectivityHeadline,
-                    supportingText = state.connectivitySupporting,
-                    statusChips = state.statusChips
+                Text(text = state.greeting, style = MaterialTheme.typography.headlineLarge)
+                if (state.teacherName.isNotBlank()) {
+                    Text(
+                        text = state.teacherName,
+                        style = MaterialTheme.typography.titleMedium,
+                        color = MaterialTheme.colorScheme.onSurfaceVariant
+                    )
+                }
+                if (
+                    state.connectivityHeadline.isNotBlank() ||
+                        state.connectivitySupporting.isNotBlank() ||
+                        state.statusChips.isNotEmpty()
+                ) {
+                    ConnectivityBanner(
+                        headline = state.connectivityHeadline,
+                        supportingText = state.connectivitySupporting,
+                        statusChips = state.statusChips
+                    )
+                }
+                if (state.isOfflineDemo) {
+                    TagChip(text = "Offline demo activated")
+                }
+                ClassroomsSection(
+                    classrooms = state.classrooms,
+                    onCreateClassroom = onCreateClassroom,
+                    onViewArchived = onViewArchived,
+                    onClassroomSelected = onClassroomSelected,
+                    onJoinRequests = onJoinRequests
                 )
-            }
-            if (state.isOfflineDemo) {
-                TagChip(text = "Offline demo activated")
-            }
-            ClassroomsSection(
-                classrooms = state.classrooms,
-                onCreateClassroom = onCreateClassroom,
-                onViewArchived = onViewArchived,
-                onClassroomSelected = onClassroomSelected,
-                onJoinRequests = onJoinRequests
-            )
-            ActionCards(
-                actionCards = state.actionCards,
-                onCreateQuiz = createQuizAction,
-                onAssignments = onAssignments,
-                onReports = onReports,
-                onClassrooms = onClassrooms,
-                onJoinRequests = onJoinRequests
-            )
-            RecentQuizzesSection(
-                quizzes = state.recentQuizzes,
-                hasTopics = hasTopics,
-                canCreateQuiz = canCreateQuiz,
-                onCreateQuiz = if (hasTopics) createQuizAction else onCreateClassroom,
-                emptyMessage = state.emptyMessage
-            )
-            if (state.showSampleDataCard) {
-                SampleDataCard(
-                    canSeed = state.canSeedSampleData,
-                    canClear = state.canClearSampleData,
-                    isSeeding = state.isSeedingSamples,
-                    isClearing = state.isClearingSamples,
-                    message = state.sampleSeedMessage,
-                    onSeed = onSeedSampleData,
-                    onClear = onClearSampleData
+                ActionCards(
+                    actionCards = state.actionCards,
+                    onCreateQuiz = createQuizAction,
+                    onAssignments = onAssignments,
+                    onReports = onReports,
+                    onClassrooms = onClassrooms,
+                    onJoinRequests = onJoinRequests
                 )
+                RecentQuizzesSection(
+                    quizzes = state.recentQuizzes,
+                    hasTopics = hasTopics,
+                    canCreateQuiz = canCreateQuiz,
+                    onCreateQuiz = if (hasTopics) createQuizAction else onCreateClassroom,
+                    emptyMessage = state.emptyMessage
+                )
+                if (state.showSampleDataCard) {
+                    SampleDataCard(
+                        canSeed = state.canSeedSampleData,
+                        canClear = state.canClearSampleData,
+                        isSeeding = state.isSeedingSamples,
+                        isClearing = state.isClearingSamples,
+                        message = state.sampleSeedMessage,
+                        onSeed = onSeedSampleData,
+                        onClear = onClearSampleData
+                    )
+                }
+                Spacer(modifier = Modifier.height(32.dp))
             }
-            Spacer(modifier = Modifier.height(32.dp))
         }
     }
 }
@@ -261,20 +271,13 @@ private fun ClassroomsSection(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Text(text = "Classrooms", style = MaterialTheme.typography.titleLarge)
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(
-                    text = "Join requests",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier
-                        .clickable { onJoinRequests() }
-                )
-                Text(
-                    text = "Archived",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.clickable { onViewArchived() }
-                )
+            Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                TextButton(onClick = onJoinRequests) {
+                    Text("Join requests")
+                }
+                TextButton(onClick = onViewArchived) {
+                    Text("Archived")
+                }
             }
         }
         PrimaryButton(

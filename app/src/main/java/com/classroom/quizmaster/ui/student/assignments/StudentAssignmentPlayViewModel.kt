@@ -25,6 +25,7 @@ data class AssignmentPlayUiState(
     val index: Int = 0,
     val total: Int = 0,
     val selected: Set<String> = emptySet(),
+    val freeResponse: String = "",
     val finished: Boolean = false,
     val score: Int = 0,
     val error: String? = null,
@@ -43,6 +44,7 @@ class StudentAssignmentPlayViewModel @Inject constructor(
     private val assignmentId: String = savedStateHandle["assignmentId"] ?: ""
     private val currentIndex = MutableStateFlow(0)
     private val selected = MutableStateFlow<Set<String>>(emptySet())
+    private val freeResponse = MutableStateFlow("")
     private val finished = MutableStateFlow(false)
     private val score = MutableStateFlow(0)
     private val error = MutableStateFlow<String?>(null)
@@ -55,13 +57,26 @@ class StudentAssignmentPlayViewModel @Inject constructor(
         }
 
     val uiState: StateFlow<AssignmentPlayUiState> =
-        combine(quizFlow, currentIndex, selected, finished, score, error) { values ->
+        combine(
+            quizFlow,
+            currentIndex,
+            selected,
+            freeResponse,
+            finished,
+            score,
+            error
+        ) { values ->
+            @Suppress("UNCHECKED_CAST")
             val questions = values[0] as List<Question>
             val idx = values[1] as Int
-            val selectedChoices = values[2] as Set<String>
-            val done = values[3] as Boolean
-            val points = values[4] as Int
-            val err = values[5] as String?
+            val selectedChoices = when (val raw = values[2]) {
+                is Set<*> -> raw.filterIsInstance<String>().toSet()
+                else -> emptySet()
+            }
+            val freeText = values[3] as String
+            val done = values[4] as Boolean
+            val points = values[5] as Int
+            val err = values[6] as String?
             val safeIndex = idx.coerceIn(0, (questions.size - 1).coerceAtLeast(0))
             AssignmentPlayUiState(
                 assignmentId = assignmentId,
@@ -69,6 +84,7 @@ class StudentAssignmentPlayViewModel @Inject constructor(
                 index = safeIndex + 1,
                 total = questions.size,
                 selected = selectedChoices,
+                freeResponse = freeText,
                 finished = done,
                 score = points,
                 error = err,
@@ -81,6 +97,8 @@ class StudentAssignmentPlayViewModel @Inject constructor(
         )
 
     fun toggleChoice(choice: String) {
+        val question = uiState.value.question
+        if (question?.type == QuestionType.FILL_IN) return
         selected.value = if (selected.value.contains(choice)) {
             selected.value - choice
         } else {
@@ -88,15 +106,25 @@ class StudentAssignmentPlayViewModel @Inject constructor(
         }
     }
 
+    fun updateFreeResponse(value: String) {
+        freeResponse.value = value
+    }
+
     fun submitAndNext() {
         viewModelScope.launch {
             val state = uiState.value
             val question = state.question ?: return@launch
-            val correct = question.answerKey.toSet()
+            val correct = question.answerKey.map { it.trim().lowercase() }.toSet()
             val chosen = selected.value
-            if (question.type == QuestionType.MCQ || question.type == QuestionType.TF) {
-                if (chosen == correct) score.value = score.value + 1
+            val userAnswerIsCorrect = when (question.type) {
+                QuestionType.MCQ, QuestionType.TF -> chosen.map { it.trim().lowercase() }.toSet() == correct
+                QuestionType.FILL_IN -> {
+                    val response = freeResponse.value.trim().lowercase()
+                    response.isNotEmpty() && correct.contains(response)
+                }
+                else -> false
             }
+            if (userAnswerIsCorrect) score.value = score.value + 1
             val nextIndex = state.index
             val total = state.total
             if (nextIndex >= total) {
@@ -104,6 +132,7 @@ class StudentAssignmentPlayViewModel @Inject constructor(
             } else {
                 currentIndex.value = nextIndex
                 selected.value = emptySet()
+                freeResponse.value = ""
             }
         }
     }

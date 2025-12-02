@@ -5,6 +5,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.horizontalScroll
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -86,12 +88,15 @@ fun StudentEndScreen(
                 verticalArrangement = Arrangement.spacedBy(8.dp)
             ) {
                 Text(state.summary, style = MaterialTheme.typography.titleMedium)
-                Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                Row(
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.horizontalScroll(rememberScrollState())
+                ) {
                     TagChip(text = "Stars ${state.stars}")
                     TagChip(text = "Rank #${state.rank}")
                     TagChip(text = "Team ${state.team}")
                 }
-                TagChip(text = "Score ${state.totalScore} · +${state.improvement} vs last time")
+                TagChip(text = "Score ${state.totalScore} (+${state.improvement} vs last time)")
                 if (state.badges.isNotEmpty()) {
                     Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                         state.badges.forEach { badge -> TagChip(text = badge) }

@@ -2,6 +2,7 @@ package com.classroom.quizmaster.ui.student.entry
 
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
@@ -50,6 +51,7 @@ import com.classroom.quizmaster.ui.components.SecondaryButton
 import com.classroom.quizmaster.ui.components.TagChip
 import com.classroom.quizmaster.ui.preview.QuizPreviews
 import com.classroom.quizmaster.ui.theme.QuizMasterTheme
+import com.classroom.quizmaster.ui.theme.QuizTheme
 import com.classroom.quizmaster.ui.state.SessionRepositoryUi
 import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomViewModel
 import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomUiState
@@ -261,12 +263,13 @@ fun StudentEntryScreen(
     onJoinClassroom: (String) -> Unit,
     onFindTeacher: () -> Unit
 ) {
+    val spacing = QuizTheme.spacing
     LazyColumn(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(16.dp),
-        contentPadding = PaddingValues(bottom = 24.dp)
+            .padding(spacing.lDp),
+        verticalArrangement = Arrangement.spacedBy(spacing.lDp),
+        contentPadding = PaddingValues(bottom = spacing.xlDp)
     ) {
         item {
             ScreenHeader(
@@ -280,7 +283,7 @@ fun StudentEntryScreen(
                 title = "Join a classroom",
                 subtitle = "Request access with a classroom code or search by teacher."
             ) {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(spacing.mDp)) {
                     OutlinedTextField(
                         value = classroomCode,
                         onValueChange = { classroomCode = it },
@@ -342,24 +345,43 @@ fun StudentEntryScreen(
                 )
             }
         }
-        when (state.tab) {
-            EntryTab.Lan -> {
-                item {
-                    TeacherList(
-                        state = state,
-                        onTeacherSelect = onTeacherSelect,
-                        onRefresh = onRefreshTeachers,
-                        onJoin = onJoinTeacher
-                    )
-                }
-            }
-            EntryTab.Code -> {
-                item {
-                    JoinCodeCard(
-                        state = state,
-                        onJoinCodeChange = onJoinCodeChange,
-                        onJoin = onJoinCode
-                    )
+        item {
+            BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+                val isWide = maxWidth >= 720.dp
+                if (isWide) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(spacing.mDp)
+                    ) {
+                        TeacherList(
+                            state = state,
+                            onTeacherSelect = onTeacherSelect,
+                            onRefresh = onRefreshTeachers,
+                            onJoin = onJoinTeacher,
+                            modifier = Modifier.weight(1f)
+                        )
+                        JoinCodeCard(
+                            state = state,
+                            onJoinCodeChange = onJoinCodeChange,
+                            onJoin = onJoinCode,
+                            modifier = Modifier.weight(1f)
+                        )
+                    }
+                } else {
+                    when (state.tab) {
+                        EntryTab.Lan -> TeacherList(
+                            state = state,
+                            onTeacherSelect = onTeacherSelect,
+                            onRefresh = onRefreshTeachers,
+                            onJoin = onJoinTeacher
+                        )
+
+                        EntryTab.Code -> JoinCodeCard(
+                            state = state,
+                            onJoinCodeChange = onJoinCodeChange,
+                            onJoin = onJoinCode
+                        )
+                    }
                 }
             }
         }
@@ -394,7 +416,7 @@ fun StudentEntryScreen(
             val statusText = buildString {
                 append(state.statusMessage.ifBlank { "Offline capable: answers sync when online." })
                 if (state.lastSeenHosts.isNotBlank()) {
-                    append(" · Updated ${state.lastSeenHosts}")
+                    append(" - Updated ${state.lastSeenHosts}")
                 }
             }
             TagChip(text = statusText)
@@ -407,17 +429,19 @@ private fun TeacherList(
     state: StudentEntryUiState,
     onTeacherSelect: (String) -> Unit,
     onRefresh: () -> Unit,
-    onJoin: () -> Unit
+    onJoin: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     SectionCard(
         title = "Nearby teachers",
         subtitle = if (state.networkAvailable) {
             "Pick a teacher running on the same network."
         } else {
-            "Connect to Wi‑Fi to see teachers hosting a lobby."
-        }
+            "Connect to Wi-Fi to see teachers hosting a lobby."
+        },
+        modifier = modifier
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(QuizTheme.spacing.mDp)) {
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.SpaceBetween,
@@ -433,7 +457,7 @@ private fun TeacherList(
             if (state.isDiscovering) {
                 Row(
                     modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(QuizTheme.spacing.mDp),
                     verticalAlignment = Alignment.CenterVertically
                 ) {
                     CircularProgressIndicator(modifier = Modifier.height(24.dp))
@@ -446,7 +470,7 @@ private fun TeacherList(
                     message = "Ask your teacher to open the lobby or use a join code."
                 )
             } else {
-                Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                Column(verticalArrangement = Arrangement.spacedBy(QuizTheme.spacing.mDp)) {
                     state.teachers.forEach { teacher ->
                         TeacherCard(
                             teacher = teacher,
@@ -507,13 +531,15 @@ private fun TeacherCard(
 private fun JoinCodeCard(
     state: StudentEntryUiState,
     onJoinCodeChange: (String) -> Unit,
-    onJoin: () -> Unit
+    onJoin: () -> Unit,
+    modifier: Modifier = Modifier
 ) {
     SectionCard(
         title = "Join with a code",
-        subtitle = "Enter 6-8 letters shared by your teacher. We automatically uppercase letters."
+        subtitle = "Enter 6-8 letters shared by your teacher. We automatically uppercase letters.",
+        modifier = modifier
     ) {
-        Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+        Column(verticalArrangement = Arrangement.spacedBy(QuizTheme.spacing.mDp)) {
             androidx.compose.material3.OutlinedTextField(
                 value = state.joinCode,
                 onValueChange = onJoinCodeChange,

@@ -4,6 +4,7 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.BoxWithConstraints
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.fillMaxSize
@@ -11,6 +12,9 @@ import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.lazy.grid.GridCells
+import androidx.compose.foundation.lazy.grid.LazyVerticalGrid
+import androidx.compose.foundation.lazy.grid.items
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
@@ -62,22 +66,49 @@ fun StudentPlayScreen(
             .padding(16.dp),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.SpaceBetween,
-            verticalAlignment = Alignment.CenterVertically
-        ) {
-            Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
-                Text(text = "Question", style = MaterialTheme.typography.titleLarge)
-                Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                    TagChip(text = connectionLabel(state))
-                    TagChip(text = "Score ${state.totalScore}")
+        BoxWithConstraints(modifier = Modifier.fillMaxWidth()) {
+            val compact = maxWidth < 420.dp
+            if (compact) {
+                Column(
+                    modifier = Modifier.fillMaxWidth(),
+                    verticalArrangement = Arrangement.spacedBy(8.dp)
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(text = "Question", style = MaterialTheme.typography.titleLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TagChip(text = connectionLabel(state))
+                            TagChip(text = "Score ${state.totalScore}")
+                        }
+                    }
+                    Row(
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.End
+                    ) {
+                        TimerRing(
+                            progress = state.progress,
+                            remainingSeconds = state.timerSeconds
+                        )
+                    }
+                }
+            } else {
+                Row(
+                    modifier = Modifier.fillMaxWidth(),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
+                        Text(text = "Question", style = MaterialTheme.typography.titleLarge)
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            TagChip(text = connectionLabel(state))
+                            TagChip(text = "Score ${state.totalScore}")
+                        }
+                    }
+                    TimerRing(
+                        progress = state.progress,
+                        remainingSeconds = state.timerSeconds
+                    )
                 }
             }
-            TimerRing(
-                progress = state.progress,
-                remainingSeconds = state.timerSeconds
-            )
         }
         SecondaryButton(
             text = "Sync with host",
@@ -102,18 +133,39 @@ fun StudentPlayScreen(
                 }
             }
         }
-        LazyColumn(
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-            modifier = Modifier.weight(1f)
-        ) {
+        BoxWithConstraints(modifier = Modifier.weight(1f)) {
             val answers = state.question?.answers.orEmpty()
-            items(answers, key = { it.id }) { answer ->
-                AnswerCard(
-                    answer = answer,
-                    selected = answer.id in state.selectedAnswers,
-                    disabled = state.reveal,
-                    onClick = { onAnswerSelected(answer.id) }
-                )
+            val useGrid = maxWidth >= 700.dp
+            if (useGrid) {
+                LazyVerticalGrid(
+                    columns = GridCells.Fixed(2),
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    horizontalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(answers, key = { it.id }) { answer ->
+                        AnswerCard(
+                            answer = answer,
+                            selected = answer.id in state.selectedAnswers,
+                            disabled = state.reveal,
+                            onClick = { onAnswerSelected(answer.id) }
+                        )
+                    }
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(12.dp),
+                    modifier = Modifier.fillMaxSize()
+                ) {
+                    items(answers, key = { it.id }) { answer ->
+                        AnswerCard(
+                            answer = answer,
+                            selected = answer.id in state.selectedAnswers,
+                            disabled = state.reveal,
+                            onClick = { onAnswerSelected(answer.id) }
+                        )
+                    }
+                }
             }
         }
         if (state.reveal) {
@@ -201,7 +253,7 @@ private fun AnswerCard(
 }
 
 private fun connectionLabel(state: StudentPlayUiState): String =
-    "${state.connectionQuality.name.lowercase().replaceFirstChar { it.uppercase() }} · ${state.latencyMs}ms"
+    "${state.connectionQuality.name.lowercase().replaceFirstChar { it.uppercase() }} - ${state.latencyMs} ms"
 
 @QuizPreviews
 @Composable

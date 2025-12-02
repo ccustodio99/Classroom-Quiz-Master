@@ -97,10 +97,10 @@ class QuizEditorViewModel @Inject constructor(
     fun addQuestion(type: QuestionTypeUi) = update { state ->
         val newId = "q${Random.nextInt(1000, 9999)}"
         val baseAnswers = when (type) {
-            QuestionTypeUi.MultipleChoice -> listOf("A", "B", "C", "D")
-            QuestionTypeUi.TrueFalse -> listOf("True", "False")
-            QuestionTypeUi.FillIn -> listOf("Answer")
-            QuestionTypeUi.Match -> listOf("Pair 1", "Pair 2")
+            QuestionTypeUi.MultipleChoice -> listOf("", "", "", "")
+            QuestionTypeUi.TrueFalse -> listOf("", "")
+            QuestionTypeUi.FillIn -> listOf("")
+            QuestionTypeUi.Match -> listOf("", "")
         }.mapIndexed { index, label ->
             AnswerOptionUi(
                 id = "${newId}_$index",
@@ -111,7 +111,7 @@ class QuizEditorViewModel @Inject constructor(
         }
         val newQuestion = QuestionDraftUi(
             id = newId,
-            stem = "New ${type.name} question",
+            stem = "",
             type = type,
             answers = baseAnswers,
             explanation = ""
