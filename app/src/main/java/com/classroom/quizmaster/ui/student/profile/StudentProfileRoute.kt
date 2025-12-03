@@ -7,6 +7,8 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
@@ -51,7 +53,8 @@ fun StudentProfileScreen(
     Column(
         modifier = Modifier
             .fillMaxSize()
-            .padding(16.dp),
+            .padding(16.dp)
+            .verticalScroll(rememberScrollState()),
         verticalArrangement = Arrangement.spacedBy(16.dp)
     ) {
         Text(text = "Profile", style = MaterialTheme.typography.headlineSmall)
@@ -94,6 +97,13 @@ fun StudentProfileScreen(
                     enabled = !state.email.isNullOrBlank(),
                     modifier = Modifier.fillMaxWidth()
                 )
+                if (com.classroom.quizmaster.config.FeatureToggles.SIGN_OUT_ENABLED) {
+                    PrimaryButton(
+                        text = "Switch account",
+                        onClick = onLogout,
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
             }
         }
         Surface(
@@ -109,13 +119,6 @@ fun StudentProfileScreen(
             }
         }
         Spacer(modifier = Modifier.height(8.dp))
-        if (com.classroom.quizmaster.config.FeatureToggles.SIGN_OUT_ENABLED) {
-            PrimaryButton(
-                text = "Switch account",
-                onClick = onLogout,
-                modifier = Modifier.fillMaxWidth()
-            )
-        }
         Text(
             text = "Last sync: ${state.lastSyncLabel}",
             style = MaterialTheme.typography.bodySmall

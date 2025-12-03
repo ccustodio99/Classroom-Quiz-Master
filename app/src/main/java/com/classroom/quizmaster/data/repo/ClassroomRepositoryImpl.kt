@@ -19,6 +19,7 @@ import com.classroom.quizmaster.data.remote.FirebaseClassroomDataSource
 import com.classroom.quizmaster.data.remote.FirebaseTopicDataSource
 import com.classroom.quizmaster.data.remote.FirebaseAssignmentDataSource
 import com.classroom.quizmaster.data.remote.FirebaseMaterialDataSource
+import com.classroom.quizmaster.data.datastore.AppPreferencesDataSource
 import com.classroom.quizmaster.domain.model.Classroom
 import com.classroom.quizmaster.domain.model.Topic
 import com.classroom.quizmaster.domain.model.Student
@@ -28,6 +29,7 @@ import com.classroom.quizmaster.domain.model.Teacher
 import com.classroom.quizmaster.domain.model.Assignment
 import com.classroom.quizmaster.domain.model.Submission
 import com.classroom.quizmaster.domain.model.LearningMaterial
+import com.classroom.quizmaster.domain.model.UserRole
 import com.classroom.quizmaster.domain.repository.AuthRepository
 import com.classroom.quizmaster.domain.repository.ClassroomRepository
 import com.google.firebase.firestore.FirebaseFirestoreException
@@ -52,6 +54,9 @@ import kotlinx.coroutines.withContext
 import kotlinx.datetime.Clock
 import kotlinx.datetime.Instant
 import com.classroom.quizmaster.util.switchMapLatest
+import kotlinx.coroutines.async
+import kotlinx.coroutines.awaitAll
+import kotlinx.coroutines.coroutineScope
 import kotlinx.serialization.json.Json
 
 @Singleton
@@ -68,6 +73,7 @@ class ClassroomRepositoryImpl @Inject constructor(
     private val assignmentRemote: FirebaseAssignmentDataSource,
     private val materialRemote: FirebaseMaterialDataSource,
     private val authRepository: AuthRepository,
+    private val preferences: AppPreferencesDataSource,
     private val pendingOpQueue: PendingOpQueue,
     private val json: Json,
     private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO
@@ -186,85 +192,128 @@ class ClassroomRepositoryImpl @Inject constructor(
     override suspend fun refresh() = withContext(ioDispatcher) {
         if (hasPendingOps()) return@withContext
         val authState = authRepository.authState.firstOrNull() ?: return@withContext
-        if (authState.isTeacher) {
-            val classrooms = classroomRemote.fetchClassrooms().getOrElse { emptyList() }
-            val topics = topicRemote.fetchTopics().getOrElse { emptyList() }
-            val assignments = assignmentRemote.fetchAssignments().getOrElse { emptyList() }
-            val submissions = assignments.flatMap { assignment ->
-                assignmentRemote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
+        val uid = authState.userId
+        if (!uid.isNullOrBlank()) {
+            val existingTeacher = classroomRemote.fetchTeacherProfile().getOrNull()
+            val existingStudent = classroomRemote.fetchStudentProfile(uid).getOrNull()
+
+            // If both exist, prefer teacher to avoid downgrading.
+            when {
+                existingTeacher != null -> {
+                    preferences.setUserRole(uid, UserRole.TEACHER)
+                    refreshAsTeacher(authState.copy(role = UserRole.TEACHER, isTeacher = true))
+                    return@withContext
+                }
+                existingStudent != null -> {
+                    preferences.setUserRole(uid, UserRole.STUDENT)
+                    refreshAsStudent(authState.copy(role = UserRole.STUDENT, isTeacher = false))
+                    return@withContext
+                }
             }
-            val materials = authState.userId?.let { teacherId ->
-                materialRemote.fetchForTeacher(teacherId).getOrElse { emptyList() }
-            }.orEmpty()
-            val joinRequests = authState.userId?.let { teacherId ->
-                classroomRemote.fetchJoinRequestsForTeacher(teacherId).getOrElse { emptyList() }
-            }.orEmpty()
-            val rosterIds = classrooms.flatMap { it.students }
-            val studentIds = (rosterIds + joinRequests.map { it.studentId }).distinct()
-            val students = studentIds.mapNotNull { id ->
-                classroomRemote.fetchStudentProfile(id).getOrNull()
-            }
-            if (classrooms.isEmpty() && topics.isEmpty() && joinRequests.isEmpty() && students.isEmpty() && assignments.isEmpty() && materials.isEmpty()) return@withContext
-            database.withTransaction {
-                if (classrooms.isNotEmpty()) {
-                    classroomDao.upsertAll(classrooms.map { it.toEntity() })
-                }
-                if (topics.isNotEmpty()) {
-                    topicDao.upsertAll(topics.map { it.toEntity() })
-                }
-                if (assignments.isNotEmpty()) {
-                    assignmentDao.upsertAssignments(assignments.map { it.toEntity() })
-                }
-                if (submissions.isNotEmpty()) {
-                    assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
-                }
-                if (materials.isNotEmpty()) {
-                    materials.forEach { material ->
-                        materialDao.upsertMaterial(material.toEntity())
-                    }
-                }
-                if (joinRequests.isNotEmpty()) {
-                    joinRequestDao.upsertAll(joinRequests.map { it.toEntity() })
-                }
-                if (students.isNotEmpty()) {
-                    studentDao.upsertAll(students.map { it.toEntity() })
-                }
+        }
+        val effectiveRole = authState.role ?: if (authState.isTeacher) UserRole.TEACHER else UserRole.STUDENT
+        if (effectiveRole == UserRole.TEACHER) {
+            val teacherResult = runCatching { refreshAsTeacher(authState) }
+            val isPermissionDenied = teacherResult.exceptionOrNull()?.let { shouldIgnorePermissionDenied(it) } == true
+            if (isPermissionDenied) {
+                refreshAsStudent(authState)
             }
         } else {
-            val studentId = authState.userId ?: return@withContext
-            val classrooms = classroomRemote.getClassroomsForStudent(studentId).getOrElse { emptyList() }
-            val classroomEntities = classrooms.map { it.toEntity() }
-            val topics = if (classrooms.isNotEmpty()) {
-                topicRemote.fetchTopicsForClassrooms(classrooms.map { it.id }).getOrElse { emptyList() }
-            } else {
-                emptyList()
-            }
-            val topicEntities = topics.map { it.toEntity() }
-            val assignments = assignmentRemote.fetchAssignments().getOrElse { emptyList() }
-            val submissions = assignments.flatMap { assignment ->
-                assignmentRemote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
-            }
-            val materials = if (classroomEntities.isNotEmpty()) {
-                materialRemote.fetchForClassrooms(classroomEntities.map { it.id }).getOrElse { emptyList() }
-            } else emptyList()
-            if (classroomEntities.isEmpty() && topicEntities.isEmpty() && assignments.isEmpty() && materials.isEmpty()) return@withContext
-            database.withTransaction {
-                if (classroomEntities.isNotEmpty()) {
-                    classroomDao.upsertAll(classroomEntities)
-                }
-                if (topicEntities.isNotEmpty()) {
-                    topicDao.upsertAll(topicEntities)
-                }
-                if (assignments.isNotEmpty()) {
-                    assignmentDao.upsertAssignments(assignments.map { it.toEntity() })
-                }
-                if (submissions.isNotEmpty()) {
-                    assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
-                }
-                if (materials.isNotEmpty()) {
-                    materials.forEach { material ->
-                        materialDao.upsertMaterial(material.toEntity())
+            refreshAsStudent(authState)
+        }
+    }
+
+    private suspend fun refreshAsTeacher(authState: com.classroom.quizmaster.domain.model.AuthState) {
+        val classrooms = classroomRemote.fetchClassrooms().getOrElse { emptyList() }
+        val topics = topicRemote.fetchTopics().getOrElse { emptyList() }
+        val assignments = assignmentRemote.fetchAssignments().getOrElse { emptyList() }
+        val submissions = assignments.flatMap { assignment ->
+            assignmentRemote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
+        }
+        val materials = authState.userId?.let { teacherId ->
+            materialRemote.fetchForTeacher(teacherId).getOrElse { emptyList() }
+        }.orEmpty()
+        val joinRequests = authState.userId?.let { teacherId ->
+            classroomRemote.fetchJoinRequestsForTeacher(teacherId).getOrElse { emptyList() }
+        }.orEmpty()
+        val rosterIds = classrooms.flatMap { it.students }
+        val studentIds = (rosterIds + joinRequests.map { it.studentId }).distinct()
+        val students = if (studentIds.isEmpty()) {
+            emptyList()
+        } else {
+            coroutineScope {
+                studentIds
+                    .chunked(10)
+                    .flatMap { chunk ->
+                        chunk.map { id ->
+                            async { classroomRemote.fetchStudentProfile(id).getOrNull() }
+                        }.awaitAll().filterNotNull()
                     }
+            }
+        }
+        if (classrooms.isEmpty() && topics.isEmpty() && joinRequests.isEmpty() && students.isEmpty() && assignments.isEmpty() && materials.isEmpty()) return
+        database.withTransaction {
+            if (classrooms.isNotEmpty()) {
+                classroomDao.upsertAll(classrooms.map { it.toEntity() })
+            }
+            if (topics.isNotEmpty()) {
+                topicDao.upsertAll(topics.map { it.toEntity() })
+            }
+            if (assignments.isNotEmpty()) {
+                assignmentDao.upsertAssignments(assignments.map { it.toEntity() })
+            }
+            if (submissions.isNotEmpty()) {
+                assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
+            }
+            if (materials.isNotEmpty()) {
+                materials.forEach { material ->
+                    materialDao.upsertMaterial(material.toEntity())
+                }
+            }
+            if (joinRequests.isNotEmpty()) {
+                joinRequestDao.upsertAll(joinRequests.map { it.toEntity() })
+            }
+            if (students.isNotEmpty()) {
+                studentDao.upsertAll(students.map { it.toEntity() })
+            }
+        }
+    }
+
+    private suspend fun refreshAsStudent(authState: com.classroom.quizmaster.domain.model.AuthState) {
+        val studentId = authState.userId ?: return
+        ensureStudentProfile(studentId, authState.displayName.orEmpty(), authState.email.orEmpty())
+        val classrooms = classroomRemote.getClassroomsForStudent(studentId).getOrElse { emptyList() }
+        val classroomEntities = classrooms.map { it.toEntity() }
+        val topics = if (classrooms.isNotEmpty()) {
+            topicRemote.fetchTopicsForClassrooms(classrooms.map { it.id }).getOrElse { emptyList() }
+        } else {
+            emptyList()
+        }
+        val topicEntities = topics.map { it.toEntity() }
+        val assignments = assignmentRemote.fetchAssignments().getOrElse { emptyList() }
+        val submissions = assignments.flatMap { assignment ->
+            assignmentRemote.fetchSubmissions(assignment.id).getOrElse { emptyList() }
+        }
+        val materials = if (classroomEntities.isNotEmpty()) {
+            materialRemote.fetchForClassrooms(classroomEntities.map { it.id }).getOrElse { emptyList() }
+        } else emptyList()
+        if (classroomEntities.isEmpty() && topicEntities.isEmpty() && assignments.isEmpty() && materials.isEmpty()) return
+        database.withTransaction {
+            if (classroomEntities.isNotEmpty()) {
+                classroomDao.upsertAll(classroomEntities)
+            }
+            if (topicEntities.isNotEmpty()) {
+                topicDao.upsertAll(topicEntities)
+            }
+            if (assignments.isNotEmpty()) {
+                assignmentDao.upsertAssignments(assignments.map { it.toEntity() })
+            }
+            if (submissions.isNotEmpty()) {
+                assignmentDao.upsertSubmissions(submissions.map { it.toEntity() })
+            }
+            if (materials.isNotEmpty()) {
+                materials.forEach { material ->
+                    materialDao.upsertMaterial(material.toEntity())
                 }
             }
         }
@@ -384,8 +433,10 @@ class ClassroomRepositoryImpl @Inject constructor(
         check(!classroom.isArchived) { "Cannot add students to an archived classroom" }
 
         val trimmed = identifier.trim()
-        val student = classroomRemote.findStudentByIdentifier(trimmed).getOrNull()
-            ?: error("No account found for that email/username")
+        check(trimmed.contains("@")) { "Enter the student's email address to add them." }
+        val normalizedEmail = trimmed.lowercase()
+        val student = classroomRemote.findStudentByIdentifier(normalizedEmail).getOrNull()
+            ?: error("No account found for that email")
         classroomRemote.addStudentToClassroom(classroomId, student.id).getOrThrow()
         val updated = classroom.copy(
             students = (classroom.students + student.id).distinct(),
@@ -402,17 +453,26 @@ class ClassroomRepositoryImpl @Inject constructor(
         val classroom = classroomDao.get(classroomId) ?: return@withContext
         check(classroom.teacherId == teacherId) { "Cannot modify another teacher's classroom" }
         val updatedStudents = classroom.students.filterNot { it == studentId }
-        classroomRemote.removeStudentFromClassroom(classroomId, studentId)
-            .onFailure { error ->
-                if (!shouldIgnorePermissionDenied(error) && !isTransient(error)) throw error else Timber.w(error, "Skipping remote removal for $classroomId/$studentId")
+        val removalResult = classroomRemote.removeStudentFromClassroom(classroomId, studentId)
+        val shouldUpdateLocal = removalResult.fold(
+            onSuccess = { true },
+            onFailure = { error ->
+                if (shouldIgnorePermissionDenied(error) || isTransient(error)) {
+                    Timber.w(error, "Remote removal skipped for $classroomId/$studentId; keeping local roster unchanged")
+                    false
+                } else {
+                    throw error
+                }
             }
-            .getOrElse { }
-        classroomDao.upsert(
-            classroom.copy(
-                students = updatedStudents,
-                updatedAt = Clock.System.now().toEpochMilliseconds()
-            )
         )
+        if (shouldUpdateLocal) {
+            classroomDao.upsert(
+                classroom.copy(
+                    students = updatedStudents,
+                    updatedAt = Clock.System.now().toEpochMilliseconds()
+                )
+            )
+        }
     }
 
 
@@ -679,6 +739,19 @@ class ClassroomRepositoryImpl @Inject constructor(
 
     private suspend fun currentUserId(): String? =
         authRepository.authState.firstOrNull()?.userId
+
+    private suspend fun ensureStudentProfile(id: String, name: String, email: String) {
+        val profile = classroomRemote.fetchStudentProfile(id).getOrNull()
+        if (profile != null) return
+        val normalized = Student(
+            id = id,
+            displayName = name.ifBlank { "Student" },
+            email = email.ifBlank { "" },
+            createdAt = Clock.System.now()
+        )
+        classroomRemote.upsertStudentProfile(normalized)
+        preferences.setUserRole(id, UserRole.STUDENT)
+    }
 
     private fun shouldIgnorePermissionDenied(error: Throwable?): Boolean =
         error is FirebaseFirestoreException && error.code == FirebaseFirestoreException.Code.PERMISSION_DENIED

@@ -141,17 +141,31 @@ class FirebaseClassroomDataSource @Inject constructor(
     }
 
     suspend fun findStudentByIdentifier(identifier: String): Result<Student?> = try {
-        val query = if (identifier.contains("@")) {
-            studentsCollection().whereEqualTo("email", identifier.trim())
+        val trimmed = identifier.trim()
+        if (trimmed.contains("@")) {
+            val normalized = trimmed.lowercase()
+            val emailsToTry = if (normalized == trimmed) listOf(normalized) else listOf(normalized, trimmed)
+            val found = emailsToTry.firstNotNullOfOrNull { email ->
+                val snapshot = studentsCollection()
+                    .whereEqualTo("email", email)
+                    .limit(1)
+                    .get()
+                    .await()
+                snapshot.documents.firstOrNull()
+            }
+            Result.success(found?.toObject(FirestoreStudent::class.java)?.toDomain(found.id))
         } else {
-            studentsCollection().whereEqualTo("displayName", identifier.trim())
+            val snapshot = studentsCollection()
+                .whereEqualTo("displayName", trimmed)
+                .limit(1)
+                .get()
+                .await()
+            val first = snapshot.documents.firstOrNull()
+            val student = first
+                ?.toObject(FirestoreStudent::class.java)
+                ?.toDomain(first.id)
+            Result.success(student)
         }
-        val snapshot = query.limit(1).get().await()
-        val first = snapshot.documents.firstOrNull()
-        val student = first
-            ?.toObject(FirestoreStudent::class.java)
-            ?.toDomain(first.id)
-        Result.success(student)
     } catch (error: Exception) {
         Result.failure(error)
     }

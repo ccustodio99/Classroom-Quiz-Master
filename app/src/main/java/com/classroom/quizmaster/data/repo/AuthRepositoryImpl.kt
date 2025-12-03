@@ -45,7 +45,13 @@ class AuthRepositoryImpl @Inject constructor(
             flow {
                 val normalized = state.overrideRole(roles)
                 val resolved = if (normalized.needsRoleResolution(roles)) {
-                    resolveRoleFromRemote(normalized, classroomDataSource, preferences, authDataSource)
+                    resolveRoleFromRemote(
+                        normalized,
+                        roles,
+                        classroomDataSource,
+                        preferences,
+                        authDataSource
+                    )
                 } else {
                     normalized
                 }
@@ -207,40 +213,80 @@ private fun AuthState.needsRoleResolution(roleMap: Map<String, UserRole>): Boole
 
 private suspend fun resolveRoleFromRemote(
     state: AuthState,
+    roles: Map<String, UserRole>,
     classroomDataSource: FirebaseClassroomDataSource,
     preferences: AppPreferencesDataSource,
     authDataSource: FirebaseAuthDataSource
 ): AuthState {
     val userId = state.userId ?: return state
+    val cachedRole = roles[userId]
     val teacherResult = classroomDataSource.fetchTeacherProfile()
-    if (teacherResult.isSuccess) {
-        val teacher = teacherResult.getOrNull()
+    val teacher = if (teacherResult.isSuccess) teacherResult.getOrNull() else null
+    val studentResult = classroomDataSource.fetchStudentProfile(userId)
+    val student = if (studentResult.isSuccess) studentResult.getOrNull() else null
+
+    // 1) Respect explicit cached role overrides and create missing profiles accordingly.
+    if (cachedRole == UserRole.TEACHER) {
         if (teacher != null) {
             preferences.setUserRole(userId, UserRole.TEACHER)
             return state.copy(role = UserRole.TEACHER, isTeacher = true, teacherProfile = teacher)
+        } else {
+            val fallbackTeacher = Teacher(
+                id = userId,
+                displayName = state.displayName ?: "Teacher",
+                email = state.email ?: authDataSource.currentUserEmail().orEmpty(),
+                createdAt = Clock.System.now()
+            )
+            classroomDataSource.upsertTeacherProfile(fallbackTeacher)
+                .onSuccess {
+                    preferences.setUserRole(userId, UserRole.TEACHER)
+                    return state.copy(role = UserRole.TEACHER, isTeacher = true, teacherProfile = fallbackTeacher)
+                }
         }
     }
-    // If the user already has a teacher role but no profile document, create a minimal profile
-    if (state.isTeacher) {
-        val fallbackTeacher = Teacher(
-            id = userId,
-            displayName = state.displayName ?: "Teacher",
-            email = state.email ?: authDataSource.currentUserEmail().orEmpty(),
-            createdAt = Clock.System.now()
-        )
-        classroomDataSource.upsertTeacherProfile(fallbackTeacher)
-            .onSuccess {
-                preferences.setUserRole(userId, UserRole.TEACHER)
-                return state.copy(role = UserRole.TEACHER, isTeacher = true, teacherProfile = fallbackTeacher)
-            }
-    }
-    val studentResult = classroomDataSource.fetchStudentProfile(userId)
-    if (studentResult.isSuccess) {
-        val student = studentResult.getOrNull()
+    if (cachedRole == UserRole.STUDENT) {
         if (student != null) {
             preferences.setUserRole(userId, UserRole.STUDENT)
             return state.copy(role = UserRole.STUDENT, isTeacher = false)
+        } else {
+            val fallbackStudent = Student(
+                id = userId,
+                displayName = state.displayName ?: "Student",
+                email = state.email ?: authDataSource.currentUserEmail().orEmpty(),
+                createdAt = Clock.System.now()
+            )
+            classroomDataSource.upsertStudentProfile(fallbackStudent)
+                .onSuccess {
+                    preferences.setUserRole(userId, UserRole.STUDENT)
+                    return state.copy(role = UserRole.STUDENT, isTeacher = false)
+                }
         }
     }
+
+    // 2) No cached override: prefer an explicit teacher profile, then student.
+    if (teacher != null) {
+        preferences.setUserRole(userId, UserRole.TEACHER)
+        return state.copy(role = UserRole.TEACHER, isTeacher = true, teacherProfile = teacher)
+    }
+    if (student != null) {
+        preferences.setUserRole(userId, UserRole.STUDENT)
+        return state.copy(role = UserRole.STUDENT, isTeacher = false)
+    }
+
+    // 3) No explicit role cached and no profiles found: default to student to satisfy rules.
+    if (cachedRole == null) {
+        val fallbackStudent = Student(
+            id = userId,
+            displayName = state.displayName ?: "Student",
+            email = state.email ?: authDataSource.currentUserEmail().orEmpty(),
+            createdAt = Clock.System.now()
+        )
+        classroomDataSource.upsertStudentProfile(fallbackStudent)
+            .onSuccess {
+                preferences.setUserRole(userId, UserRole.STUDENT)
+                return state.copy(role = UserRole.STUDENT, isTeacher = false)
+            }
+    }
+
     return state
 }

@@ -24,3 +24,5 @@ functions/node_modules/
 functions/coverage/
 /jdk17
 jdk17.zip
+/.jdk
+Seed doc materials/cqmp-82bf9-firebase-adminsdk-fbsvc-4909789d09.json

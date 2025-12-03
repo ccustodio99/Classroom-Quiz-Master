@@ -200,15 +200,19 @@ class AuthViewModel @Inject constructor(
 
     fun signIn() = launchWithProgress {
         val login = _uiState.value.login
-        if (login.email.isBlank() || login.password.length < 6) {
-            emitError("Enter your email/username and a 6+ character password.")
+        if (login.email.isBlank() || login.password.length < 8) {
+            emitError("Enter your email/username and a password with at least 8 characters.")
             return@launchWithProgress
         }
         val identifier = login.email.trim()
+        if (identifier.contains("@") && !isValidEmail(identifier)) {
+            emitError("Enter a valid email address.")
+            return@launchWithProgress
+        }
         val email = if (identifier.contains("@")) {
-            identifier
+            normalizeEmail(identifier)
         } else {
-            authRepository.lookupEmailForUsername(identifier)
+            authRepository.lookupEmailForUsername(identifier)?.let(::normalizeEmail)
                 ?: run {
                     emitError("No account found for that email/username")
                     return@launchWithProgress
@@ -224,8 +228,6 @@ class AuthViewModel @Inject constructor(
         runCatching { authRepository.signInWithEmail(email, password) }
             .onSuccess {
                 val authState = cacheCredentialsFromFirebase(email, password, persistOffline = true)
-                val signupRole = if (authState.role == UserRole.TEACHER) SignupRole.Teacher else SignupRole.Student
-                rememberUserRole(authState.userId, signupRole)
                 when (authState.role) {
                     UserRole.TEACHER -> _effects.emit(AuthEffect.TeacherAuthenticated)
                     UserRole.STUDENT -> _effects.emit(AuthEffect.StudentAuthenticated)
@@ -249,13 +251,14 @@ class AuthViewModel @Inject constructor(
 
     fun forgotPassword() = launchWithProgress {
         val email = _uiState.value.login.email.trim()
-        if (!email.contains("@")) {
-            emitError("Enter your email to reset your password.")
+        if (!isValidEmail(email)) {
+            emitError("Enter a valid email to reset your password.")
             return@launchWithProgress
         }
-        runCatching { authRepository.sendPasswordReset(email) }
+        val normalizedEmail = normalizeEmail(email)
+        runCatching { authRepository.sendPasswordReset(normalizedEmail) }
             .onSuccess {
-                _uiState.update { it.copy(bannerMessage = "Password reset email sent to $email") }
+                _uiState.update { it.copy(bannerMessage = "Password reset email sent to $normalizedEmail") }
             }
             .onFailure { emitError(mapAuthError(it)) }
     }
@@ -328,7 +331,7 @@ class AuthViewModel @Inject constructor(
                 delay(600)
                 val signup = _uiState.value.signup
                 val displayName = profile.fullName.ifBlank { profile.school.ifBlank { signup.email.substringBefore('@') } }
-                val email = signup.email.trim()
+                val email = normalizeEmail(signup.email)
                 val password = signup.password
                 runCatching {
                     authRepository.signUpWithEmail(email, password, displayName)
@@ -447,6 +450,11 @@ class AuthViewModel @Inject constructor(
             this is IOException ||
             this is UnknownHostException ||
             this is SocketTimeoutException
+
+    private fun normalizeEmail(value: String): String = value.trim().lowercase()
+
+    private fun isValidEmail(value: String): Boolean =
+        value.contains("@") && value.contains(".") && !value.contains(" ")
 
     private companion object {
         private const val OFFLINE_REQUIRED_MESSAGE = "No internet connection. Check your network and try again."

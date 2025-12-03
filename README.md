@@ -48,6 +48,15 @@ macrobenchmark // Baseline profile & startup benchmarks
    - Students: Choose **Join via LAN**, pick the discovered host or enter the join code, validate the nickname, and join the lobby.
    - Hosting stays active in a foreground service; when WAN returns, WorkManager mirrors pending operations.
 
+## Demo seeder (Firebase Admin)
+
+- Seeds one teacher (`teacher1@gmail.com`), five students (`student1@gmail.com`�?"`student5@gmail.com`), a classroom, multiple topics, pre/post quizzes (15 questions each), assignments (3 attempts, BEST scoring), and materials from `Seed doc materials` docx files.
+- Requirements: Firebase Admin creds (`GOOGLE_APPLICATION_CREDENTIALS` pointing to a service account or emulator env) and Node 18+ (`npm --prefix functions install` to pull `mammoth`; Node 20 prints an engine warning but works).
+- Run from repo root:
+  - PowerShell: `$env:GOOGLE_APPLICATION_CREDENTIALS='C:\\path\\serviceAccount.json'; npm --prefix functions run seed:demo`
+  - Bash: `GOOGLE_APPLICATION_CREDENTIALS=/path/serviceAccount.json npm --prefix functions run seed:demo`
+- Optional env overrides: `SEED_PASSWORD`, `SEED_RESET_PASSWORDS=false`, `SEED_TEACHER_EMAIL`, `SEED_STUDENT_EMAILS=student1@gmail.com,student2@gmail.com`, `SEED_CLASSROOM_ID`, `SEED_JOIN_CODE`, `SEED_TOPIC_NAME`, `SEED_DOC_DIR`, `SEED_MATERIAL_LIMIT`.
+
 ## Testing matrix
 
 | Layer | Command | Notes |
