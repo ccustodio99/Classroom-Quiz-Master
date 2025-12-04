@@ -17,11 +17,13 @@
  *   SEED_PASSWORD, SEED_TEACHER_EMAIL, SEED_TEACHER_NAME,
  *   SEED_STUDENT_EMAILS (comma-separated),
  *   SEED_CLASSROOM_ID, SEED_CLASSROOM_NAME, SEED_JOIN_CODE,
- *   SEED_TOPIC_ID, SEED_TOPIC_NAME,
+ *   SEED_TOPIC_ID, SEED_TOPIC_NAME, SEED_DIAGNOSTIC_TOPIC_ID,
  *   SEED_RESET_PASSWORDS=false (to keep existing passwords)
  */
 
 const admin = require('firebase-admin');
+const fs = require('fs');
+const path = require('path');
 
 // Global quiz settings (per your requirements)
 const QUIZ_QUESTION_COUNT = 15;
@@ -438,6 +440,103 @@ function slugify(value) {
   );
 }
 
+/**
+ * Normalize Firestore timestamps, Date objects, ISO strings, or numbers to millis.
+ */
+function toMillis(value, fallback = Date.now()) {
+  if (typeof value === 'number' && Number.isFinite(value)) return value;
+  if (value instanceof Date && Number.isFinite(value.getTime())) {
+    return value.getTime();
+  }
+  if (value && typeof value.toMillis === 'function') return value.toMillis();
+  if (typeof value === 'string') {
+    const parsed = Date.parse(value);
+    if (!Number.isNaN(parsed)) return parsed;
+  }
+  return fallback;
+}
+
+function resolveProjectId() {
+  const fromServiceAccount = (() => {
+    const saPath = process.env.GOOGLE_APPLICATION_CREDENTIALS;
+    if (!saPath) return null;
+    try {
+      const buf = fs.readFileSync(saPath, 'utf8');
+      const json = JSON.parse(buf);
+      return json.project_id || null;
+    } catch (error) {
+      console.warn(
+        `[seed] Could not read service account at ${saPath}: ${error.message}`
+      );
+      return null;
+    }
+  })();
+
+  const fromFirebaserc = (() => {
+    try {
+      const rcPath = path.resolve(__dirname, '..', '..', '.firebaserc');
+      if (!fs.existsSync(rcPath)) return null;
+      const parsed = JSON.parse(fs.readFileSync(rcPath, 'utf8'));
+      return parsed?.projects?.default || null;
+    } catch (error) {
+      console.warn('[seed] Ignoring invalid .firebaserc:', error.message);
+      return null;
+    }
+  })();
+
+  const fromEnv =
+    process.env.SEED_PROJECT_ID ||
+    process.env.GCLOUD_PROJECT ||
+    process.env.GOOGLE_CLOUD_PROJECT ||
+    process.env.GCP_PROJECT;
+  const fromFirebaseConfig = (() => {
+    const cfg = process.env.FIREBASE_CONFIG;
+    if (!cfg) return null;
+    try {
+      const parsed = typeof cfg === 'string' ? JSON.parse(cfg) : cfg;
+      return parsed?.projectId || null;
+    } catch (error) {
+      console.warn('[seed] Ignoring invalid FIREBASE_CONFIG JSON:', error.message);
+      return null;
+    }
+  })();
+  return (
+    fromEnv ||
+    fromFirebaseConfig ||
+    fromServiceAccount ||
+    fromFirebaserc ||
+    null
+  );
+}
+
+function ensureProjectAndCredentials() {
+  const usingEmulator =
+    Boolean(process.env.FIRESTORE_EMULATOR_HOST) ||
+    Boolean(process.env.FIREBASE_AUTH_EMULATOR_HOST);
+  let projectId = resolveProjectId();
+  if (!projectId) {
+    projectId = 'demo-seed-project';
+    console.warn(
+      `[seed] Project ID not found in env/service account/.firebaserc; defaulting to "${projectId}". Set SEED_PROJECT_ID/GCLOUD_PROJECT or FIREBASE_CONFIG.projectId to use a real project.`
+    );
+  }
+
+  if (admin.apps.length === 0) {
+    admin.initializeApp({ projectId });
+  }
+
+  const finalProjectId = admin.app().options?.projectId || projectId;
+
+  const hasServiceAccount = Boolean(process.env.GOOGLE_APPLICATION_CREDENTIALS);
+  if (!usingEmulator && !hasServiceAccount) {
+    throw new Error(
+      '[seed] No credentials found. Set GOOGLE_APPLICATION_CREDENTIALS to a service account JSON, or configure emulator hosts (FIRESTORE_EMULATOR_HOST and FIREBASE_AUTH_EMULATOR_HOST) with a project ID.'
+    );
+  }
+
+  return { projectId: finalProjectId };
+}
+
 function buildTopicConfigs() {
   return TOPIC_SEEDS.map((seed, index) => {
     const slug = seed.slug || slugify(seed.name);
@@ -450,6 +549,19 @@ function buildTopicConfigs() {
       slug
     };
   });
+}
+
+function pickDiagnosticTopic(topics) {
+  if (!Array.isArray(topics) || topics.length === 0) return null;
+  const desiredId = process.env.SEED_DIAGNOSTIC_TOPIC_ID;
+  if (desiredId) {
+    const found = topics.find((t) => t.id === desiredId || t.slug === desiredId);
+    if (found) return found;
+    console.warn(
+      `[seed] SEED_DIAGNOSTIC_TOPIC_ID=${desiredId} not found; falling back to first topic.`
+    );
+  }
+  return topics[0];
 }
 
 async function ensurePasswordUser(auth, { email, displayName }, role) {
@@ -471,9 +583,7 @@ async function ensurePasswordUser(auth, { email, displayName }, role) {
       uid: existing.uid,
       email: existing.email || email,
       displayName: updates.displayName || existing.displayName || displayName,
-      createdAt: existing.metadata?.creationTime
-        ? new Date(existing.metadata.creationTime).getTime()
-        : Date.now(),
+      createdAt: toMillis(existing.metadata?.creationTime, Date.now()),
       wasCreated: false
     };
   } catch (error) {
@@ -486,9 +596,7 @@ async function ensurePasswordUser(auth, { email, displayName }, role) {
       uid: created.uid,
       email: created.email || email,
       displayName: created.displayName || displayName,
-      createdAt: created.metadata?.creationTime
-        ? new Date(created.metadata.creationTime).getTime()
-        : Date.now(),
+      createdAt: toMillis(created.metadata?.creationTime, Date.now()),
       wasCreated: true
     };
   }
@@ -498,8 +606,8 @@ async function upsertTeacherProfile(db, teacher) {
   const ref = db.collection('teachers').doc(teacher.uid);
   const existing = await ref.get();
   const createdAt =
-    existing.exists && typeof existing.get('createdAt') === 'number'
-      ? existing.get('createdAt')
+    existing.exists && existing.get('createdAt') !== undefined
+      ? toMillis(existing.get('createdAt'), teacher.createdAt || Date.now())
       : teacher.createdAt || Date.now();
   await ref.set(
     {
@@ -516,8 +624,8 @@ async function upsertStudentProfile(db, student) {
   const ref = db.collection('students').doc(student.uid);
   const existing = await ref.get();
   const createdAt =
-    existing.exists && typeof existing.get('createdAt') === 'number'
-      ? existing.get('createdAt')
+    existing.exists && existing.get('createdAt') !== undefined
+      ? toMillis(existing.get('createdAt'), student.createdAt || Date.now())
       : student.createdAt || Date.now();
   await ref.set(
     {
@@ -533,8 +641,8 @@ async function upsertClassroom(db, teacherId, studentIds) {
   const ref = db.collection('classrooms').doc(classroomConfig.id);
   const existing = await ref.get();
   const createdAt =
-    existing.exists && typeof existing.get('createdAt') === 'number'
-      ? existing.get('createdAt')
+    existing.exists && existing.get('createdAt') !== undefined
+      ? toMillis(existing.get('createdAt'), Date.now())
       : Date.now();
   const joinCode =
     existing.exists && existing.get('joinCode')
@@ -1155,8 +1263,8 @@ async function upsertTopics(db, teacherId, topics) {
     const ref = db.collection('topics').doc(topic.id);
     const existing = await ref.get();
     const createdAt =
-      existing.exists && typeof existing.get('createdAt') === 'number'
-        ? existing.get('createdAt')
+      existing.exists && existing.get('createdAt') !== undefined
+        ? toMillis(existing.get('createdAt'), Date.now())
         : Date.now();
     await ref.set(
       {
@@ -1201,8 +1309,8 @@ async function seedTopicQuizzesAndAssignments(db, teacherId, topics) {
     const quizRef = db.collection('quizzes').doc(quizId);
     const existingQuiz = await quizRef.get();
     const quizCreatedAt =
-      existingQuiz.exists && typeof existingQuiz.get('createdAt') === 'number'
-        ? existingQuiz.get('createdAt')
+      existingQuiz.exists && existingQuiz.get('createdAt') !== undefined
+        ? toMillis(existingQuiz.get('createdAt'), now)
         : now;
     await quizRef.set(
       {
@@ -1216,7 +1324,7 @@ async function seedTopicQuizzesAndAssignments(db, teacherId, topics) {
         updatedAt: now,
         questionCount: questions.length,
         questionsJson: JSON.stringify(questions),
-        category: 'TOPIC',
+        category: 'STANDARD',
         isArchived: false,
         archivedAt: null
       },
@@ -1228,17 +1336,16 @@ async function seedTopicQuizzesAndAssignments(db, teacherId, topics) {
     const assignmentRef = db.collection('assignments').doc(assignmentId);
     const existingAssignment = await assignmentRef.get();
     const assignmentCreatedAt =
-      existingAssignment.exists &&
-      typeof existingAssignment.get('createdAt') === 'number'
-        ? existingAssignment.get('createdAt')
+      existingAssignment.exists && existingAssignment.get('createdAt') !== undefined
+        ? toMillis(existingAssignment.get('createdAt'), now)
         : now;
     const openAt =
-      existingAssignment.exists && typeof existingAssignment.get('openAt') === 'number'
-        ? existingAssignment.get('openAt')
+      existingAssignment.exists && existingAssignment.get('openAt') !== undefined
+        ? toMillis(existingAssignment.get('openAt'), now)
         : now;
     const closeAt =
-      existingAssignment.exists && typeof existingAssignment.get('closeAt') === 'number'
-        ? existingAssignment.get('closeAt')
+      existingAssignment.exists && existingAssignment.get('closeAt') !== undefined
+        ? toMillis(existingAssignment.get('closeAt'), defaultCloseAt)
         : defaultCloseAt;
     await assignmentRef.set(
       {
@@ -1269,22 +1376,29 @@ async function seedTopicQuizzesAndAssignments(db, teacherId, topics) {
  * - Not tied to a specific topic (topicId: null).
  * - 15 questions from all topic areas.
  */
-async function seedClassroomPrePostQuizzes(db, teacherId) {
+async function seedClassroomPrePostQuizzes(db, teacherId, topics) {
   const now = Date.now();
   const defaultCloseAt = now + 14 * 24 * 60 * 60 * 1000;
   let quizzesCreated = 0;
   let assignmentsCreated = 0;
 
+  const diagnosticTopic = pickDiagnosticTopic(topics);
+  if (!diagnosticTopic) {
+    throw new Error(
+      '[seed] Cannot create classroom pre/post tests without at least one topic.'
+    );
+  }
+
   const quizDefs = [
     {
       kind: 'pre',
       title: 'Gen Math 11 – Q2 Pre-Test (Financial Mathematics)',
-      category: 'CLASS_PRE'
+      category: 'PRE_TEST'
     },
     {
       kind: 'post',
       title: 'Gen Math 11 – Q2 Post-Test (Financial Mathematics)',
-      category: 'CLASS_POST'
+      category: 'POST_TEST'
     }
   ];
 
@@ -1300,14 +1414,14 @@ async function seedClassroomPrePostQuizzes(db, teacherId) {
     const quizRef = db.collection('quizzes').doc(quizId);
     const existingQuiz = await quizRef.get();
     const quizCreatedAt =
-      existingQuiz.exists && typeof existingQuiz.get('createdAt') === 'number'
-        ? existingQuiz.get('createdAt')
+      existingQuiz.exists && existingQuiz.get('createdAt') !== undefined
+        ? toMillis(existingQuiz.get('createdAt'), now)
         : now;
     await quizRef.set(
       {
         teacherId,
         classroomId: classroomConfig.id,
-        topicId: null, // classroom-wide
+        topicId: diagnosticTopic.id, // UI expects a topic for diagnostic tests
         title: quizDef.title,
         defaultTimePerQ: QUIZ_TIME_PER_QUESTION,
         shuffle: true,
@@ -1327,23 +1441,22 @@ async function seedClassroomPrePostQuizzes(db, teacherId) {
     const assignmentRef = db.collection('assignments').doc(assignmentId);
     const existingAssignment = await assignmentRef.get();
     const assignmentCreatedAt =
-      existingAssignment.exists &&
-      typeof existingAssignment.get('createdAt') === 'number'
-        ? existingAssignment.get('createdAt')
+      existingAssignment.exists && existingAssignment.get('createdAt') !== undefined
+        ? toMillis(existingAssignment.get('createdAt'), now)
         : now;
     const openAt =
-      existingAssignment.exists && typeof existingAssignment.get('openAt') === 'number'
-        ? existingAssignment.get('openAt')
+      existingAssignment.exists && existingAssignment.get('openAt') !== undefined
+        ? toMillis(existingAssignment.get('openAt'), now)
         : now;
     const closeAt =
-      existingAssignment.exists && typeof existingAssignment.get('closeAt') === 'number'
-        ? existingAssignment.get('closeAt')
+      existingAssignment.exists && existingAssignment.get('closeAt') !== undefined
+        ? toMillis(existingAssignment.get('closeAt'), defaultCloseAt)
         : defaultCloseAt;
     await assignmentRef.set(
       {
         quizId,
         classroomId: classroomConfig.id,
-        topicId: null,
+        topicId: diagnosticTopic.id,
         openAt,
         closeAt,
         attemptsAllowed: QUIZ_ATTEMPTS_ALLOWED,
@@ -1387,8 +1500,8 @@ async function seedMaterials(db, teacherId, topics) {
     const ref = db.collection('materials').doc(id);
     const existing = await ref.get();
     const createdAt =
-      existing.exists && typeof existing.get('createdAt') === 'number'
-        ? existing.get('createdAt')
+      existing.exists && existing.get('createdAt') !== undefined
+        ? toMillis(existing.get('createdAt'), Date.now())
         : Date.now();
 
     await ref.set(
@@ -1421,9 +1534,7 @@ async function seedMaterials(db, teacherId, topics) {
 }
 
 async function main() {
-  if (admin.apps.length === 0) {
-    admin.initializeApp();
-  }
+  ensureProjectAndCredentials();
   const auth = admin.auth();
   const db = admin.firestore();
   db.settings({ ignoreUndefinedProperties: true });
@@ -1449,7 +1560,11 @@ async function main() {
     teacher.uid,
     topics
   );
-  const classQuizResult = await seedClassroomPrePostQuizzes(db, teacher.uid);
+  const classQuizResult = await seedClassroomPrePostQuizzes(
+    db,
+    teacher.uid,
+    topics
+  );
   const materialResult = await seedMaterials(db, teacher.uid, topics);
 
   console.log('[seed] Done.');
