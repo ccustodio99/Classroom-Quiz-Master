@@ -1,6 +1,7 @@
 package com.classroom.quizmaster.ui.teacher.launch
 
 import androidx.lifecycle.SavedStateHandle
+import com.classroom.quizmaster.ui.model.AvatarOption
 import com.classroom.quizmaster.ui.model.PlayerLobbyUi
 import com.classroom.quizmaster.ui.model.StatusChipUi
 import com.classroom.quizmaster.ui.model.StatusChipType
@@ -78,7 +79,15 @@ class LaunchLobbyViewModelTest {
                 qrSubtitle = "0.0.0.0",
                 qrPayload = "ws://0.0.0.0:1234/ws?token=demo",
                 discoveredPeers = 0,
-                players = listOf(PlayerLobbyUi("host", "Host", avatar = null, ready = true, tag = "Host")),
+                players = listOf(
+                    PlayerLobbyUi(
+                        id = "host",
+                        nickname = "Host",
+                        avatar = AvatarOption("1", "Host", emptyList(), "spark"),
+                        ready = true,
+                        tag = "Host"
+                    )
+                ),
                 statusChips = listOf(StatusChipUi("lan", "LAN", StatusChipType.Lan))
             )
         )
@@ -89,6 +98,7 @@ class LaunchLobbyViewModelTest {
             StudentPlayUiState(submissionStatus = SubmissionStatus.Idle, submissionMessage = "Ready")
         )
         private val endFlow = MutableStateFlow(StudentEndUiState())
+        private val avatarFlow = MutableStateFlow<List<AvatarOption>>(emptyList())
 
         var startCalls = 0
         var endCalls = 0
@@ -100,6 +110,7 @@ class LaunchLobbyViewModelTest {
         override val studentLobby: Flow<StudentLobbyUiState> = lobbyFlow.asStateFlow()
         override val studentPlay: Flow<StudentPlayUiState> = playFlow.asStateFlow()
         override val studentEnd: Flow<StudentEndUiState> = endFlow.asStateFlow()
+        override val avatarOptions: Flow<List<AvatarOption>> = avatarFlow.asStateFlow()
 
         override suspend fun configureHostContext(classroomId: String, topicId: String?, quizId: String?) {
             configuredContext = Triple(classroomId, topicId, quizId)
@@ -137,6 +148,8 @@ class LaunchLobbyViewModelTest {
 
         override suspend fun submitStudentAnswer(answerIds: List<String>) {}
 
+        override suspend fun updateStudentProfile(nickname: String, avatarId: String?) {}
         override suspend fun clearStudentError() {}
+        override suspend fun syncSession() {}
     }
 }

@@ -43,6 +43,7 @@ class TeacherClassroomDetailViewModelTest {
                     name = "Algebra",
                     grade = "8",
                     subject = "Math",
+                    joinCode = "ABC123",
                     createdAt = now,
                     updatedAt = now
                 )
@@ -137,11 +138,15 @@ class TeacherClassroomDetailViewModelTest {
 private class FakeClassroomRepository : ClassroomRepository {
     private val _classrooms = MutableStateFlow<List<Classroom>>(emptyList())
     private val _topics = MutableStateFlow<List<Topic>>(emptyList())
+    private val _joinRequests = MutableStateFlow(emptyList<com.classroom.quizmaster.domain.model.JoinRequest>())
+    private val _students = MutableStateFlow(emptyList<com.classroom.quizmaster.domain.model.Student>())
 
     override val classrooms: Flow<List<Classroom>> = _classrooms
     override val topics: Flow<List<Topic>> = _topics
     override val archivedClassrooms: Flow<List<Classroom>> = MutableStateFlow(emptyList())
     override val archivedTopics: Flow<List<Topic>> = MutableStateFlow(emptyList())
+    override val joinRequests: Flow<List<com.classroom.quizmaster.domain.model.JoinRequest>> = _joinRequests
+    override val students: Flow<List<com.classroom.quizmaster.domain.model.Student>> = _students
 
     fun sendClassrooms(value: List<Classroom>) {
         _classrooms.value = value
@@ -156,8 +161,17 @@ private class FakeClassroomRepository : ClassroomRepository {
     override suspend fun archiveClassroom(classroomId: String, archivedAt: Instant) = Unit
     override suspend fun upsertTopic(topic: Topic): String = error("Not needed in tests")
     override suspend fun archiveTopic(topicId: String, archivedAt: Instant) = Unit
+    override suspend fun createJoinRequest(joinCode: String) = Unit
+    override suspend fun createJoinRequest(classroomId: String, teacherId: String) = Unit
     override suspend fun getClassroom(id: String): Classroom? = _classrooms.value.firstOrNull { it.id == id }
     override suspend fun getTopic(id: String): Topic? = _topics.value.firstOrNull { it.id == id }
+    override suspend fun approveJoinRequest(requestId: String) = Unit
+    override suspend fun denyJoinRequest(requestId: String) = Unit
+    override suspend fun addStudentByEmailOrUsername(classroomId: String, identifier: String) = Unit
+    override suspend fun removeStudentFromClassroom(classroomId: String, studentId: String) = Unit
+    override suspend fun getStudent(id: String): com.classroom.quizmaster.domain.model.Student? = _students.value.firstOrNull { it.id == id }
+    override suspend fun searchTeachers(query: String): List<com.classroom.quizmaster.domain.model.Teacher> = emptyList()
+    override suspend fun getClassroomsForTeacher(teacherId: String): List<Classroom> = _classrooms.value.filter { it.teacherId == teacherId }
 }
 
 private class FakeQuizRepository : QuizRepository {

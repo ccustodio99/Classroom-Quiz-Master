@@ -4,7 +4,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.test.assertContentDescriptionContains
-import androidx.compose.ui.test.assertExists
+import androidx.compose.ui.test.assertIsDisplayed
 import androidx.compose.ui.test.assertIsEnabled
 import androidx.compose.ui.test.assertIsNotEnabled
 import androidx.compose.ui.test.junit4.createComposeRule
@@ -20,9 +20,9 @@ import com.classroom.quizmaster.ui.model.QuestionTypeUi
 import com.classroom.quizmaster.ui.model.StatusChipType
 import com.classroom.quizmaster.ui.model.StatusChipUi
 import com.classroom.quizmaster.ui.student.entry.EntryTab
-import com.classroom.quizmaster.ui.student.entry.LanHostUi
 import com.classroom.quizmaster.ui.student.entry.StudentEntryScreen
 import com.classroom.quizmaster.ui.student.entry.StudentEntryUiState
+import com.classroom.quizmaster.ui.student.classrooms.JoinClassroomUiState
 import com.classroom.quizmaster.ui.student.play.StudentPlayScreen
 import com.classroom.quizmaster.ui.student.play.StudentPlayUiState
 import com.classroom.quizmaster.ui.teacher.host.HostLiveScreen
@@ -47,8 +47,6 @@ class UiComponentTests {
         var state by mutableStateOf(
             StudentEntryUiState(
                 tab = EntryTab.Code,
-                avatarOptions = listOf(AvatarOption("1", "Nova", emptyList(), "spark")),
-                lanHosts = emptyList(),
                 canJoin = false,
                 joinCode = "",
                 joinCodeValid = false
@@ -58,30 +56,28 @@ class UiComponentTests {
             QuizMasterTheme {
                 StudentEntryScreen(
                     state = state,
+                    joinState = JoinClassroomUiState(),
                     onTabSelect = {},
-                    onNicknameChange = {
-                        state = state.copy(nickname = it, nicknameError = null)
-                    },
-                    onAvatarSelect = {},
                     onJoinCodeChange = {},
-                    onHostSelect = {},
-                    onRefreshLan = {},
-                    onJoinLan = {},
+                    onTeacherSelect = {},
+                    onRefreshTeachers = {},
+                    onJoinTeacher = {},
                     onJoinCode = {},
-                    onClearError = {}
+                    onClearError = {},
+                    onJoinClassroom = {},
+                    onFindTeacher = {}
                 )
             }
         }
-        composeRule.onNodeWithText("Join session").assertIsNotEnabled()
+        composeRule.onNodeWithText("Join with code").assertIsNotEnabled()
         composeRule.runOnUiThread {
             state = state.copy(
                 canJoin = true,
-                nickname = "Ava",
                 joinCode = "SCILAN",
                 joinCodeValid = true
             )
         }
-        composeRule.onNodeWithText("Join session").assertIsEnabled()
+        composeRule.onNodeWithText("Join with code").assertIsEnabled()
     }
 
     @Test
@@ -91,6 +87,9 @@ class UiComponentTests {
             QuizMasterTheme {
                 QuizEditorScreen(
                     state = QuizEditorUiState(),
+                    onClassroomChange = {},
+                    onTopicChange = {},
+                    onCategoryChange = {},
                     onTitleChange = {},
                     onGradeChange = {},
                     onSubjectChange = {},
@@ -141,6 +140,9 @@ class UiComponentTests {
             QuizMasterTheme {
                 QuizEditorScreen(
                     state = editorState,
+                    onClassroomChange = {},
+                    onTopicChange = {},
+                    onCategoryChange = {},
                     onTitleChange = {},
                     onGradeChange = {},
                     onSubjectChange = {},
@@ -199,7 +201,7 @@ class UiComponentTests {
         }
         composeRule.onNodeWithText("Reveal").performClick()
         composeRule.runOnUiThread { state = state.copy(isRevealed = true) }
-        composeRule.onNodeWithText("Next question").assertExists()
+        composeRule.onNodeWithText("Next question").assertIsDisplayed()
     }
 
     @Test
@@ -277,8 +279,8 @@ class UiComponentTests {
                 )
             }
         }
-        composeRule.onNodeWithText("Ava").assertExists()
-        composeRule.onNodeWithText("Liam").assertExists()
+        composeRule.onNodeWithText("Ava").assertIsDisplayed()
+        composeRule.onNodeWithText("Liam").assertIsDisplayed()
     }
 
     @Test

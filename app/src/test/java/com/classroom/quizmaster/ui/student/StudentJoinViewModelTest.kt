@@ -107,5 +107,6 @@ class StudentJoinViewModelTest {
         override suspend fun kickParticipant(uid: String) {}
         override suspend fun syncPending() {}
         override suspend fun endSession() {}
+        override suspend fun refreshCurrentSession() {}
     }
 }
